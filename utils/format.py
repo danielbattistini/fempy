@@ -2,7 +2,7 @@
 Format stings.
 '''
 
-from ROOT import gStyle
+from ROOT import gStyle, gROOT
 
 def TranslateTolatex(text):
     '''
@@ -46,6 +46,8 @@ def TranslateTolatex(text):
     return text
 
 def FigInit():
+    gROOT.SetBatch(True)
+    
     gStyle.SetLegendBorderSize(0)
     gStyle.SetLineWidth(2)
 
