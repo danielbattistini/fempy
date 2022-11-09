@@ -2,9 +2,44 @@
 Format stings.
 '''
 
+import sys
+
 from ROOT import gStyle, gROOT
 
-def TranslateTolatex(text):
+
+def GetNormRangeFromLabel(pair):
+    if 'DPi' in pair:
+        return [1000, 1500]
+    elif 'DK' in pair:
+        return [1500, 2000]
+    if 'DstarPi' in pair:
+        return [1500, 2000]
+    else:
+        print("Error: pair not implemented. Exit!")
+        sys.exit()
+
+
+def GetNormRangeFromPDG(pdgHeavy, pdgLight):
+    if abs(pdgHeavy) == 411 and abs(pdgLight) == 211:  # D pion
+        return GetNormRangeFromLabel('DPi')
+    elif abs(pdgHeavy) == 411 and abs(pdgLight) == 321:  # D kaon
+        return GetNormRangeFromLabel('DK')
+    elif abs(pdgHeavy) == 413 and abs(pdgLight) == 211:  # Dstar ion
+        return GetNormRangeFromLabel('DstarPi')
+    else:
+        print("Error: pair not implemented. Exit!")
+        sys.exit()
+
+
+dPDG2Label = {
+    411: 'D',
+    413: 'Dstar',
+    211: 'Pi',
+    321: 'K',
+}
+
+
+def TranslateToLatex(text):
     '''
     The first charge always refers to the heavier particle.
 
@@ -45,9 +80,10 @@ def TranslateTolatex(text):
             text = text.replace(key, dPairs2Latex[key])
     return text
 
+
 def FigInit():
     gROOT.SetBatch(True)
-    
+
     gStyle.SetLegendBorderSize(0)
     gStyle.SetLineWidth(2)
 
