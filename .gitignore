@@ -1,2 +1,6 @@
 .vscode/**
 **/__pycache__/**
+
+# ROOT/C++
+*.d
+*_ACLiC_*
