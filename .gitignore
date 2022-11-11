@@ -4,3 +4,4 @@
 # ROOT/C++
 *.d
 *_ACLiC_*
+*.so
