@@ -19,7 +19,7 @@ bool MassSelection(const double &mass, const double &pt, const int &hpdg, const 
     // simple parametrisation from D+ in 5.02 TeV
     double massMean =
         TDatabasePDG::Instance()->GetParticle(hpdg)->Mass() + 0.0025;  // mass shift observed in all Run2 data samples
-                                                                      // for all D-meson species
+                                                                       // for all D-meson species
     double massWidth = 0.;
     switch (hpdg) {
         case 411:
@@ -70,8 +70,8 @@ bool MassSelection(const double &mass, const double &pt, const int &hpdg, const 
 
 void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
                   std::string oFileName = "/home/daniel/an/DstarPi/proj/Projection_mcgp_test.root",
-                  std::string pair = "DstarPi") {
-    ROOT::EnableImplicitMT(16);
+                  std::string pair = "DstarPi", int nJobs = 1) {
+    ROOT::EnableImplicitMT(nJobs);
     int hpdg;
     std::string pairLabel;
 
@@ -103,8 +103,8 @@ void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisR
         "(abs(light_dcaz) < 0.3) & "
         "(abs(light_dcaxy) < 0.3)";
 
-
-    std::map<const char *, std::string> checks = {
+    std::map<const char *, std::string> variations = {
+        {"0", centr},
         {"oldpckept", Form("(is_oldpcrm == 0) & %s", centr)},
         {"oldpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_oldpcrm == 0 & %s", centr)},
         {"newpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_newpcrm == 0 & %s", centr)},
@@ -124,11 +124,9 @@ void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisR
     auto inFile = TFile::Open(inFileName.data());
     auto oFile = TFile::Open(oFileName.data(), "recreate");
     oFile->mkdir("distr");
-    oFile->mkdir("checks");
-    for (auto &[checkName, _]: checks) {
-        oFile->mkdir(Form("checks/%s", checkName));
+    for (auto &[checkName, _] : variations) {
+        oFile->mkdir(Form("distr/%s", checkName));
     }
-    oFile->cd("distr");
     auto dir = (TDirectory *)inFile->Get(Form("HM_CharmFemto_%s_Trees0", pairLabel.data()));
 
     for (const char *event : {"SE", "ME"}) {
@@ -137,33 +135,22 @@ void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisR
                 auto df = ROOT::RDataFrame(*(TTree *)dir->Get(Form("t%s_%s", event, comb)));
 
                 // filter treefor standard analysis and systematics
-                oFile->cd("distr");
                 auto massSel = [hpdg, region](float mass, float pt) { return MassSelection(mass, pt, hpdg, region); };
-                auto dfMass =
-                    df.Filter(massSel, {"heavy_invmass", "heavy_pt"})
-                        .Define("kStarMeV", "kStar * 1000")
-                        .Define("light_pt", "pow(light_px*light_px + light_py*light_py, 0.5)")
-                        .Define("light_nsigcomb", "pow(light_nsigtpc*light_nsigtpc + light_nsigtof*light_nsigtof, 0.5)")
-                        .Filter(centr);
 
+                for (auto &[varName, varSel] : variations) {
+                    oFile->cd(Form("distr/%s", varName));
+                    auto dfMass = df.Filter(massSel, {"heavy_invmass", "heavy_pt"})
+                                      .Define("kStarMeV", "kStar * 1000")
+                                      .Define("light_pt", "pow(light_px*light_px + light_py*light_py, 0.5)")
+                                      .Define("light_nsigcomb",
+                                              "pow(light_nsigtpc*light_nsigtpc + light_nsigtof*light_nsigtof, 0.5)")
+                                      .Filter(varSel);
 
-                const char *histName = Form("h%s_%s_%s", event, comb, region);
-                const char *histTitle = ";#it{k}* (MeV/#it{c});Mult;Counts";
-                auto hDistr = dfMass.Histo2D<float, int>({histName, histTitle, 3000u, 0., 3000., 180u, 0.5, 180.5},
-                                                         "kStarMeV", "mult");
-                hDistr->Write();
-
-                // filter tree for additional checks
-                oFile->cd("checks");
-                for (auto &[checkName, checkSel] : checks) {
-                    oFile->cd(Form("checks/%s", checkName));
-                    std::cout<<checkName<<std::endl;
-
-                    auto dfCheck = dfMass.Filter(checkSel.data());
-                    auto hDistrCheck = dfCheck.Histo2D<float, int>(
-                        {Form("%s_%s", histName, checkName), histTitle, 3000u, 0., 3000., 180u, 0.5, 180.5},
-                        "kStarMeV", "mult");
-                    hDistrCheck->Write(histName);
+                    const char *histName = Form("h%s_%s_%s", event, comb, region);
+                    const char *histTitle = ";#it{k}* (MeV/#it{c});Mult;Counts";
+                    auto hDistr = dfMass.Histo2D<float, int>({histName, histTitle, 3000u, 0., 3000., 180u, 0.5, 180.5},
+                                                             "kStarMeV", "mult");
+                    hDistr->Write();
                 }
             }
         }
