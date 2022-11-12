@@ -70,16 +70,13 @@ class CorrelationFunction:
         # check that the normalization is valid
         if self.norm == None:
             if self.se.Integral() == 0:
-                print(
-                    "\033[33mWarning\033[0m: the same-event distribution has 0 entries. CF is not computed.")
-                return None
+                print("\033[33mWarning\033[0m: the same-event distribution has 0 entries. CF will be empty.")
+                return TH1F('', '', self.se.GetNbinsX(), 0, self.se.GetXaxis().GetXmax())
             elif self.me.Integral() == 0:
-                print(
-                    "\033[33mWarning\033[0m: the mixed-event distribution has 0 entries. CF is not computed.")
-                return None
+                print("\033[33mWarning\033[0m: the mixed-event distribution has 0 entries. CF will be empty.")
+                return TH1F('', '', self.se.GetNbinsX(), 0, self.se.GetXaxis().GetXmax())
 
-            print(
-                "\033[33mWarning\033[0m: the normalization range is not specified. CF normalized to yields.")
+            print("\033[33mWarning\033[0m: the normalization range is not specified. CF normalized to yields.")
             self.se.Scale(1./self.se.Integral())
             self.me.Scale(1./self.me.Integral())
         elif isinstance(self.norm, list):
@@ -93,16 +90,15 @@ class CorrelationFunction:
             #     sys.exit()
 
             if self.se.Integral(normBinFirst, normBinLast) == 0:
-                print("\033[33mWarning\033[0m: the same-event distribution has 0 entries"
-                      "in the specified normalization range. CF is not computed.")
-                return None
-            elif self.me.Integral(normBinFirst, normBinLast) == 0:
-                print("\033[33mWarning\033[0m: the mixed-event distribution has 0 entries"
-                      "in the specified normalization range. CF is not computed.")
-                return None
-            else:
-                self.se.Scale(1./self.se.Integral(normBinFirst, normBinLast))
-                self.me.Scale(1./self.me.Integral(normBinFirst, normBinLast))
+                print("\033[33mWarning\033[0m: the same-event distribution has 0 entries "
+                      "in the specified normalization range. CF will be empty.")
+                return TH1F('', '', self.se.GetNbinsX(), 0, self.se.GetXaxis().GetXmax())
+            if self.me.Integral(normBinFirst, normBinLast) == 0:
+                print("\033[33mWarning\033[0m: the mixed-event distribution has 0 entries "
+                      "in the specified normalization range. CF will be empty.")
+                return TH1F('', '', self.se.GetNbinsX(), 0, self.se.GetXaxis().GetXmax())
+            self.se.Scale(1./self.se.Integral(normBinFirst, normBinLast))
+            self.me.Scale(1./self.me.Integral(normBinFirst, normBinLast))
         else:
             print(
                 f"\033[31mError:\033[0m normalization {self.norm} not supported. Exit!")
