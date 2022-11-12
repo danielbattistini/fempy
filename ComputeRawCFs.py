@@ -91,8 +91,6 @@ with uproot.recreate(o_file_name) as o_file:
             proj = d_me[distr].ProjectionX(f'{distr}_unrew', 0, d_me[distr].GetNbinsX())
             d_me_proj[f'{distr}_unrew'] = proj
 
-        print(d_se)
-        print(d_me)
         for mass_region in pair.mass_regions:
             for comb in ['pp', 'mm', 'sc', 'pm', 'mp', 'oc']:
                 for bw in bin_widths:
@@ -110,11 +108,37 @@ with uproot.recreate(o_file_name) as o_file:
                         d_cf[f'cf/{var}/hCF_{comb}_{mass_region}_unrew_bw{bw}MeV'] = cf
 
         for key, distr in {**d_se, **d_me}.items():
-            print(key)
             o_file[key] = distr
 
         for cf_key in d_cf:
-            print(cf_key)
             o_file[cf_key] = d_cf[cf_key]
+
+        # compute multiplicity reweighted CFs
+        mult_bins_mins = list(range(0, 180, 5))
+        mult_bins_maxs = list(range(5, 185, 5))
+        
+        for mass_region in pair.mass_regions:
+            for comb in ['pp', 'mm', 'sc', 'pm', 'mp', 'oc']:
+                for var in variations:
+                    se = d_se[f'distr/{var}/weights/hSE_{comb}_{mass_region}']
+                    mult_se = se.ProjectionY(f'distr/{var}/hSE_{comb}_{mass_region}_mult', 0, se.GetNbinsY()+1)
+                    mult_se.Rebin(5)
+                    o_file[f'distr/{var}/weights/hSE_{comb}_{mass_region}_mult'] = mult_se
+
+                    me = d_me[f'distr/{var}/weights/hME_{comb}_{mass_region}']
+                    mult_me = me.ProjectionY(f'distr/{var}/weights/hME_{comb}_{mass_region}_mult', 0, me.GetNbinsY()+1)
+                    mult_me.Rebin(5)
+                    o_file[f'distr/{var}/weights/hME_{comb}_{mass_region}_mult'] = mult_me
+                    
+                    # compute weights
+                    h_weight = mult_se.Clone('hMultWeights')
+                    for i_bin in range(0, h_weight.GetNbinsX()+1):
+                        me_counts = mult_me.GetBinContent(i_bin)
+                        if me_counts == 0:
+                            h_weight.SetBinContent(i_bin, 0)
+                        else:
+                            h_weight.SetBinContent(i_bin, mult_se.GetBinContent(i_bin+1)/me_counts)
+                    o_file[f'distr/{var}/weights/hME_{comb}_{mass_region}_multweights'] = h_weight
+
 
 print(f"Correlation functions saved in {o_file_name}")
