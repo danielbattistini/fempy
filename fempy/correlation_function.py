@@ -37,21 +37,6 @@ class CorrelationFunction:
         self.norm = norm
         self.um = um
 
-    def __init__(self, cf, um='MeV'):
-        if isinstance(cf, TH1):
-            self.cf = cf.Clone()
-        elif isinstance(cf, Model_TH1D_v3):
-            self.cf = cf.to_pyroot().Clone()
-        else:
-            print(f"Error: type {type(cf)} not implemented. Exit!")
-            sys.exit()
-
-        self.cf.Sumw2()
-        self.se = None
-        self.me = None
-        self.norm = None
-        self.um = um
-
     def rebin(self, rebin):
         if rebin == 1:
             return
@@ -108,12 +93,12 @@ class CorrelationFunction:
             #     sys.exit()
 
             if self.se.Integral(normBinFirst, normBinLast) == 0:
-                print("\033[33mWarning\033[0m: the same-event distribution has 0 entries \
-                      in the specified normalization range. CF is not computed.")
+                print("\033[33mWarning\033[0m: the same-event distribution has 0 entries"
+                      "in the specified normalization range. CF is not computed.")
                 return None
             elif self.me.Integral(normBinFirst, normBinLast) == 0:
-                print("\033[33mWarning\033[0m: the mixed-event distribution has 0 entries \
-                      in the specified normalization range. CF is not computed.")
+                print("\033[33mWarning\033[0m: the mixed-event distribution has 0 entries"
+                      "in the specified normalization range. CF is not computed.")
                 return None
             else:
                 self.se.Scale(1./self.se.Integral(normBinFirst, normBinLast))
@@ -135,66 +120,64 @@ class CorrelationFunction:
     def get_me(self):
         return self.me
 
-    def __add__(self, other):
-        cf = self.cf.Clone()
-        if isinstance(other, TH1):
-            print('isth1')
-            cf.Add(self.cf, other)
-        elif isinstance(other, (int, float)):
-            for iBin in range(cf.GetNbinsX()+2):
-                cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) + other)
-        elif isinstance(other, CorrelationFunction):
-            print('add cf')
-            cf.Add(other.cf)
-        else:
-            print(f'Error: the type {type(other)} is not implemented. Exit!')
-            sys.exit()
-        return CorrelationFunction(cf)
+    # def __add__(self, other):
+    #     cf = self.cf.Clone()
+    #     if isinstance(other, TH1):
+    #         print('isth1')
+    #         cf.Add(self.cf, other)
+    #     elif isinstance(other, (int, float)):
+    #         for iBin in range(cf.GetNbinsX()+2):
+    #             cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) + other)
+    #     elif isinstance(other, CorrelationFunction):
+    #         print('add cf')
+    #         cf.Add(other.cf)
+    #     else:
+    #         print(f'Error: the type {type(other)} is not implemented. Exit!')
+    #         sys.exit()
+    #     return CorrelationFunction(cf)
 
-    def __sub__(self, other):
-        cf = self.cf.Clone()
-        if isinstance(other, TH1):
-            cf.Add(self.cf, other, -1)
-        elif isinstance(other, (int, float)):
-            for iBin in range(cf.GetNbinsX()+2):
-                cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) - other)
-        elif isinstance(other, CorrelationFunction):
-            print('add cf')
-            cf.Add(other.cf, -1)
-        else:
-            print(f'Error: the type {type(other)} is not implemented. Exit!')
-            sys.exit()
-        return CorrelationFunction(cf)
+    # def __sub__(self, other):
+    #     cf = self.cf.Clone()
+    #     if isinstance(other, TH1):
+    #         cf.Add(self.cf, other, -1)
+    #     elif isinstance(other, (int, float)):
+    #         for iBin in range(cf.GetNbinsX()+2):
+    #             cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) - other)
+    #     elif isinstance(other, CorrelationFunction):
+    #         print('add cf')
+    #         cf.Add(other.cf, -1)
+    #     else:
+    #         print(f'Error: the type {type(other)} is not implemented. Exit!')
+    #         sys.exit()
+    #     return CorrelationFunction(cf)
 
-    def __mul__(self, other):
-        cf = self.cf.Clone()
-        if isinstance(other, (int, float)):
-            for iBin in range(cf.GetNbinsX()+2):
-                cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) * other)
-                cf.SetBinError(iBin, self.cf.GetBinError(iBin) * other)
-        else:
-            print(f'Error: the type {type(other)} is not implemented. Exit!')
-            sys.exit()
-        return CorrelationFunction(cf)
+    # def __mul__(self, other):
+    #     cf = self.cf.Clone()
+    #     if isinstance(other, (int, float)):
+    #         for iBin in range(cf.GetNbinsX()+2):
+    #             cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) * other)
+    #             cf.SetBinError(iBin, self.cf.GetBinError(iBin) * other)
+    #     else:
+    #         print(f'Error: the type {type(other)} is not implemented. Exit!')
+    #         sys.exit()
+    #     return CorrelationFunction(cf)
 
-    def __truediv__(self, other):
-        cf = self.cf.Clone()
-        if isinstance(other, (int, float)):
-            for iBin in range(cf.GetNbinsX()+2):
-                cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) / other)
-                cf.SetBinError(iBin, self.cf.GetBinError(iBin) / other)
-        else:
-            print(f'Error: the type {type(other)} is not implemented. Exit!')
-            sys.exit()
-        return CorrelationFunction(cf)
+    # def __truediv__(self, other):
+    #     cf = self.cf.Clone()
+    #     if isinstance(other, (int, float)):
+    #         for iBin in range(cf.GetNbinsX()+2):
+    #             cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) / other)
+    #             cf.SetBinError(iBin, self.cf.GetBinError(iBin) / other)
+    #     else:
+    #         print(f'Error: the type {type(other)} is not implemented. Exit!')
+    #         sys.exit()
+    #     return CorrelationFunction(cf)
 
-    def __radd__(self, other):
-        return self.__add__(other)
+    # def __radd__(self, other):
+    #     return self.__add__(other)
 
-    def __rsub__(self, other):
-        return self.__sub__(other)
+    # def __rsub__(self, other):
+    #     return self.__sub__(other)
 
-    def __rmul__(self, other):
-        return self.__mul__(other)
-
-    
+    # def __rmul__(self, other):
+    #     return self.__mul__(other)
