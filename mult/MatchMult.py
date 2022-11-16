@@ -10,11 +10,11 @@ gStyle.SetPalette(55)
 
 parser = argparse.ArgumentParser(description='Arguments to pass')
 parser.add_argument('inFileName', metavar='text')
-parser.add_argument('oDir', metavar='text')
+parser.add_argument('oFileName', metavar='text')
 args = parser.parse_args()
 
 inFile = TFile.Open(args.inFileName)
-oDir = args.oDir
+oFileName = args.oFileName
 
 if inFile == None:
     print("Error: the file could not be opened. Exit!")
