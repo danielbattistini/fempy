@@ -71,6 +71,7 @@ bool MassSelection(const double &mass, const double &pt, const int &hpdg, const 
 void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
                   std::string oFileName = "/home/daniel/an/DstarPi/proj/Projection_mcgp_test.root",
                   std::string pair = "DstarPi", int nJobs = 1) {
+    ROOT::EnableThreadSafety();
     ROOT::EnableImplicitMT(nJobs);
     int hpdg;
     std::string pairLabel;
@@ -93,7 +94,7 @@ void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisR
         return;
     }
 
-    const char *centr =
+    const char *basic =
         "(abs(light_eta) < 0.8) & "
         "(light_pt > 0.14) & "
         "(light_pt <4.) & "
@@ -104,21 +105,24 @@ void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisR
         "(abs(light_dcaxy) < 0.3)";
 
     std::map<const char *, std::string> variations = {
-        {"0", centr},
-        {"oldpckept", Form("(is_oldpcrm == 0) & %s", centr)},
-        {"oldpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_oldpcrm == 0 & %s", centr)},
-        {"newpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_newpcrm == 0 & %s", centr)},
-        {"oldpckept_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_oldpcrm == 0 & %s", centr)},
-        {"newpckept_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_newpcrm == 0 & %s", centr)},
-        {"oldpcrm", Form("(is_oldpcrm == 1) & %s", centr)},
-        {"oldpcrm_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_oldpcrm == 1 & %s", centr)},
-        {"newpcrm_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_newpcrm == 1 & %s", centr)},
-        {"oldpcrm_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_oldpcrm == 1 & %s", centr)},
-        {"newpcrm_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_newpcrm == 1 & %s", centr)},
-        {"oldpcrm_multDeq1", Form("heavy_mult == 1 & is_oldpcrm == 0 & %s", centr)},
-        {"oldpcrm_multDgt1", Form("heavy_mult > 1 & is_oldpcrm == 0 & %s", centr)},
-        {"newpcrm_multDeq1", Form("heavy_mult == 1 & is_newpcrm == 0 & %s", centr)},
-        {"newpcrm_multDgt1", Form("heavy_mult > 1 & is_newpcrm == 0 & %s", centr)},
+        {"nosel", "true"},
+        {"nopc", basic},
+        {"0", Form("(is_newpcrm == 0) && %s", basic)},
+        {"oldpcrm", Form("(is_oldpcrm == 0) & %s", basic)},
+        {"newpckept", Form("(is_newpcrm == 1) && %s", basic)},
+        {"oldpckept", Form("(is_oldpcrm == 1) & %s", basic)},
+        {"oldpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_oldpcrm == 0 & %s", basic)},
+        {"newpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_newpcrm == 0 & %s", basic)},
+        {"oldpckept_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_oldpcrm == 0 & %s", basic)},
+        {"newpckept_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_newpcrm == 0 & %s", basic)},
+        {"oldpcrm_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_oldpcrm == 1 & %s", basic)},
+        {"newpcrm_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_newpcrm == 1 & %s", basic)},
+        {"oldpcrm_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_oldpcrm == 1 & %s", basic)},
+        {"newpcrm_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_newpcrm == 1 & %s", basic)},
+        {"oldpcrm_multDeq1", Form("heavy_mult == 1 & is_oldpcrm == 0 & %s", basic)},
+        {"oldpcrm_multDgt1", Form("heavy_mult > 1 & is_oldpcrm == 0 & %s", basic)},
+        {"newpcrm_multDeq1", Form("heavy_mult == 1 & is_newpcrm == 0 & %s", basic)},
+        {"newpcrm_multDgt1", Form("heavy_mult > 1 & is_newpcrm == 0 & %s", basic)},
     };
 
     auto inFile = TFile::Open(inFileName.data());
@@ -128,6 +132,7 @@ void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisR
         oFile->mkdir(Form("distr/%s", checkName));
     }
     auto dir = (TDirectory *)inFile->Get(Form("HM_CharmFemto_%s_Trees0", pairLabel.data()));
+    // auto dir = (TDirectory *)inFile->Get(Form("HM_CharmFemto_SBRight_Trees0", pairLabel.data()));
 
     for (const char *event : {"SE", "ME"}) {
         for (const char *comb : {"pp", "mm", "pm", "mp"}) {
