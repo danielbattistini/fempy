@@ -8,6 +8,7 @@
 #include "TH1.h"
 #include "TH2.h"
 #include "TTree.h"
+#include "TSystem.h"
 
 bool MassSelection(const double &mass, const double &pt, const int &hpdg, const std::string &massRegion,
                    const double fNSigmaMass = 2., double fNSigmaOffsetSideband = 5., double fSidebandWidth = 0.2,
@@ -108,9 +109,9 @@ void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisR
         {"nosel", "true"},
         {"nopc", basic},
         {"0", Form("(is_newpcrm == 0) && %s", basic)},
-        {"oldpcrm", Form("(is_oldpcrm == 0) & %s", basic)},
-        {"newpckept", Form("(is_newpcrm == 1) && %s", basic)},
-        {"oldpckept", Form("(is_oldpcrm == 1) & %s", basic)},
+        {"oldpckept", Form("(is_oldpcrm == 0) & %s", basic)},
+        {"newpcrm", Form("(is_newpcrm == 1) && %s", basic)},
+        {"oldpcrm", Form("(is_oldpcrm == 1) & %s", basic)},
         {"oldpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_oldpcrm == 0 & %s", basic)},
         {"newpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_newpcrm == 0 & %s", basic)},
         {"oldpckept_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_oldpcrm == 0 & %s", basic)},
@@ -119,11 +120,17 @@ void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisR
         {"newpcrm_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_newpcrm == 1 & %s", basic)},
         {"oldpcrm_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_oldpcrm == 1 & %s", basic)},
         {"newpcrm_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_newpcrm == 1 & %s", basic)},
-        {"oldpcrm_multDeq1", Form("heavy_mult == 1 & is_oldpcrm == 0 & %s", basic)},
-        {"oldpcrm_multDgt1", Form("heavy_mult > 1 & is_oldpcrm == 0 & %s", basic)},
-        {"newpcrm_multDeq1", Form("heavy_mult == 1 & is_newpcrm == 0 & %s", basic)},
-        {"newpcrm_multDgt1", Form("heavy_mult > 1 & is_newpcrm == 0 & %s", basic)},
+        {"oldpckept_multDeq1", Form("heavy_mult == 1 & is_oldpcrm == 0 & %s", basic)},
+        {"oldpckept_multDgt1", Form("heavy_mult > 1 & is_oldpcrm == 0 & %s", basic)},
+        {"newpckept_multDeq1", Form("heavy_mult == 1 & is_newpcrm == 0 & %s", basic)},
+        {"newpckept_multDgt1", Form("heavy_mult > 1 & is_newpcrm == 0 & %s", basic)},
     };
+
+    // don't overwrite output files: skip if existing
+    if(!gSystem->AccessPathName(inFileName.data())) {
+        printf("Warning: the file %s already exists. Skipping...", inFileName.data());
+        return;
+    }
 
     auto inFile = TFile::Open(inFileName.data());
     auto oFile = TFile::Open(oFileName.data(), "recreate");
