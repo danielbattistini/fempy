@@ -7,9 +7,9 @@ import argparse
 
 from ROOT import TFile, TCanvas, gROOT, TH1I
 
-from core.CorrelationFunction import CorrelationFunction
-from utils.format import TranslateToLatex, GetNormRangeFromLabel
-from utils.io import GetObjectFromFile
+from fempy import CorrelationFunction
+from fempy.utils.format import TranslateToLatex, GetNormRangeFromLabel
+from fempy.utils.io import GetObjectFromFile
 
 
 def GetListOfPairKeys(file):
@@ -61,7 +61,7 @@ print(pairsKeys)
 
 oFile = TFile(os.path.splitext(args.oFileName)[0]+'.root', 'recreate')
 
-binWidths = [5, 10, 20, 50]  # MeV
+binWidths = [5, 10, 20, 40, 50]  # MeV
 dSE, dME, dCF = ({} for _ in range(3))
 
 # load ME
@@ -137,8 +137,8 @@ for key in pairsKeys:
                 sys.exit()
 
             cf = CorrelationFunction(dSE[keySE], dME[keyME], um='GeV2MeV', norm=norm)
-            cf.Rebin(int(bwNew/1000/binWidth))
-            dCF[f"hCF_{keySE[4:]}_bw{bwNew}MeV"] = cf.GetCF()
+            cf.rebin(int(bwNew/1000/binWidth))
+            dCF[f"hCF_{keySE[4:]}_bw{bwNew}MeV"] = cf.get_cf()
 
     for keyCF in dCF:
         dCF[keyCF].SetTitle(keyCF)
