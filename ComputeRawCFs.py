@@ -5,7 +5,7 @@ import argparse
 import yaml
 from rich import print
 
-from ROOT import TH1D, TH2F
+from ROOT import TH1D, TH2F, TH1I
 
 from fempy.utils.format import TranslateToLatex
 from fempy.utils.analysis import is_mass_selected, Pair
@@ -42,25 +42,7 @@ with uproot.recreate(o_file_name) as o_file:
     with uproot.open(in_file_name) as in_file:
         d_se, d_me, d_cf = ({} for _ in range(3))
 
-        variations = get_list_of_dirs(in_file['distr'])
-        print(variations)
-        variations = [
-            '0',
-            # 'oldpckept',
-            # 'oldpckept_motherpi_eq413',
-            # 'newpckept_motherpi_eq413',
-            # 'oldpckept_motherpi_neq413',
-            # 'newpckept_motherpi_neq413',
-            # 'oldpcrm',
-            # 'oldpcrm_motherpi_eq413',
-            # 'newpcrm_motherpi_eq413',
-            # 'oldpcrm_motherpi_neq413',
-            # 'newpcrm_motherpi_neq413',
-            # 'oldpcrm_multDeq1',
-            # 'oldpcrm_multDgt1',
-            # 'newpcrm_multDeq1',
-            # 'newpcrm_multDgt1'
-        ]
+        variations = get_list_of_dirs(in_file['distr']) 
         # load SE and ME
         for mass_region in pair.mass_regions:
             for var in variations:
@@ -134,6 +116,20 @@ with uproot.recreate(o_file_name) as o_file:
         for cf_key in d_cf:
             o_file[cf_key] = d_cf[cf_key]
 
+        # count pairs at low kStar
+        for mass_region in pair.mass_regions:
+            for var in variations:
+                h_counts_kStarlt200MeV = TH1I('hCountskStarlt200MeV', ';;Counts', 6, 0, 6)
+                h_counts = TH1I('hCounts', ';;Counts', 6, 0, 6)
+                
+                for i_comb, comb in enumerate(['pp', 'mm', 'sc', 'pm', 'mp', 'oc']):
+                    se = d_se_proj[f'distr/{var}/hSE_{comb}_{mass_region}']
+                    h_counts_kStarlt200MeV.GetXaxis().SetBinLabel(i_comb, TranslateToLatex('k'+pair.name+'_'+comb))
+                    se.SetBinContent(i_comb, se.Integral(1, se.FindBin(200-1.e-6)))
+
+                    # print(se.Integral(1, se.FindBin(200-1.e-6)), TranslateToLatex('k'+pair.name+'_'+comb))
+
+                o_file[f'distr/{var}/hCountskStarlt200MeV_{comb}_{mass_region}'] = h_counts
         # compute multiplicity reweighted CFs
         mult_bins_mins = list(range(0, 180, 5))
         mult_bins_maxs = list(range(5, 185, 5))
@@ -193,4 +189,136 @@ with uproot.recreate(o_file_name) as o_file:
 
                         cf = CorrelationFunction(se, h_me_rew_rebin, pair.norm_range, um='MeV').get_cf()
                         o_file[f'cf/{var}/hCF_{comb}_{mass_region}_rew_bw{bw}MeV'] = cf
+
+        # print(me)
+        # # make mult projection
+        # mult_bins_mins = list(range(0, 180, 5))
+        # mult_bins_maxs = list(range(5, 185, 5))
+
+        # # project SE
+        # d_se_proj = {}
+        # for distr in d_se:
+        #     print(d_se[distr])
+        #     for (mult_min, mult_max) in zip(mult_bins_mins, mult_bins_maxs):
+        #         first_mult_bin = d_se[distr].GetXaxis().FindBin(mult_min)
+        #         last_mult_bin = d_se[distr].GetXaxis().FindBin(mult_max)
+
+        #         proj = d_se[distr].ProjectionX(f'{distr}_mult{mult_min}_{mult_max}', first_mult_bin, last_mult_bin)
+        #         d_se_proj[f'{distr}_mult{mult_min}_{mult_max}'] = proj
+
+        # # project ME
+        # d_me_proj = {}
+        # for distr in d_me:
+        #     print(d_me[distr])
+        #     for (mult_min, mult_max) in zip(mult_bins_mins, mult_bins_maxs):
+        #         first_mult_bin = d_me[distr].GetXaxis().FindBin(mult_min)
+        #         last_mult_bin = d_me[distr].GetXaxis().FindBin(mult_max)
+
+        #         proj = d_me[distr].ProjectionX(f'{distr}_mult{mult_min}_{mult_max}', first_mult_bin, last_mult_bin)
+        #         d_me_proj[f'{distr}_mult{mult_min}_{mult_max}'] = proj
+
+        # def is_check(name):
+        #     for check in checks:
+        #         if check in name:
+        #             return True, check
+        #     return False, None
+
+        # for d_distr in[d_se, d_me, d_se_proj, d_me_proj, d_cf]:
+
+        # for d_distr in [d_se, d_me, d_se_proj, d_me_proj]:
+        #     for distr_key, distr in d_distr.items():
+        #         (is_a_check, check_name) = is_check(distr_key)
+        #         if is_a_check:
+        #             print(distr_key)
+        #             o_file[f'checks/distr/{check_name}/{distr_key[:2]}'] = distr
+        #         else:
+        #             o_file[f'distr/{distr_key}'] = distr
+
+        # for distr_key, distr in d_cf.items():
+        #     (is_a_check, check_name) = is_check(distr_key)
+        #     if is_a_check:
+        #         o_file[f'checks/cf/{check_name}/{distr_key}'] = distr
+        #     else:
+        #         o_file[f'cf/{distr_key}'] = distr
+
+            # mult compute projections
+            # distr.ProjectionX()
+            # nBins = round(pair.max_kstar / bw)
+
+            # cf = CorrelationFunction(se, me)
+            #                 cf = CorrelationFunction(se, me, pair.norm_range)
+            #                 in_file[f'bw{bw}MeV/hCF_{comb}_{mass_region}'] = cf.get_cf()
+
+            #         # perform checks
+            #         for (check_name, check_sel) in pair.checks:
+
+            #             for bw in bin_widths:
+            #                 nBins = round(pair.max_kstar / bw)
+            #                 h_kstar = TH1D(f'h{event}_{comb}_{mass_region}_{bw}_{check_name}', "", nBins, 0, pair.max_kstar)
+            #                 print(f'h{event}_{comb}_{mass_region}_{bw}_{check_name}', h_kstar)
+
+            #                 in_file[f'checks/{check_name}/bw{bw}MeV/h{event}_{comb}_{mass_region}'] = h_kstar
+
+            #         # quality assurance:: mass regions
+            #         if 'Dstar' in pair.name:
+            #             mass_lower = 0.12
+            #             mass_upper = 0.25
+
+            #         h_mass_pthf = TH2F(f"hMass_PtHF_{comb}_{mass_region}", "", 200, 0, 10, 200, mass_lower, mass_upper)
+            #         h_mass_pthf.FillN(len(pt), pt, mass, np.ones_like(pt, 'd'))
+            #         in_file[f'qa/{comb}_{mass_region}/h{event}_Mass_PtHF'] = h_mass_pthf
+
+            #         # multiplicity
+            #         mult_hf = np.array(df_proj['heavy_mult'], 'd')
+            #         mult_lf = np.array(df_proj['light_mult'], 'd')
+            #         h_multhf_multlf = TH2F(f"hMultHF_MultLF_{comb}_{mass_region}", "", 16, -0.5, 15.5, 31, -0.5, 30.5)
+            #         h_multhf_multlf.FillN(len(mult_hf), mult_hf, mult_lf, np.ones_like(mult_hf, 'd'))
+            #         in_file[f'qa/{comb}_{mass_region}/h{event}_hMultHF_MultLF'] = h_multhf_multlf
+
+            #     # sum charge combinaitons
+            #     combs_to_sum = [
+            #         ('sc', ['pp', 'mm']),
+            #         ('oc', ['pm', 'mp'])
+            #     ]
+            #     for mass_region in pair.mass_regions:
+            #         for bw in bin_widths:
+            #             for comb_to_sum in combs_to_sum:
+            #                 (derived_comb, primitive_combs) = comb_to_sum
+
+            #                 # central selection (0) and syst variation
+            #                 for i_syst, syst_sel, in enumerate(pair.syst_sel):
+            #                     sum_que = []
+            #                     for comb in primitive_combs:
+            #                         sum_que.append(in_file[f'bw{bw}MeV/h{event}_{comb}_{mass_region}'].to_hist())
+            #                     h_sum = sum_que[0]
+            #                     for hist in sum_que[1:]:
+            #                         h_sum += hist
+            #                     in_file[f'bw{bw}MeV/h{event}_{derived_comb}_{mass_region}'] = h_sum
+
+            #                 # checks
+            #                 for (check_name, check_sel) in pair.checks:
+            #                     sum_que = []
+            #                     for comb in primitive_combs:
+            #                         sum_que.append(in_file[f'checks/{check_name}/bw{bw}MeV/h{event}_{comb}_{mass_region}'].to_hist())
+            #                     h_sum = sum_que[0]
+            #                     for hist in sum_que[1:]:
+            #                         h_sum += hist
+            #                     in_file[f'checks/{check_name}/bw{bw}MeV/h{event}_{derived_comb}_{mass_region}'] = h_sum
+
+            # # compute the correlation functions
+            # for mass_region in pair.mass_regions:
+            #     for bw in bin_widths:
+            #         for comb in ['pp', 'mm', 'sc', 'pm', 'mp', 'oc']:
+            #             for i_syst, _, in enumerate(pair.syst_sel):
+            #                 se = in_file[f'bw{bw}MeV/hSE_{comb}_{mass_region}']
+            #                 me = in_file[f'bw{bw}MeV/hME_{comb}_{mass_region}']
+            #                 cf = CorrelationFunction(se, me, pair.norm_range, um='MeV').get_cf()
+            #                 in_file[f'bw{bw}MeV/hCF_{comb}_{mass_region}'] = cf
+
+            #             for (check_name, _) in pair.checks:
+            #                 se = in_file[f'checks/{check_name}/bw{bw}MeV/hSE_{comb}_{mass_region}']
+            #                 me = in_file[f'checks/{check_name}/bw{bw}MeV/hME_{comb}_{mass_region}']
+            #                 cf = CorrelationFunction(se, me, pair.norm_range, um='MeV').get_cf()
+            #                 in_file[f'checks/{check_name}/bw{bw}MeV/hCF_{comb}_{mass_region}'] = cf
+
 print(f"Correlation functions saved in {o_file_name}")
