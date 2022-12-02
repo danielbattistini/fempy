@@ -7,8 +7,14 @@
 #include "TFile.h"
 #include "TH1.h"
 #include "TH2.h"
-#include "TTree.h"
 #include "TSystem.h"
+#include "TTree.h"
+#include "fempy/utils/Analysis.hxx"
+
+
+void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
+                  std::string oFileName = "/home/daniel/an/DstarPi/proj/Projection_mcgp_test.root",
+                  std::string pair = "DstarPi", std::string version = "");
 
 bool MassSelection(const double &mass, const double &pt, const int &hpdg, const std::string &massRegion,
                    const double fNSigmaMass = 2., double fNSigmaOffsetSideband = 5., double fSidebandWidth = 0.2,
@@ -69,13 +75,43 @@ bool MassSelection(const double &mass, const double &pt, const int &hpdg, const 
     return false;
 }
 
-void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
-                  std::string oFileName = "/home/daniel/an/DstarPi/proj/Projection_mcgp_test.root",
-                  std::string pair = "DstarPi", int nJobs = 1) {
-    ROOT::EnableThreadSafety();
-    ROOT::EnableImplicitMT(nJobs);
+std::string GetRegionFromKey(std::string key) {
+    if (key.find("_SBRight_DstarPion_") != std::string::npos)
+        return std::string("sbr");
+    else if (key.find("_DstarPion_") != std::string::npos)
+        return std::string("sgn");
+    else {
+        printf("Error: region not implemented. Exit!");
+        exit(1);
+    }
+}
+
+bool replace(std::string &str, const std::string &from, const std::string &to) {
+    size_t start_pos = str.find(from);
+    if (start_pos == std::string::npos) return false;
+    str.replace(start_pos, from.length(), to);
+    return true;
+}
+
+std::string TranslateSelection(const std::string selection, const std::map<std::string, std::string> aliases) {
+    std::string translatedSelection = selection;
+
+    bool done = true;
+    for (auto alias : aliases) {
+        replace(translatedSelection, alias.first, alias.second);
+        done = false;
+    }
+    if (done) {
+        return translatedSelection;
+    } else
+        return TranslateSelection(translatedSelection, aliases);
+}
+
+void ProjectTrees(std::string inFileName, std::string oFileName, std::string pair, std::string version) {
     int hpdg;
     std::string pairLabel;
+
+    Analysis analysis(pair, version);
 
     std::vector<const char *> regions;
     if (pair == "DstarPi") {
@@ -95,78 +131,68 @@ void ProjectTrees(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisR
         return;
     }
 
-    const char *basic =
-        "(abs(light_eta) < 0.8) & "
-        "(light_pt > 0.14) & "
-        "(light_pt <4.) & "
-        "(((abs(light_nsigtpc) < 3) & (light_pt < 0.5)) | ((abs(light_nsigcomb) < 3) & (light_pt > 0.5))) &"
-        "(light_ncrossed > 70) & "
-        "(light_ncls > 80) & "
-        "(abs(light_dcaz) < 0.3) & "
-        "(abs(light_dcaxy) < 0.3)";
-
-    std::map<const char *, std::string> variations = {
-        {"nosel", "true"},
-        {"nopc", basic},
-        {"0", Form("(is_newpcrm == 0) && %s", basic)},
-        {"oldpckept", Form("(is_oldpcrm == 0) & %s", basic)},
-        {"newpcrm", Form("(is_newpcrm == 1) && %s", basic)},
-        {"oldpcrm", Form("(is_oldpcrm == 1) & %s", basic)},
-        {"oldpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_oldpcrm == 0 & %s", basic)},
-        {"newpckept_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_newpcrm == 0 & %s", basic)},
-        {"oldpckept_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_oldpcrm == 0 & %s", basic)},
-        {"newpckept_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_newpcrm == 0 & %s", basic)},
-        {"oldpcrm_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_oldpcrm == 1 & %s", basic)},
-        {"newpcrm_motherpi_eq413", Form("abs(light_motherpdg) == 413 & is_newpcrm == 1 & %s", basic)},
-        {"oldpcrm_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_oldpcrm == 1 & %s", basic)},
-        {"newpcrm_motherpi_neq413", Form("abs(light_motherpdg) != 413 & is_newpcrm == 1 & %s", basic)},
-        {"oldpckept_multDeq1", Form("heavy_mult == 1 & is_oldpcrm == 0 & %s", basic)},
-        {"oldpckept_multDgt1", Form("heavy_mult > 1 & is_oldpcrm == 0 & %s", basic)},
-        {"newpckept_multDeq1", Form("heavy_mult == 1 & is_newpcrm == 0 & %s", basic)},
-        {"newpckept_multDgt1", Form("heavy_mult > 1 & is_newpcrm == 0 & %s", basic)},
-    };
 
     // don't overwrite output files: skip if existing
-    if(!gSystem->AccessPathName(inFileName.data())) {
-        printf("Warning: the file %s already exists. Skipping...", inFileName.data());
+    if(!gSystem->AccessPathName(oFileName.data())) {
+        printf("Warning: the file %s already exists. Skipping...\n", oFileName.data());
         return;
     }
 
     auto inFile = TFile::Open(inFileName.data());
     auto oFile = TFile::Open(oFileName.data(), "recreate");
     oFile->mkdir("distr");
-    for (auto &[checkName, _] : variations) {
-        oFile->mkdir(Form("distr/%s", checkName));
+    for (auto &[checkName, _] : analysis.selections) {
+        oFile->mkdir(Form("distr/%s", checkName.data()));
     }
-    auto dir = (TDirectory *)inFile->Get(Form("HM_CharmFemto_%s_Trees0", pairLabel.data()));
-    // auto dir = (TDirectory *)inFile->Get(Form("HM_CharmFemto_SBRight_Trees0", pairLabel.data()));
 
-    for (const char *event : {"SE", "ME"}) {
-        for (const char *comb : {"pp", "mm", "pm", "mp"}) {
-            for (const char *region : regions) {
-                auto df = ROOT::RDataFrame(*(TTree *)dir->Get(Form("t%s_%s", event, comb)));
+    std::vector<std::string> keys = {};
+    for (auto key : *inFile->GetListOfKeys()) {
+        if (std::string(key->GetName()).find("_Trees") != std::string::npos) keys.push_back(std::string(key->GetName()));
+    }
 
-                // filter treefor standard analysis and systematics
-                auto massSel = [hpdg, region](float mass, float pt) { return MassSelection(mass, pt, hpdg, region); };
+    for (auto key : keys) {
+        auto dir = (TDirectory *)inFile->Get(key.data());
 
-                for (auto &[varName, varSel] : variations) {
-                    oFile->cd(Form("distr/%s", varName));
-                    auto dfMass = df.Filter(massSel, {"heavy_invmass", "heavy_pt"})
-                                      .Define("kStarMeV", "kStar * 1000")
-                                      .Define("light_pt", "pow(light_px*light_px + light_py*light_py, 0.5)")
-                                      .Define("light_nsigcomb",
-                                              "pow(light_nsigtpc*light_nsigtpc + light_nsigtof*light_nsigtof, 0.5)")
-                                      .Filter(varSel);
+        
+        for (const char *event : {"SE", "ME"}) {
+            for (const char *comb : {"pp", "mm", "pm", "mp"}) {
+                
+                std::cout << "Projecting: " << key << " " << event << " " << comb << "...";
+                auto tree = (TTree *)dir->Get(Form("t%s_%s", event, comb));
+                ROOT::RDF::RInterface<ROOT::Detail::RDF::RLoopManager> df = ROOT::RDataFrame(*tree);
 
-                    const char *histName = Form("h%s_%s_%s", event, comb, region);
-                    const char *histTitle = ";#it{k}* (MeV/#it{c});Mult;Counts";
-                    auto hDistr = dfMass.Histo2D<float, int>({histName, histTitle, 3000u, 0., 3000., 180u, 0.5, 180.5},
-                                                             "kStarMeV", "mult");
-                    hDistr->Write();
+                df = df.Define("kStarMeV", "kStar * 1000");
+                for (auto &[aliasName, alias] : analysis.aliases) {
+                    if (!tree->FindBranch(aliasName.data()))
+                        df = df.Define(aliasName.data(), alias.data());
                 }
+
+                for (const char* region : regions) {
+                    auto lamMassSelection = [hpdg, region](float mass, float pt) { return MassSelection(mass, pt, hpdg, region); };
+
+                    auto dfMass = df.Filter(lamMassSelection, {"heavy_invmass", "heavy_pt"});
+
+                    // std::string region = GetRegionFromKey(key);
+
+
+                    for (auto &[varName, varSel] : analysis.selections) {
+
+                        oFile->cd(Form("distr/%s", varName.data()));
+                        auto dfVar = dfMass.Filter(varSel);
+
+                        const char *histName = Form("h%s_%s_%s", event, comb, region);
+                        const char *histTitle = ";#it{k}* (MeV/#it{c});Mult;Counts";
+                        auto hDistr = dfVar.Histo2D<float, int>({histName, histTitle, 3000u, 0., 3000., 180u, 0.5, 180.5},
+                                                                "kStarMeV", "mult");
+                        hDistr->Write();
+                    }
+
+                }
+                std::cout << " done!" << std::endl;
             }
         }
     }
+
     oFile->Close();
     printf("Distributions saved to %s\n", oFileName.data());
 }
