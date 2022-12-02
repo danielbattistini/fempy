@@ -1,0 +1,80 @@
+14_evtswD_md1:
+    selections:
+        nosel: "true"
+        nopc: "std"
+        newpckept: "(is_newpcrm == 0) && (std)"
+        oldpckept: "(is_oldpcrm == 0) & (std)"
+        crosspckept: "(is_crosspcrm == 0) & (std)"
+        newpcrm: "(is_newpcrm == 1) && (std)"
+        oldpcrm: "(is_oldpcrm == 1) & (std)"
+        crosspcrm: "(is_crosspcrm == 1) & (std)"
+        oldpckept_motherpi_eq413: "(abs(light_motherpdg) == 413) & (is_oldpcrm == 0) & (std)"
+        newpckept_motherpi_eq413: "(abs(light_motherpdg) == 413) & (is_newpcrm == 0) & (std)"
+        oldpckept_motherpi_neq413: "(abs(light_motherpdg) != 413) & (is_oldpcrm == 0) & (std)"
+        newpckept_motherpi_neq413: "(abs(light_motherpdg) != 413) & (is_newpcrm == 0) & (std)"
+        oldpcrm_motherpi_eq413: "(abs(light_motherpdg) == 413) & (is_oldpcrm == 1) & (std)"
+        newpcrm_motherpi_eq413: "(abs(light_motherpdg) == 413) & (is_newpcrm == 1) & (std)"
+        oldpcrm_motherpi_neq413: "(abs(light_motherpdg) != 413) & (is_oldpcrm == 1) & (std)"
+        newpcrm_motherpi_neq413: "(abs(light_motherpdg) != 413) & (is_newpcrm == 1) & (std)"
+        oldpckept_multDeq1: "(heavy_mult == 1) & (is_oldpcrm == 0) & (std)"
+        oldpckept_multDgt1: "(heavy_mult > 1) & (is_oldpcrm == 0) & (std)"
+        newpckept_multDeq1: "(heavy_mult == 1) & (is_newpcrm == 0) & (std)"
+        newpckept_multDgt1: "(heavy_mult > 1) & (is_newpcrm == 0) & (std)"
+
+    aliases:
+        light_pt: 'pow(light_px*light_px + light_py*light_py, 0.5)'
+        light_nsigcomb: "pow(light_nsigtpc*light_nsigtpc + light_nsigtof*light_nsigtof, 0.5)"
+
+        std: "(abs(light_eta) < 0.8) & (light_pt > 0.14) & (light_pt <4.) & (((abs(light_nsigtpc) < 3) & (light_pt < 0.5)) | ((abs(light_nsigcomb) < 3) & (light_pt > 0.5))) & (abs(light_dcaz) < 0.3) & (abs(light_dcaxy) < 0.3)"
+
+13_tagcheck:
+    selections:
+        nosel: "true"
+        nopc: "std"
+        newpckept: "(is_newpcrm == 0) && (std)"
+        oldpckept: "(is_oldpcrm == 0) & (std)"
+        newpcrm: "(is_newpcrm == 1) && (std)"
+        oldpcrm: "(is_oldpcrm == 1) & (std)"
+        oldpckept_multDeq1: "(heavy_mult == 1) & (is_oldpcrm == 0) & (std)"
+        oldpckept_multDgt1: "(heavy_mult > 1) & (is_oldpcrm == 0) & (std)"
+        newpckept_multDeq1: "(heavy_mult == 1) & (is_newpcrm == 0) & (std)"
+        newpckept_multDgt1: "(heavy_mult > 1) & (is_newpcrm == 0) & (std)"
+
+    aliases:
+        light_pt: 'pow(light_px*light_px + light_py*light_py, 0.5)'
+        light_nsigcomb: "pow(light_nsigtpc*light_nsigtpc + light_nsigtof*light_nsigtof, 0.5)"
+
+        std: "(abs(light_eta) < 0.8) & (light_pt > 0.14) & (light_pt <4.) & (((abs(light_nsigtpc) < 3) & (light_pt < 0.5)) | ((abs(light_nsigcomb) < 3) & (light_pt > 0.5))) & (abs(light_dcaz) < 0.3) & (abs(light_dcaxy) < 0.3)"
+
+
+localcheck_crosspc:
+    selections:
+        nosel: "true"
+        nopc: "std"
+        oldpckept: "(is_oldpcrm == 0) && (std)"
+        newpckept: "(is_newpcrm == 0) && (std)"
+        crosspckept: "(is_crosspcrm == 0) && (std)"
+        oldpcrm: "(is_oldpcrm == 1) && (std)"
+        newpcrm: "(is_newpcrm == 1) && (std)"
+        crosspcrm: "(is_crosspcrm == 1) && (std)"
+
+
+    aliases:
+        light_pt: 'pow(light_px*light_px + light_py*light_py, 0.5)'
+        light_nsigcomb: "pow(light_nsigtpc*light_nsigtpc + light_nsigtof*light_nsigtof, 0.5)"
+
+        std: "(abs(light_eta) < 0.8) & (light_pt > 0.14) & (light_pt <4.) & (((abs(light_nsigtpc) < 3) & (light_pt < 0.5)) | ((abs(light_nsigcomb) < 3) & (light_pt > 0.5))) & (abs(light_dcaz) < 0.3) & (abs(light_dcaxy) < 0.3)"
+
+
+
+
+12_20221019:
+    selections:
+        nosel: "true"
+        nopc: "std"
+
+    aliases:
+        light_pt: 'pow(light_px*light_px + light_py*light_py, 0.5)'
+        light_nsigcomb: "pow(light_nsigtpc*light_nsigtpc + light_nsigtof*light_nsigtof, 0.5)"
+
+        std: "(abs(light_eta) < 0.8) & (light_pt > 0.14) & (light_pt <4.) & (((abs(light_nsigtpc) < 3) & (light_pt < 0.5)) | ((abs(light_nsigcomb) < 3) & (light_pt > 0.5))) &(light_ncrossed > 70) & (light_ncls > 80) & (abs(light_dcaz) < 0.3) & (abs(light_dcaxy) < 0.3)"
