@@ -30,6 +30,7 @@ def get_list_of_dirs(path):
     '''Get the list of the syst variations in the input file'''
     return [key[:-2] for key in path.keys() if '/' not in key]
 
+combs = ['pp', 'mm', 'sc', 'pm', 'mp', 'oc']
 
 with uproot.recreate(o_file_name) as o_file:
     hist = np.histogram(np.random.normal(0, 1, 1))
@@ -46,56 +47,59 @@ with uproot.recreate(o_file_name) as o_file:
         # load SE and ME
         for mass_region in pair.mass_regions:
             for var in variations:
-                for comb in ['pp', 'mm', 'pm', 'mp']:
+                for comb in combs:
                     d_se[f'distr/{var}/hSE_{comb}_{mass_region}'] = in_file[f'distr/{var}/hSE_{comb}_{mass_region}'].to_pyroot()
                     d_me[f'distr/{var}/hME_{comb}_{mass_region}'] = in_file[f'distr/{var}/hME_{comb}_{mass_region}'].to_pyroot()
 
-                # sum SE same charge
-                distr_pp = d_se[f'distr/{var}/hSE_pp_{mass_region}'].Clone()
-                distr_mm = d_se[f'distr/{var}/hSE_mm_{mass_region}']
-                distr_sc = distr_pp.Clone()
-                distr_sc.Add(distr_mm)
-                distr_sc.SetDirectory(0)
-                d_se[f'distr/{var}/hSE_sc_{mass_region}'] = distr_sc
-
-                # sum SE opposite charge
-                distr_pm = d_se[f'distr/{var}/hSE_pm_{mass_region}'].Clone()
-                distr_mp = d_se[f'distr/{var}/hSE_mp_{mass_region}']
-                distr_oc = distr_pm.Clone()
-                distr_oc.Add(distr_mp)
-                distr_oc.SetDirectory(0)
-                d_se[f'distr/{var}/hSE_oc_{mass_region}'] = distr_oc
-
-                # sum ME same charge
-                distr_pp = d_me[f'distr/{var}/hME_{comb}_{mass_region}'].Clone()
-                distr_mm = d_me[f'distr/{var}/hME_{comb}_{mass_region}']
-                distr_sc = distr_pp.Clone()
-                distr_sc.Add(distr_mm)
-                distr_sc.SetDirectory(0)
-                d_me[f'distr/{var}/hME_sc_{mass_region}'] = distr_sc
-
-                # sum ME opposite charge
-                distr_pm = d_me[f'distr/{var}/hME_{comb}_{mass_region}'].Clone()
-                distr_mp = d_me[f'distr/{var}/hME_{comb}_{mass_region}']
-                distr_oc = distr_pm.Clone()
-                distr_oc.Add(distr_mp)
-                distr_oc.SetDirectory(0)
-                d_me[f'distr/{var}/hME_oc_{mass_region}'] = distr_oc
+                    d_se[f'qa/{var}/hMassKStarSE_{comb}_{mass_region}'] = in_file[f'qa/{var}/hMassKStarSE_{comb}_{mass_region}'].to_pyroot()
+                    d_me[f'qa/{var}/hMassKStarME_{comb}_{mass_region}'] = in_file[f'qa/{var}/hMassKStarME_{comb}_{mass_region}'].to_pyroot()
 
         # project SE
         d_se_proj = {}
-        for distr in d_se:
-            proj = d_se[distr].ProjectionX(f'{distr}', 0, d_se[distr].GetNbinsX())
-            d_se_proj[f'{distr}'] = proj
+        for mass_region in pair.mass_regions:
+            for var in variations:
+                for comb in combs:
+                    distr = f'distr/{var}/hSE_{comb}_{mass_region}'
+                    proj = d_se[distr].ProjectionX(f'{distr}', 0, d_se[distr].GetNbinsX())
+                    d_se_proj[f'{distr}'] = proj
+
+                    if pair.cfg_sidebands['invmass_slices']['enable'] and mass_region == 'sbr':
+                        invmass_mins = pair.cfg_sidebands['invmass_slices']['invmass_mins']
+                        invmass_maxs = pair.cfg_sidebands['invmass_slices']['invmass_maxs']
+                        for invmass_min, invmass_max in zip(invmass_mins, invmass_maxs):
+                            print(invmass_mins, invmass_maxs, d_se[distr].GetYaxis().GetXmax())
+                            first_bin = d_se[f'qa/{var}/hMassKStarSE_{comb}_{mass_region}'].GetYaxis().FindBin(invmass_min+1.e-9)
+                            last_bin = d_se[f'qa/{var}/hMassKStarSE_{comb}_{mass_region}'].GetYaxis().FindBin(invmass_max-1.e-9)
+                            
+                            print(first_bin, last_bin)
+                            proj = d_se[f'qa/{var}/hMassKStarSE_{comb}_{mass_region}'].ProjectionX(f"qa/{var}/hMassKStarSE_{comb}_{mass_region}_px_{invmass_min:.3f}_{invmass_max:.3f}", first_bin, last_bin)
+                            d_se_proj[f'distr/{var}/sbslices/hSE_{comb}_{mass_region}_invmass_{invmass_min:.3f}_{invmass_max:.3f}'] = proj.Clone()
+
+                            print(f'distr/{var}/sbslices/hSE_{comb}_{mass_region}_invmass_{invmass_min:.3f}_{invmass_max:.3f}', d_se_proj[f'distr/{var}/sbslices/hSE_{comb}_{mass_region}_invmass_{invmass_min:.3f}_{invmass_max:.3f}'])
 
         # project ME
         d_me_proj = {}
-        for distr in d_me:
-            proj = d_me[distr].ProjectionX(f'{distr}_unrew', 0, d_me[distr].GetNbinsX())
-            d_me_proj[f'{distr}_unrew'] = proj
+        for mass_region in pair.mass_regions:
+            for var in variations:
+                for comb in combs:
+                    distr = f'distr/{var}/hME_{comb}_{mass_region}'
+
+                    proj = d_me[distr].ProjectionX(f'{distr}_unrew', 0, d_me[distr].GetNbinsX())
+                    d_me_proj[f'{distr}_unrew'] = proj
+
+                    if pair.cfg_sidebands['invmass_slices']['enable'] and mass_region == 'sbr':
+                        invmass_mins = pair.cfg_sidebands['invmass_slices']['invmass_mins']
+                        invmass_maxs = pair.cfg_sidebands['invmass_slices']['invmass_maxs']
+                        for invmass_min, invmass_max in zip(invmass_mins, invmass_maxs):
+                            first_bin = d_me[f'qa/{var}/hMassKStarME_{comb}_{mass_region}'].GetYaxis().FindBin(invmass_min+1.e-9)
+                            last_bin = d_me[f'qa/{var}/hMassKStarME_{comb}_{mass_region}'].GetYaxis().FindBin(invmass_max-1.e-9)
+
+                            proj = d_me[f'qa/{var}/hMassKStarME_{comb}_{mass_region}'].ProjectionX(f"qa/{var}/hMassKStarME_{comb}_{mass_region}_px_{invmass_min:.3f}_{invmass_max:.3f}", first_bin, last_bin)
+                            d_me_proj[f'distr/{var}/sbslices/hME_{comb}_{mass_region}_unrew_invmass_{invmass_min:.3f}_{invmass_max:.3f}'] = proj.Clone()
+
 
         for mass_region in pair.mass_regions:
-            for comb in ['pp', 'mm', 'sc', 'pm', 'mp', 'oc']:
+            for comb in combs:
                 for bw in bin_widths:
                     for var in variations:
                         se = d_se_proj[f'distr/{var}/hSE_{comb}_{mass_region}'].Clone()
@@ -107,8 +111,31 @@ with uproot.recreate(o_file_name) as o_file:
                         d_cf[f'distr/{var}/hSE_{comb}_{mass_region}_bw{bw}MeV'] = se
                         d_cf[f'distr/{var}/hME_{comb}_{mass_region}_unrew_bw{bw}MeV'] = me
 
-                        cf = CorrelationFunction(se, me, pair.norm_range, um='MeV').get_cf()
+                        cf = CorrelationFunction(se=se, me=me, norm=pair.norm_range, um='MeV').get_cf()
                         d_cf[f'cf/{var}/hCF_{comb}_{mass_region}_unrew_bw{bw}MeV'] = cf
+
+
+                        
+                        if pair.cfg_sidebands['invmass_slices']['enable'] and mass_region == 'sbr':
+                            invmass_mins = pair.cfg_sidebands['invmass_slices']['invmass_mins']
+                            invmass_maxs = pair.cfg_sidebands['invmass_slices']['invmass_maxs']
+                            for invmass_min, invmass_max in zip(invmass_mins, invmass_maxs):
+                                se = d_se_proj[f'distr/{var}/sbslices/hSE_{comb}_{mass_region}_invmass_{invmass_min:.3f}_{invmass_max:.3f}'].Clone()
+                                me = d_me_proj[f'distr/{var}/sbslices/hME_{comb}_{mass_region}_unrew_invmass_{invmass_min:.3f}_{invmass_max:.3f}'].Clone()
+
+                                se.Rebin(bw)
+                                me.Rebin(bw)
+
+                                d_cf[f'distr/{var}/sbslices/hSE_{comb}_{mass_region}_invmass_{invmass_min:.3f}_{invmass_max:.3f}_bw{bw}MeV'] = se
+                                d_cf[f'distr/{var}/sbslices/hME_{comb}_{mass_region}_unrew_invmass_{invmass_min:.3f}_{invmass_max:.3f}_bw{bw}MeV'] = me
+
+                                cf = CorrelationFunction(se=se, me=me, norm=pair.norm_range, um='MeV').get_cf()
+                                d_cf[f'cf/{var}/sbslices/hCF_{comb}_{mass_region}_unrew_invmass_{invmass_min:.3f}_{invmass_max:.3f}_bw{bw}MeV'] = cf
+                                # first_bin = d_me[distr].GetYaxis().FindBin(invmass_min+1.e-9)
+                                # last_bin = d_me[distr].GetYaxis().FindBin(invmass_max-1.e-9)
+
+                                # proj = d_me[distr].ProjectionX(f"{distr}_px_{invmass_min:.3f}_{invmass_max:.3f}", first_bin, last_bin)
+                                # d_me_proj[f'{distr}_invmass_{invmass_min:.3f}_{invmass_max:.3f}'] = proj
 
         for key, distr in {**d_se, **d_me}.items():
             o_file[key] = distr
@@ -122,7 +149,7 @@ with uproot.recreate(o_file_name) as o_file:
                 h_counts_kStarlt200MeV = TH1I('hCountskStarlt200MeV', ';;Counts', 6, 0, 6)
                 h_counts = TH1I('hCounts', ';;Counts', 6, 0, 6)
                 
-                for i_comb, comb in enumerate(['pp', 'mm', 'sc', 'pm', 'mp', 'oc']):
+                for i_comb, comb in enumerate(combs):
                     se = d_se_proj[f'distr/{var}/hSE_{comb}_{mass_region}']
                     h_counts_kStarlt200MeV.GetXaxis().SetBinLabel(i_comb, TranslateToLatex('k'+pair.name+'_'+comb))
                     se.SetBinContent(i_comb, se.Integral(1, se.FindBin(200-1.e-6)))
@@ -135,7 +162,7 @@ with uproot.recreate(o_file_name) as o_file:
         mult_bins_maxs = list(range(5, 185, 5))
 
         for mass_region in pair.mass_regions:
-            for comb in ['pp', 'mm', 'sc', 'pm', 'mp', 'oc']:
+            for comb in combs:
                 for var in variations:
                     print(f'distr/{var}/weights/hSE_{comb}_{mass_region}')
                     se = d_se[f'distr/{var}/hSE_{comb}_{mass_region}']
@@ -187,7 +214,7 @@ with uproot.recreate(o_file_name) as o_file:
                         # compute the reweighted CF
                         se = d_cf[f'distr/{var}/hSE_{comb}_{mass_region}_bw{bw}MeV']
 
-                        cf = CorrelationFunction(se, h_me_rew_rebin, pair.norm_range, um='MeV').get_cf()
+                        cf = CorrelationFunction(se=se, me=h_me_rew_rebin, norm=pair.norm_range, um='MeV').get_cf()
                         o_file[f'cf/{var}/hCF_{comb}_{mass_region}_rew_bw{bw}MeV'] = cf
 
         # print(me)
@@ -308,7 +335,7 @@ with uproot.recreate(o_file_name) as o_file:
             # # compute the correlation functions
             # for mass_region in pair.mass_regions:
             #     for bw in bin_widths:
-            #         for comb in ['pp', 'mm', 'sc', 'pm', 'mp', 'oc']:
+            #         for comb in combs:
             #             for i_syst, _, in enumerate(pair.syst_sel):
             #                 se = in_file[f'bw{bw}MeV/hSE_{comb}_{mass_region}']
             #                 me = in_file[f'bw{bw}MeV/hME_{comb}_{mass_region}']
