@@ -141,8 +141,10 @@ void ProjectTrees(std::string inFileName, std::string oFileName, std::string pai
     auto inFile = TFile::Open(inFileName.data());
     auto oFile = TFile::Open(oFileName.data(), "recreate");
     oFile->mkdir("distr");
+    oFile->mkdir("qa");
     for (auto &[checkName, _] : analysis.selections) {
         oFile->mkdir(Form("distr/%s", checkName.data()));
+        oFile->mkdir(Form("qa/%s", checkName.data()));
     }
 
     std::vector<std::string> keys = {};
@@ -150,10 +152,12 @@ void ProjectTrees(std::string inFileName, std::string oFileName, std::string pai
         if (std::string(key->GetName()).find("_Trees") != std::string::npos) keys.push_back(std::string(key->GetName()));
     }
 
+    std::map<const string, TH2D*> mDistr;
+
     for (auto key : keys) {
+        printf("key: %s\n", key.data());
         auto dir = (TDirectory *)inFile->Get(key.data());
 
-        
         for (const char *event : {"SE", "ME"}) {
             for (const char *comb : {"pp", "mm", "pm", "mp"}) {
                 
@@ -161,6 +165,7 @@ void ProjectTrees(std::string inFileName, std::string oFileName, std::string pai
                 auto tree = (TTree *)dir->Get(Form("t%s_%s", event, comb));
                 ROOT::RDF::RInterface<ROOT::Detail::RDF::RLoopManager> df = ROOT::RDataFrame(*tree);
 
+                // define custom columns
                 df = df.Define("kStarMeV", "kStar * 1000");
                 for (auto &[aliasName, alias] : analysis.aliases) {
                     if (!tree->FindBranch(aliasName.data()))
@@ -172,23 +177,71 @@ void ProjectTrees(std::string inFileName, std::string oFileName, std::string pai
 
                     auto dfMass = df.Filter(lamMassSelection, {"heavy_invmass", "heavy_pt"});
 
-                    // std::string region = GetRegionFromKey(key);
-
-
                     for (auto &[varName, varSel] : analysis.selections) {
-
-                        oFile->cd(Form("distr/%s", varName.data()));
                         auto dfVar = dfMass.Filter(varSel);
 
-                        const char *histName = Form("h%s_%s_%s", event, comb, region);
-                        const char *histTitle = ";#it{k}* (MeV/#it{c});Mult;Counts";
-                        auto hDistr = dfVar.Histo2D<float, int>({histName, histTitle, 3000u, 0., 3000., 180u, 0.5, 180.5},
-                                                                "kStarMeV", "mult");
+                        // save same and mixed event
+                        oFile->cd(Form("distr/%s", varName.data()));
+                        auto hDistr = dfVar.Histo2D<float, int>({Form("h%s_%s_%s", event, comb, region), ";#it{k}* (MeV/#it{c});Mult;Counts", 3000u, 0., 3000., 180u, 0.5, 180.5}, "kStarMeV", "mult");
+                        mDistr.insert({Form("hDistr%s_%s_%s_%s_%s", key.data(), event, comb, region, varName.data()), (TH2D *) hDistr.GetPtr()->Clone()});
                         hDistr->Write();
+
+                        // quality assurance
+                        oFile->cd(Form("qa/%s", varName.data()));
+
+                        // mass vs pt
+                        auto hDistrMassPt = dfVar.Histo2D<float, float>({Form("hMassPt%s_%s_%s", event, comb, region), ";#it{p}_{T}(GeV/#it{c});#it{M}_{K#pi#pi} - #it{M}(K#pi);Counts", 100u, 0., 10., 1000u, 0.14, 0.25}, "heavy_pt", "heavy_invmass");
+                        hDistrMassPt->Write();
+                        mDistr.insert({Form("hMassPt%s_%s_%s_%s_%s", key.data(), event, comb, region, varName.data()), (TH2D *) hDistrMassPt.GetPtr()->Clone()});
+
+                        auto hDistrMassKStar = dfVar.Histo2D<float, float>({Form("hMassKStar%s_%s_%s", event, comb, region), Form(";k* (MeV/#it{c});%s;Counts", analysis.heavy_mass_label.data()), 3000u, 0., 3000., 1000u, 0.14, 0.25}, "kStarMeV", "heavy_invmass");
+                        hDistrMassKStar->Write();
+                        mDistr.insert({Form("hMassKStar%s_%s_%s_%s_%s", key.data(), event, comb, region, varName.data()), (TH2D *) hDistrMassKStar.GetPtr()->Clone()});
                     }
 
                 }
                 std::cout << " done!" << std::endl;
+            }
+        }
+    }
+
+    for (auto key : keys) {
+        for (const char *event : {"SE", "ME"}) {
+            for (const char* region : regions) {
+                for (auto selection : analysis.selections) {    
+                    std::string varName = selection.first;
+                    std::string varSel = selection.second;
+                    
+                    auto makeName = [key, event, region, varName] (const char* prefix, const char* comb) {
+                        return Form("%s%s_%s_%s_%s_%s", prefix, key.data(), event, comb, region, varName.data());
+                    };
+
+                    oFile->cd(Form("distr/%s", varName.data()));
+                    TH2D* hDistr_sc = (TH2D*) mDistr.at(makeName("hDistr", "pp"))->Clone();
+                    hDistr_sc->Add(mDistr.at(makeName("hDistr", "mm")));
+                    hDistr_sc->Write(Form("h%s_sc_%s", event, region));
+
+                    TH2D* hDistr_oc = (TH2D*) mDistr.at(makeName("hDistr", "pm"))->Clone();
+                    hDistr_oc->Add(mDistr.at(makeName("hDistr", "mp")));
+                    hDistr_oc->Write(Form("h%s_oc_%s", event, region));
+
+                    oFile->cd(Form("qa/%s", varName.data()));
+                    TH2D* hMassPt_sc = (TH2D*) mDistr.at(makeName("hMassPt", "pp"))->Clone();
+                    hMassPt_sc->Add(mDistr.at(makeName("hMassPt", "mm")));
+                    hMassPt_sc->Write(Form("hMassPt%s_sc_%s", event, region));
+
+                    TH2D* hMassPt_oc = (TH2D*) mDistr.at(makeName("hMassPt", "pm"))->Clone();
+                    hMassPt_oc->Add(mDistr.at(makeName("hMassPt", "mp")));
+                    hMassPt_oc->Write(Form("hMassPt%s_oc_%s", event, region));
+
+                    TH2D* hMassKStar_sc = (TH2D*) mDistr.at(makeName("hMassKStar", "pp"))->Clone();
+                    hMassKStar_sc->Add(mDistr.at(makeName("hMassKStar", "mm")));
+                    hMassKStar_sc->Write(Form("hMassKStar%s_sc_%s", event, region));
+
+                    TH2D* hMassKStar_oc = (TH2D*) mDistr.at(makeName("hMassKStar", "pm"))->Clone();
+                    hMassKStar_oc->Add(mDistr.at(makeName("hMassKStar", "mp")));
+                    hMassKStar_oc->Write(Form("hMassKStar%s_oc_%s", event, region));
+                }
             }
         }
     }
