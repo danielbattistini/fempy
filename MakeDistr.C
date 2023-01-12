@@ -32,11 +32,11 @@ void print(std::vector<T> vec) {
 // arbitrary number of nested loops
 template <typename T>
 std::vector<std::vector<T>> Combinations(std::vector<std::vector<T>> items) {
-    std::vector<std::vector<T>> combs = {{}};
+    std::vector<std::vector<T>> combs = {};
     std::vector<int> idxs = {};
 
     // initialize indeces
-    for (int i; i < items.size(); i++) idxs.push_back(0);
+    for (const auto &item : items) idxs.push_back(0);
 
     // count how many loops must be done
     int nCombs = 1;
@@ -129,8 +129,6 @@ std::map<std::string, std::string> LoadAliases(YAML::Node config) {
     return aliases;
 }
 
-
-
 std::vector<std::string> LoadSelections(YAML::Node config) {
     std::vector<std::vector<std::string>> elemSelections = {};
 
@@ -139,12 +137,11 @@ std::vector<std::string> LoadSelections(YAML::Node config) {
         auto sign = (*itSel)["sign"].as<std::string>();
         auto values = (*itSel)["values"].as<std::vector<float>>();
 
-        // std::cout<< values[0]<< std::endl;
-
         elemSelections.push_back({});
         for (auto value : values) {
             elemSelections.back().push_back(Form("%s %s %f", var.data(), sign.data(), float(value)));
         }
+        
         // for (auto alias : *itSel) {
         //     aliases.insert({alias.first.as<std::string>(), alias.second.as<std::string>()});
         // }
@@ -157,9 +154,24 @@ std::vector<std::string> LoadSelections(YAML::Node config) {
 
     // selections.push_back(selection);
 
+    // for (auto sel:elemSelections)
+    //     print(sel);
     // // combine elementary selections
-
-    return {};  // Combinations(elemSelections);
+    auto selections = Combinations(elemSelections);
+    // std::cout << selections.size() <<std::endl;
+    // // std::string tot_sel = {};
+    for (auto sel : selections) {
+        // print(sel);
+        // std::cout << sel.size() <<std::endl;
+        std::string tot_sel = sel[0];
+        
+        for (int iSel = 1; iSel < sel.size(); iSel++) {
+            tot_sel += " && ";
+            tot_sel += sel[iSel];
+        }
+        std::cout << tot_sel <<std::endl;
+    }
+    return {{}};
 }
 
 void MakeDistr(std::string inFileName, std::string cfgFileName, std::string oFileName, std::string pair) {
@@ -176,6 +188,7 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, std::string oFil
     auto aliases = LoadAliases(config["aliases"]);
     auto selections = LoadSelections(config["selections"]);
 
+    exit(1);
     std::vector<const char *> regions = {"sgn", "sbl", "sbr"};
 
     // for (auto al : selections)
