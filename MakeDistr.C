@@ -1,25 +1,128 @@
-// #include <map>
-// #include <string>
+#include <filesystem>
+#include <map>
+#include <string>
 
-// #include "ROOT/RDataFrame.hxx"
-// #include "Riostream.h"
-// #include "TDatabasePDG.h"
-// #include "TFile.h"
-// #include "TH1.h"
-// #include "TH2.h"
-// #include "TSystem.h"
-// #include "TTree.h"
-// // #include "fempy/utils/Analysis.hxx"
-// #include "yaml-cpp/yaml.h"
+#include "ROOT/RDataFrame.hxx"
+#include "Riostream.h"
+#include "TDatabasePDG.h"
+#include "TFile.h"
+#include "TTree.h"
+#include "yaml-cpp/yaml.h"
 
-// void MakeDistr(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
-//                std::string oFileName = "/home/daniel/an/DstarPi/test_proj_syst.root",
-//                std::string pair = "DstarPi");
+namespace fs = std::filesystem;
+
+template <typename T>
+void print(std::vector<T>);
+
+template <typename T>
+std::vector<std::vector<T>> Combinations(std::vector<std::vector<T>>);
+
+bool MassSelection(const double &mass, const double &pt, const int &hpdg, const std::string &massRegion,
+                   const double fNSigmaMass = 2., double fNSigmaOffsetSideband = 5., double fSidebandWidth = 0.2,
+                   double fLowerDstarRemoval = 1.992, double fUpperDstarRemoval = 2.028);
+
+std::map<std::string, std::string> LoadAliases(YAML::Node);
+std::vector<std::string> LoadSelections(YAML::Node);
 
 void MakeDistr(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
                std::string cfgFileName = "/home/daniel/phsw/fempy/selections.yml",
-               std::string oFileName = "/home/daniel/an/DstarPi/test_proj_syst.root", std::string pair = "DstarPi");
+               fs::path oDir = "/home/daniel/an/DstarPi", std::string pair = "DstarPi", std::string suffix = "test");
 
+void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, std::string pair, std::string suffix) {
+    // configure analysis
+    const float charmMassMin = 0.14;
+    const float charmMassMax = 0.24;
+
+    std::vector<const char *> regions;
+    if (pair == "DstarPi")
+        regions = {"sgn", "sbr"};
+    else if (pair == "Dpi")
+        regions = {"sgn", "sbl", "sbr"};
+    else {
+        printf("\033[31mAnalysis not implemented. Exit!\033[0m\n");
+        exit(1);
+    }
+
+    // load configuration for systematic variations
+    YAML::Node config = YAML::LoadFile(cfgFileName.data());
+    auto aliases = LoadAliases(config["aliases"]);
+    auto selections = LoadSelections(config["selections"]);
+
+    // open input file
+    auto inFile = TFile::Open(inFileName.data());
+
+    // open output file
+    fs::path oFileName(suffix == "" ? "Distr.root" : Form("Distr_%s.root", suffix.data()));
+    auto oFile = TFile::Open(std::string(oDir / oFileName).data(), "recreate");
+
+    std::string heavy_mass_label = "#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c})";
+
+    for (const char *comb : {"pp", "mm", "pm", "mp"}) {
+        auto dir = (TDirectory *)inFile->Get("HM_CharmFemto_DstarPion_Trees0");
+
+        for (const char *event : {"SE", "ME"}) {
+            auto tree = (TTree *)dir->Get(Form("t%s_%s", event, comb));
+            ROOT::RDF::RInterface<ROOT::Detail::RDF::RLoopManager> df = ROOT::RDataFrame(*tree);
+
+            // define aliases
+            df = df.Define("kStarMeV", "kStar * 1000");
+            for (auto &[name, expression] : aliases) {
+                df = df.Define(name.data(), expression.data());
+            }
+
+            // project charm mass histograms
+            oFile->mkdir(Form("%s/%s", comb, event));
+            oFile->cd(Form("%s/%s", comb, event));
+            for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
+                auto hCharmMassVsKStar =
+                    df.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
+                                              Form(";k* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u, 0.,
+                                              3000., 1000u, charmMassMin, charmMassMax},
+                                             "kStarMeV", "heavy_invmass");
+                hCharmMassVsKStar->Write();
+            }
+
+            for (const char *region : regions) {
+                std::cout << "\033[34mApplying selections to " << comb << "  " << event << "  " << region << "\033[0m"
+                          << std::endl;
+                oFile->mkdir(Form("%s/%s/%s", comb, event, region));
+                oFile->cd(Form("%s/%s/%s", comb, event, region));
+
+                int hpdg = 413;
+                auto lamMassSelection = [hpdg, region](float mass, float pt) {
+                    return MassSelection(mass, pt, hpdg, region);
+                };
+                auto dfMass = df.Filter(lamMassSelection, {"heavy_invmass", "heavy_pt"});
+
+                // apply selections
+                for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
+                    std::cout << "selection " << iSelection << ": " << selections[iSelection] << std::endl;
+                    auto dfSel = dfMass.Filter(selections[iSelection].data());
+
+                    auto hCharmMassVsKStar =
+                        dfSel.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
+                                                     Form(";k* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u,
+                                                     0., 3000., 1000u, charmMassMin, charmMassMax},
+                                                    "kStarMeV", "heavy_invmass");
+                    auto hMultVsKStar = dfSel.Histo2D<float, int>(
+                        {Form("hMultVsKStar%lu", iSelection), ";#it{k}* (MeV/#it{c});Multiplicity;Counts", 3000u, 0.,
+                         3000., 180u, 0.5, 180.5},
+                        "kStarMeV", "mult");
+                    auto hCharmMassVsPt =
+                        dfSel.Histo2D<float, float>({Form("hCharmMassVsPt%lu", iSelection),
+                                                     Form(";#it{p}_{T}(GeV/#it{c});%s;Counts", heavy_mass_label.data()),
+                                                     100u, 0., 10., 1000u, charmMassMin, charmMassMax},
+                                                    "heavy_pt", "heavy_invmass");
+
+                    hCharmMassVsKStar->Write();
+                    hMultVsKStar->Write();
+                    hCharmMassVsPt->Write();
+                }
+            }
+        }
+    }
+    oFile->Close();
+}
 
 // print vector
 template <typename T>
@@ -33,7 +136,7 @@ void print(std::vector<T> vec) {
 template <typename T>
 std::vector<std::vector<T>> Combinations(std::vector<std::vector<T>> items) {
     std::vector<std::vector<T>> combs = {};
-    std::vector<int> idxs = {};
+    std::vector<long unsigned int> idxs = {};
 
     // initialize indeces
     for (const auto &item : items) idxs.push_back(0);
@@ -46,7 +149,7 @@ std::vector<std::vector<T>> Combinations(std::vector<std::vector<T>> items) {
     int iComb = 0;
     do {
         std::vector<T> comb = {};
-        for (int iVar = 0; iVar < items.size(); iVar++) comb.push_back(items[iVar][idxs[iVar]]);
+        for (long unsigned int iVar = 0; iVar < items.size(); iVar++) comb.push_back(items[iVar][idxs[iVar]]);
         combs.push_back(comb);
 
         int iVar = 0;
@@ -60,8 +163,8 @@ std::vector<std::vector<T>> Combinations(std::vector<std::vector<T>> items) {
 }
 
 bool MassSelection(const double &mass, const double &pt, const int &hpdg, const std::string &massRegion,
-                   const double fNSigmaMass = 2., double fNSigmaOffsetSideband = 5., double fSidebandWidth = 0.2,
-                   double fLowerDstarRemoval = 1.992, double fUpperDstarRemoval = 2.028) {
+                   const double fNSigmaMass, double fNSigmaOffsetSideband, double fSidebandWidth,
+                   double fLowerDstarRemoval, double fUpperDstarRemoval) {
     if (massRegion == "any") {
         return true;
     }
@@ -118,7 +221,7 @@ bool MassSelection(const double &mass, const double &pt, const int &hpdg, const 
     return false;
 }
 
-// void MakeDistr(std::string inFileName, std::string oFileName, std::string pair) {
+// load the aliases in a yaml node
 std::map<std::string, std::string> LoadAliases(YAML::Node config) {
     std::map<std::string, std::string> aliases;
     for (YAML::iterator itAlias = config.begin(); itAlias != config.end(); ++itAlias) {
@@ -129,6 +232,11 @@ std::map<std::string, std::string> LoadAliases(YAML::Node config) {
     return aliases;
 }
 
+/*
+Given a yaml node configuration with the systematic selections for each
+variable, returns a vector of all the possible
+combinations of the elementary selections.
+*/
 std::vector<std::string> LoadSelections(YAML::Node config) {
     std::vector<std::vector<std::string>> elemSelections = {};
 
@@ -141,110 +249,14 @@ std::vector<std::string> LoadSelections(YAML::Node config) {
         for (auto value : values) {
             elemSelections.back().push_back(Form("%s %s %f", var.data(), sign.data(), float(value)));
         }
-        
-        // for (auto alias : *itSel) {
-        //     aliases.insert({alias.first.as<std::string>(), alias.second.as<std::string>()});
-        // }
     }
-    // std::vector<std::string> selections = {};
-    // for (auto elemSel : elemSelections) std::string selection;
 
-    // for (auto sel : elemSel) std::cout << sel << std::endl;
-    // std::cout << std::endl;
-
-    // selections.push_back(selection);
-
-    // for (auto sel:elemSelections)
-    //     print(sel);
-    // // combine elementary selections
-    auto selections = Combinations(elemSelections);
-    // std::cout << selections.size() <<std::endl;
-    // // std::string tot_sel = {};
-    for (auto sel : selections) {
-        // print(sel);
-        // std::cout << sel.size() <<std::endl;
+    // concatenate the selections
+    std::vector<std::string> tot_selections = {};
+    for (auto sel : Combinations(elemSelections)) {
         std::string tot_sel = sel[0];
-        
-        for (int iSel = 1; iSel < sel.size(); iSel++) {
-            tot_sel += " && ";
-            tot_sel += sel[iSel];
-        }
-        std::cout << tot_sel <<std::endl;
+        for (long unsigned int iSel = 1; iSel < sel.size(); iSel++) tot_sel += Form(" && %s", sel[iSel].data());
+        tot_selections.push_back(tot_sel);
     }
-    return {{}};
-}
-
-void MakeDistr(std::string inFileName, std::string cfgFileName, std::string oFileName, std::string pair) {
-    // std::vector<std::vector<int>> elems = {{1, 2, 3}, {4, 5}, {6, 7, 8}};
-    // std::vector<std::vector<int>> v = Combinations(elems);
-    // for (auto vv : v) print(vv);
-    // exit(1);
-
-    YAML::Node config = YAML::LoadFile(cfgFileName.data());
-
-    auto inFile = TFile::Open(inFileName.data());
-    auto oFile = TFile::Open(oFileName.data(), "recreate");
-
-    auto aliases = LoadAliases(config["aliases"]);
-    auto selections = LoadSelections(config["selections"]);
-
-    exit(1);
-    std::vector<const char *> regions = {"sgn", "sbl", "sbr"};
-
-    // for (auto al : selections)
-    //     std::cout<<al<< std::endl;
-    std::string heavy_mass_label = "#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c})";
-    const float charmMassMin = 0.14;
-    const float charmMassMax = 0.24;
-
-    for (const char *comb : {"pp", "mm", "pm", "mp"}) {
-        // oFile->mkdir(comb);
-        // oFile->cd(comb);
-
-        // oFile->ls();
-        auto dir = (TDirectory *)inFile->Get("HM_CharmFemto_DstarPion_Trees0");
-
-        for (const char *event : {"SE", "ME"}) {
-            auto tree = (TTree *)dir->Get(Form("t%s_%s", event, comb));
-            ROOT::RDF::RInterface<ROOT::Detail::RDF::RLoopManager> df = ROOT::RDataFrame(*tree);
-
-            // define aliases
-            df = df.Define("kStarMeV", "kStar * 1000");
-            for (auto &[name, expression] : aliases) {
-                df = df.Define(name.data(), expression.data());
-            }
-
-            for (const char *region : regions) {
-                oFile->mkdir(Form("%s/%s/%s", comb, region, event));
-                oFile->cd(Form("%s/%s/%s", comb, region, event));
-
-                int hpdg = 413;
-                auto lamMassSelection = [hpdg, region](float mass, float pt) {
-                    return MassSelection(mass, pt, hpdg, region);
-                };
-                auto dfMass = df.Filter(lamMassSelection, {"heavy_invmass", "heavy_pt"});
-
-                // apply selections
-                auto dfSel = dfMass.Filter("kStarMeV>300");
-
-                auto hCharmMassVsKStar = dfSel.Histo2D<float, float>(
-                    {"hCharmMassVsKStar", Form(";k* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u, 0., 3000.,
-                     1000u, charmMassMin, charmMassMax},
-                    "kStarMeV", "heavy_invmass");
-                auto hMultVsKStar = dfSel.Histo2D<float, int>(
-                    {"hMultVsKStar", ";#it{k}* (MeV/#it{c});Multiplicity;Counts", 3000u, 0., 3000., 180u, 0.5, 180.5},
-                    "kStarMeV", "mult");
-                auto hCharmMassVsPt = dfSel.Histo2D<float, float>(
-                    {"hCharmMassVsPt", Form(";#it{p}_{T}(GeV/#it{c});%s;Counts", heavy_mass_label.data()), 100u, 0.,
-                     10., 1000u, charmMassMin, charmMassMax},
-                    "heavy_pt", "heavy_invmass");
-
-                hCharmMassVsKStar->Write();
-                hMultVsKStar->Write();
-                hCharmMassVsPt->Write();
-            }
-            break;
-        }
-    }
-    oFile->Close();
+    return tot_selections;
 }
