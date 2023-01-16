@@ -26,9 +26,11 @@ std::vector<std::string> LoadSelections(YAML::Node);
 
 void MakeDistr(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
                std::string cfgFileName = "/home/daniel/phsw/fempy/selections.yml",
-               fs::path oDir = "/home/daniel/an/DstarPi", std::string pair = "DstarPi", std::string suffix = "test");
+               fs::path oDir = "/home/daniel/an/DstarPi", std::string pair = "DstarPi",
+               std::string suffix = "test",
+               std::string treeDirName = "HM_CharmFemto_DstarPion_Trees0");
 
-void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, std::string pair, std::string suffix) {
+void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, std::string pair, std::string suffix, std::string treeDirName) {
     // configure analysis
     const float charmMassMin = 0.14;
     const float charmMassMax = 0.24;
@@ -58,7 +60,12 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
     std::string heavy_mass_label = "#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c})";
 
     for (const char *comb : {"pp", "mm", "pm", "mp"}) {
-        auto dir = (TDirectory *)inFile->Get("HM_CharmFemto_DstarPion_Trees0");
+        auto dir = (TDirectory *)inFile->Get(treeDirName.data());
+        if (!dir) {
+            std::cerr << "\033[31mError: Could not load the key \"" << treeDirName << "\". Available keys:\033[0m" << std::endl;
+            inFile->ls();
+            exit(1);
+        }
 
         for (const char *event : {"SE", "ME"}) {
             auto tree = (TTree *)dir->Get(Form("t%s_%s", event, comb));
