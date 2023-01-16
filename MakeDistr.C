@@ -32,15 +32,25 @@ void MakeDistr(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResu
 
 void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, std::string pair, std::string suffix, std::string treeDirName) {
     // configure analysis
-    const float charmMassMin = 0.14;
-    const float charmMassMax = 0.24;
-
+    float charmMassMin;
+    float charmMassMax;
     std::vector<const char *> regions;
-    if (pair == "DstarPi")
+    std::string heavy_mass_label;
+    int hpdg;
+
+    if (pair == "DstarPi") {
+        hpdg = 413;
         regions = {"sgn", "sbr"};
-    else if (pair == "Dpi")
+        heavy_mass_label  = "#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c})";
+        charmMassMin = 0.14;
+        charmMassMax = 0.24;
+    } else if (pair == "DPi" || pair == "DK") {
+        hpdg = 411;
         regions = {"sgn", "sbl", "sbr"};
-    else {
+        heavy_mass_label = "#it{M}(K#pi#pi) (GeV/#it{c})";
+        charmMassMin = 1.7;
+        charmMassMax = 2.0;
+    } else {
         printf("\033[31mAnalysis not implemented. Exit!\033[0m\n");
         exit(1);
     }
@@ -57,7 +67,6 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
     fs::path oFileName(suffix == "" ? "Distr.root" : Form("Distr_%s.root", suffix.data()));
     auto oFile = TFile::Open(std::string(oDir / oFileName).data(), "recreate");
 
-    std::string heavy_mass_label = "#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c})";
 
     for (const char *comb : {"pp", "mm", "pm", "mp"}) {
         auto dir = (TDirectory *)inFile->Get(treeDirName.data());
@@ -95,7 +104,6 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
                 oFile->mkdir(Form("%s/%s/%s", comb, event, region));
                 oFile->cd(Form("%s/%s/%s", comb, event, region));
 
-                int hpdg = 413;
                 auto lamMassSelection = [hpdg, region](float mass, float pt) {
                     return MassSelection(mass, pt, hpdg, region);
                 };
