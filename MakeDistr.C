@@ -92,7 +92,7 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
             for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
                 auto hCharmMassVsKStar =
                     df.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
-                                              Form(";k* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u, 0.,
+                                              Form(";#it{k}* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u, 0.,
                                               3000., 1000u, charmMassMin, charmMassMax},
                                              "kStarMeV", "heavy_invmass");
                 hCharmMassVsKStar->Write();
@@ -116,7 +116,7 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
 
                     auto hCharmMassVsKStar =
                         dfSel.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
-                                                     Form(";k* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u,
+                                                     Form(";#it{k}* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u,
                                                      0., 3000., 1000u, charmMassMin, charmMassMax},
                                                     "kStarMeV", "heavy_invmass");
                     auto hMultVsKStar = dfSel.Histo2D<float, int>(
