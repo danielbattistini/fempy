@@ -2,8 +2,9 @@ import sys
 
 from uproot.models.TH import Model_TH1D_v3
 
-from ROOT import TH1F, TH1
+from ROOT import TH1F, TH1, TF1
 
+import fempy
 
 def change_units(hist, multiplier):
     '''Only for histogram with constant binwidth!'''
@@ -20,22 +21,35 @@ def change_units(hist, multiplier):
 class CorrelationFunction:
     '''Class to handle correlation functions and related manipulations'''
 
-    def __init__(self, se, me, norm=None, um='MeV'):
+    def __init__(self, **kwargs):
         '''
         Lazy constructor
         '''
-        if (isinstance(se, TH1) and isinstance(me, TH1)):
-            self.se = se.Clone()
-            self.me = me.Clone()
-        elif (isinstance(se, Model_TH1D_v3) and isinstance(me, Model_TH1D_v3)):
-            self.se = se.to_pyroot()
-            self.me = me.to_pyroot()
+        # print(kwargs.get('cf'))
 
-        self.se.Sumw2()
+        self.se = kwargs.get('se').to_numpy() if isinstance(kwargs.get('se'), Model_TH1D_v3) else kwargs.get('se')
+        self.me = kwargs.get('me').to_numpy() if isinstance(kwargs.get('me'), Model_TH1D_v3) else kwargs.get('me')
+        self.cf = kwargs.get('cf').to_numpy() if isinstance(kwargs.get('cf'), Model_TH1D_v3) else kwargs.get('cf')
+        
+        self.norm = kwargs.get('norm')
+        self.um = kwargs.get('um') if kwargs.get('um') is not None else 'MeV'
+        self.func = None
+        # if (isinstance(se, TH1) and isinstance(me, TH1)):
+        #     self.se = se.Clone()
+        #     self.me = me.Clone()
+        # elif (isinstance(se, Model_TH1D_v3) and isinstance(me, Model_TH1D_v3)):
+        #     self.se = se.to_pyroot()
+        #     self.me = me.to_pyroot()
 
-        self.cf = None
-        self.norm = norm
-        self.um = um
+        # self.se.Sumw2()
+
+        # self.cf = None
+
+    def print(self):
+        print("se: ", self.se)
+        print("me: ", self.me)
+        print("cf: ", self.cf)
+        print("um: ", self.um)
 
     def rebin(self, rebin):
         if rebin == 1:
@@ -45,9 +59,14 @@ class CorrelationFunction:
         self.me.Rebin(rebin)
 
     def get_cf(self):
+        if self.se == None and self.me == None and self.cf == None:
+            print(f"\033[33mWarning\033[0m: SE, ME and CF are None. Exit!")
+            return None
+
         if self.se == None and self.me == None and self.cf != None:
             return self.cf
 
+            
         # change units
         if self.um == "MeV":
             title = ';#it{k}* (MeV/#it{c});#it{C}(#it{k}*)'
@@ -64,7 +83,7 @@ class CorrelationFunction:
             self.um = 'GeV'
             title = ';#it{k}* (GeV/#it{c});#it{C}(#it{k}*)'
         else:
-            print("\033[31mError\033[0m]: Units are not valid. Exit!")
+            print(f"\033[31mError\033[0m: Units {self.um} are not valid. Exit!")
             sys.exit()
 
         # check that the normalization is valid
@@ -116,64 +135,95 @@ class CorrelationFunction:
     def get_me(self):
         return self.me
 
-    # def __add__(self, other):
-    #     cf = self.cf.Clone()
-    #     if isinstance(other, TH1):
-    #         print('isth1')
-    #         cf.Add(self.cf, other)
-    #     elif isinstance(other, (int, float)):
-    #         for iBin in range(cf.GetNbinsX()+2):
-    #             cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) + other)
-    #     elif isinstance(other, CorrelationFunction):
-    #         print('add cf')
-    #         cf.Add(other.cf)
-    #     else:
-    #         print(f'Error: the type {type(other)} is not implemented. Exit!')
-    #         sys.exit()
-    #     return CorrelationFunction(cf)
+    def __add__(self, other):
+        cf = self.cf.Clone()
+        if isinstance(self.cf, TH1):
+            if isinstance(other, TH1):
+                cf.Add(self.cf, other)
+            elif isinstance(other, (int, float)):
+                for iBin in range(cf.GetNbinsX()+2):
+                    cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) + other)
+            elif isinstance(other, CorrelationFunction):
+                cf.Add(other.cf)
+            else:
+                fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')    
+        elif isinstance(self.cf, TF1):
+            if isinstance(other, (int, float)):
+                self.func = lambda x, par: self.cf.Eval(x[0]) + other
+                cf = TF1(f'{self.cf.GetName()}_', self.func, 0, 3000)
+            else:
+                fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')    
+        else:
+            fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')    
+        
+        return CorrelationFunction(cf=cf)
 
-    # def __sub__(self, other):
-    #     cf = self.cf.Clone()
-    #     if isinstance(other, TH1):
-    #         cf.Add(self.cf, other, -1)
-    #     elif isinstance(other, (int, float)):
-    #         for iBin in range(cf.GetNbinsX()+2):
-    #             cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) - other)
-    #     elif isinstance(other, CorrelationFunction):
-    #         print('add cf')
-    #         cf.Add(other.cf, -1)
-    #     else:
-    #         print(f'Error: the type {type(other)} is not implemented. Exit!')
-    #         sys.exit()
-    #     return CorrelationFunction(cf)
+    def __sub__(self, other):
+        cf = self.cf.Clone()
+        if isinstance(other, TH1):
+            cf.Add(self.cf, other, -1)
+        elif isinstance(other, (int, float)):
+            for iBin in range(cf.GetNbinsX()+2):
+                cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) - other)
+        elif isinstance(other, CorrelationFunction):
+            print('add cf')
+            cf.Add(other.cf, -1)
+        else:
+            print(f'Error: the type {type(other)} is not implemented. Exit!')
+            sys.exit()
+        return CorrelationFunction(cf=cf)
 
-    # def __mul__(self, other):
-    #     cf = self.cf.Clone()
-    #     if isinstance(other, (int, float)):
-    #         for iBin in range(cf.GetNbinsX()+2):
-    #             cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) * other)
-    #             cf.SetBinError(iBin, self.cf.GetBinError(iBin) * other)
-    #     else:
-    #         print(f'Error: the type {type(other)} is not implemented. Exit!')
-    #         sys.exit()
-    #     return CorrelationFunction(cf)
+    def __mul__(self, other):
+        cf = self.cf.Clone()
+        if isinstance(self.cf, TH1):
+            if isinstance(other, (int, float)):
+                for iBin in range(cf.GetNbinsX()+2):
+                    cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) * other)
+                    cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) * other)
+                    cf.SetBinError(iBin, self.cf.GetBinError(iBin) * other)
+            elif isinstance(other, TF1):
+                for iBin in range(cf.GetNbinsX()+2):
+                    cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) * other.Eval(self.cf.GetBinCenter(iBin)))
+                    cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) * other.Eval(self.cf.GetBinCenter(iBin)))
+                    # todo bin error
+                    # cf.SetBinError(iBin, self.cf.GetBinError(iBin) * other)
+            else:
+                fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
+        elif isinstance(self.cf, TF1):
+            if isinstance(other, (int, float)):
+                self.func = lambda x, par: self.cf.Eval(x[0]) * other
+                cf = TF1(f'{self.cf.GetName()}_', self.func, 0, 3000)
 
-    # def __truediv__(self, other):
-    #     cf = self.cf.Clone()
-    #     if isinstance(other, (int, float)):
-    #         for iBin in range(cf.GetNbinsX()+2):
-    #             cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) / other)
-    #             cf.SetBinError(iBin, self.cf.GetBinError(iBin) / other)
-    #     else:
-    #         print(f'Error: the type {type(other)} is not implemented. Exit!')
-    #         sys.exit()
-    #     return CorrelationFunction(cf)
+        else:
+            fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')  
 
-    # def __radd__(self, other):
-    #     return self.__add__(other)
+        return CorrelationFunction(cf=cf)
 
-    # def __rsub__(self, other):
-    #     return self.__sub__(other)
+    def __truediv__(self, other):
+        cf = self.cf.Clone()
+        if isinstance(self.cf, TH1):
+            if isinstance(other, (int, float)):
+                return self.__mul__(1. / other)
+                # for iBin in range(cf.GetNbinsX()+2):
+                #     cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) / other)
+                #     cf.SetBinError(iBin, self.cf.GetBinError(iBin) / other)
+            else:
+                fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
+        elif isinstance(self.cf, TF1):
+            if isinstance(other, (int, float)):
+                self.func = lambda x, par: self.cf.Eval(x[0]) / other
+                cf = TF1(f'{self.cf.GetName()}_', self.func, 0, 3000)
+            else:
+                fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
+        else:
+            fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
+        return CorrelationFunction(cf=cf)
 
-    # def __rmul__(self, other):
-    #     return self.__mul__(other)
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __rsub__(self, other):
+        return self.__sub__(other)
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
