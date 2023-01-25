@@ -187,7 +187,7 @@ for comb in combs:
         hME.Rebin(round(kStarBW / hME.GetXaxis().GetBinWidth(0)))
 
         hCF = CorrelationFunction(se=hSE, me=hME, norm=pair.norm_range, units='MeV').get_cf()
-        hCF.Write('hCFstd')
+        hCF.Write(f'hCFstd_{region}')
 
 
 oFile.Close()
