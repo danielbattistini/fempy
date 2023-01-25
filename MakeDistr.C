@@ -70,8 +70,8 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
     };
     std::map<std::string, std::string> regionToFD = {
         {"sgn", ""},
-        {"sbl", "SBLeft"},
-        {"sbr", "SBRight"},
+        {"sbl", "SBLeft_"},
+        {"sbr", "SBRight_"},
     };
     // load configuration for systematic variations
     YAML::Node config = YAML::LoadFile(cfgFileName.data());
@@ -86,29 +86,31 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
     auto oFileName = std::string(oDir / oFileBaseName);
     auto oFile = TFile::Open(oFileName.data(), "recreate");
 
-    std::vector<TList*> listFD; // one for each syst variation
+    std::string logFileName = Form("%s.log", oFileName.substr(0, oFileName.find_last_of(".")).data()); 
+    ofstream log;
+    log.open(logFileName.data());
 
-    std::vector<std::map<std::string, TList*>> listPairsFD;
+    std::map<std::string, std::vector<TList*>> listFD; // one for each syst variation
+
+    std::vector<std::map<std::string, std::map<std::string, TList*>>> listPairsFD;
     for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
-        listFD.push_back(new TList());
-        listPairsFD.push_back({
-                {"pp", new TList()},
-                {"mm", new TList()},
-                {"pm", new TList()},
-                {"mp", new TList()},
-                {"bs1", new TList()},
-                {"bs2", new TList()},
-                {"bs3", new TList()},
-                {"bs4", new TList()},
-                {"bs5", new TList()},
-                {"bs6", new TList()},
-            });
-        for (std::string comb : {"pp", "mm", "pm", "mp", "bs1", "bs2", "bs3", "bs4", "bs5", "bs6"}) {
-            listPairsFD[iSelection][comb.data()]->SetName(pairsToFD[comb].data());
+        for (const auto region : regions)
+            listFD[region].push_back(new TList());
+        
+        std::map<std::string, std::map<std::string, TList*>> mapLists;
+        for (const auto region : regions) {
+            for (std::string comb : {"pp", "mm", "pm", "mp", "bs1", "bs2", "bs3", "bs4", "bs5", "bs6"}) {
+                mapLists[region][comb] = new TList();
+            }
+        }
+        
+        listPairsFD.push_back(mapLists);
+        for (const auto region : regions) {
+            for (std::string comb : {"pp", "mm", "pm", "mp", "bs1", "bs2", "bs3", "bs4", "bs5", "bs6"}) {
+                listPairsFD[iSelection][region][comb.data()]->SetName(pairsToFD[comb].data());
+            }
         }
     };
-
-    // TList *myList = new TList();
 
     for (const char *comb : {"pp", "mm", "pm", "mp"}) {
         auto dir = (TDirectory *)inFile->Get(treeDirName.data());
@@ -141,8 +143,17 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
             }
 
             for (const char *region : regions) {
-                std::cout << "\033[34mApplying selections to " << comb << "  " << event << "  " << region << "\033[0m"
+                std::cout << "\033[34mApplying selections to "
+                          << comb << "  "
+                          << event << "  "
+                          << region << "\033[0m"
                           << std::endl;
+                log << "Applying selections to "
+                    << comb << "  "
+                    << event << "  "
+                    << region
+                    << std::endl;
+
                 oFile->mkdir(Form("%s/%s/%s", comb, event, region));
                 oFile->cd(Form("%s/%s/%s", comb, event, region));
 
@@ -154,6 +165,8 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
                 // apply selections
                 for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
                     std::cout << "selection " << iSelection << ": " << selections[iSelection] << std::endl;
+                    log << "selection " << iSelection << ": " << selections[iSelection] << std::endl;
+
                     auto dfSel = dfMass.Filter(selections[iSelection].data());
 
                     auto hCharmMassVsKStar =
@@ -175,71 +188,64 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
                     hMultVsKStar->Write();
                     hCharmMassVsPt->Write();
 
-                    // // QA histograms
-                    // dfSel.Histo1D<float>(
-                    //     {Form("hHeavyBkgScore%lu", iSelection), ";Background score;Counts",
-                    //      500u, 0, 0.1}, "heavy_bkg_score")->Write();
-                    // dfSel.Histo2D<float, float>(
-                    //     {Form("hLightNSigmaTOFVsNSigmaTPC%lu", iSelection), ";#it{n}_{#sigma}^{TPC};#it{n}_{#sigma}^{TOF};Counts",
-                    //      200u, -10, 10, 200u, -10, 10}, "light_nsigtpc", "light_nsigtof")->Write();
-                    // dfSel.Histo2D<double, float>(
-                    //     {Form("hLightEtaVsPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});#eta;Counts",
-                    //      200u, -1, 1, 200u, 0, 5}, "light_pt", "light_eta")->Write();
-                    // dfSel.Histo1D<int>(
-                    //     {Form("hLightNCls%lu", iSelection), ";#it{n}_{clusters};Counts",
-                    //      100, 59.5, 159.5}, "light_ncls")->Write();
+                    // QA histograms
+                    dfSel.Histo1D<float>(
+                        {Form("hHeavyBkgScore%lu", iSelection), ";Background score;Counts",
+                         500u, 0, 0.1}, "heavy_bkg_score")->Write();
+                    dfSel.Histo2D<float, float>(
+                        {Form("hLightNSigmaTOFVsNSigmaTPC%lu", iSelection), ";#it{n}_{#sigma}^{TPC};#it{n}_{#sigma}^{TOF};Counts",
+                         200u, -10, 10, 200u, -10, 10}, "light_nsigtpc", "light_nsigtof")->Write();
+                    dfSel.Histo2D<double, float>(
+                        {Form("hLightEtaVsPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});#eta;Counts",
+                         200u, -1, 1, 200u, 0, 5}, "light_pt", "light_eta")->Write();
+                    dfSel.Histo1D<int>(
+                        {Form("hLightNCls%lu", iSelection), ";#it{n}_{clusters};Counts",
+                         100, 59.5, 159.5}, "light_ncls")->Write();
 
 
 
                     // save as FD output
-
-                    // myInnerList->Add(hMultVsKStar.GetPtr()->Clone(Form("h%s_%lu", event, iSelection)));
-
-
                     auto hMultVsKStarGeV = dfSel.Histo2D<float, int>(
-                        {Form("hMultVsKStar%lu", iSelection), ";#it{k}* (GeV/#it{c});Multiplicity;Counts", 3000u, 0.,
+                        {Form("hMultVsKStar%lu", iSelection), ";#it{k}* (GeV/#it{c});Multiplicity;Counts", 600u, 0.,
                          3., 180u, 0.5, 180.5},
                         "kStar", "mult");
                     
-                    listPairsFD[iSelection][comb]->Add(hMultVsKStarGeV.GetPtr()->ProjectionX()->Clone(Form("%sDist_%s", event, pairsToFD[comb].data())));
-                    listPairsFD[iSelection][comb]->Add(hMultVsKStarGeV.GetPtr()->Clone(Form("%sMultDist_%s", event, pairsToFD[comb].data())));
-                    // std::cout << listPairsFD[iSelection][comb]->GetSize() <<std::endl;
-                    break;
+                    listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->ProjectionX()->Clone(Form("%sDist_%s", event, pairsToFD[comb].data())));
+                    listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->Clone(Form("%sMultDist_%s", event, pairsToFD[comb].data())));
                 } // selections
-                break;
             } // regions
-            // break;
         } // SE, ME
-        // break;
     } // charge comb
 
     // save output in FD format
     for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++){
-        std::string dirNameFD = Form("HM_CharmFemto_DplusPion_Results%lu", iSelection);
-        oFile->mkdir(dirNameFD.data());
-        oFile->cd(dirNameFD.data());
+        for (std::string region : regions) {
+            std::string dirNameFD = Form("HM_CharmFemto_DplusPion_%sResults%lu", regionToFD[region].data(), iSelection);
+            oFile->mkdir(dirNameFD.data());
+            oFile->cd(dirNameFD.data());
 
-        // save the data
-        for (std::string comb : {"pp", "mm", "pm", "mp"}) {
-            listFD[iSelection]->Add(listPairsFD[iSelection][comb]);
-        }
-        
-        // give bullshit to GentleFemto
-        for (std::string comb : {"bs1", "bs2", "bs3", "bs4", "bs5", "bs6"}) {
-            for (const char *event : {"SE", "ME"}) {
-                TH1D *hBS = new TH1D(Form("%sDist_%s", event, pairsToFD[comb].data()), "", 3000, 0, 3000);
-                listPairsFD[iSelection][comb]->Add(hBS);
-                TH1D *hMultBS = new TH1D(Form("%sMultDist_%s", event, pairsToFD[comb].data()), "", 3000, 0, 3000);
-                listPairsFD[iSelection][comb]->Add(hMultBS);
+            // save the data
+            for (std::string comb : {"pp", "mm", "pm", "mp"}) {
+                listFD[region][iSelection]->Add(listPairsFD[iSelection][region][comb]);
             }
-            listFD[iSelection]->Add(listPairsFD[iSelection][comb]);
+            
+            // give bullshit to GentleFemto
+            for (std::string comb : {"bs1", "bs2", "bs3", "bs4", "bs5", "bs6"}) {
+                for (const char *event : {"SE", "ME"}) {
+                    TH1D *hBS = new TH1D(Form("%sDist_%s", event, pairsToFD[comb].data()), "", 3000, 0, 3000);
+                    listPairsFD[iSelection][region][comb]->Add(hBS);
+                    TH1D *hMultBS = new TH1D(Form("%sMultDist_%s", event, pairsToFD[comb].data()), "", 3000, 0, 3000);
+                    listPairsFD[iSelection][region][comb]->Add(hMultBS);
+                }
+                listFD[region][iSelection]->Add(listPairsFD[iSelection][region][comb]);
+            }
+            listFD[region][iSelection]->Write(dirNameFD.data(), 1);
         }
-        
-        // write to disk
-        listFD[iSelection]->Write(dirNameFD.data(), 1);
     }
 
     oFile->Close();
+    log.close();
+
     std::cout << "Output saved to: " << oFileName << std::endl;
 }
 
