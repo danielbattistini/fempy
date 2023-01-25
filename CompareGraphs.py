@@ -3,17 +3,18 @@ import sys
 import os
 import yaml
 from rich import print
+# todo: implement colors
 
-from ROOT import TFile, TCanvas, TLegend, TLine
+from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphAsymmErrors
 
 from fempy.utils.io import GetObjectFromFile
 from fempy.utils.format import TranslateToLatex, FigInit
+import fempy
 
 FigInit()
 
 parser = argparse.ArgumentParser(description='Arguments')
 parser.add_argument('cfg')
-# parser.add_argument('oFileName')
 args = parser.parse_args()
 
 with open(args.cfg, "r") as stream:
@@ -23,32 +24,47 @@ with open(args.cfg, "r") as stream:
         print(exc)
         sys.exit()
 
-for plot in cfg:
-    print(plot)
-    plot = plot["plot"]
-    doRatio = plot['ratio']['enable']
 
-    if doRatio:
-        cPlot = TCanvas("cPlot", "cPlot", 1200, 600)
-        cPlot.Divide(2, 1)
-        cPlot.cd(1)
+def GetCanvasSplitting(nPanels):
+    if nPanels < 3:
+        return (nPanels, 1)
+    elif nPanels < 8:
+        return (round(nPanels/2), 2)
     else:
-        cPlot = TCanvas("cPlot", "cPlot", 600, 600)
+        fempy.error("not implemented")
+
+
+for plot in cfg:
+    plot = plot["plot"]
+
+    panels = {'default': 1}
+    if plot['ratio']['enable']:
+        panels['ratio'] = len(panels)+1
+    if plot['relunc']['enable']:
+        panels['relunc'] = len(panels)+1
+
+    nPanelsX, nPanelsY = fempy.utils.GetNPanels(len(panels))
+    cPlot = TCanvas("cPlot", "cPlot", 600*nPanelsX, 600*nPanelsY)
+    cPlot.Divide(nPanelsX, nPanelsY)
+    pad = cPlot.cd(1)
 
     inObjs = []
     legends = []
-    for input in plot["input"]:
-        inFile = TFile(input['file'])
+    for inputCfg in plot["input"]:
+        inFile = TFile(inputCfg['file'])
 
-        inObj = GetObjectFromFile(inFile, input['name'])
+        inObj = GetObjectFromFile(inFile, inputCfg['name'])
         if inObj == None:
-            print(f'Error: cannot load {inFile}:{input["name"]}. Exit!')
-            sys.exit()
+            fempy.error(f'cannot load {inFile}:{inputCfg["name"]}')
 
-        inObj.Rebin(plot['opt']['rebin'])
-        inObj.SetDirectory(0)
+        if isinstance(inObj, TH1):
+            inObj.SetDirectory(0)
+            inObj.Rebin(inputCfg['rebin'])
+            print(inObj.GetNbinsX())
+            if inputCfg['normalize']:
+                inObj.Scale(1./inObj.Integral())
         inObjs.append(inObj)
-        legends.append(input['legend'])
+        legends.append(inputCfg['legend'])
 
     legx1 = plot['opt']['leg']['posx'][0]
     legy1 = plot['opt']['leg']['posy'][0]
@@ -65,7 +81,10 @@ for plot in cfg:
                 plot['opt']['rangex'][0], plot['opt']['rangex'][1])
             inObj.GetYaxis().SetRangeUser(
                 plot['opt']['rangey'][0], plot['opt']['rangey'][1])
-            inObj.Draw('plc pmc')
+            if isinstance(inObj, TGraph):
+                inObj.Draw('ap pmc plc')
+            else:
+                inObj.Draw('plc pmc ')
         else:
             inObj.Draw("same plc pmc")
         leg.AddEntry(inObj, legend)
@@ -75,30 +94,35 @@ for plot in cfg:
     leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
     leg.Draw()
 
-    cPlot.SetLogx(plot["opt"]["logx"])
-    cPlot.SetLogy(plot["opt"]["logy"])
-
-
+    pad.SetLogx(plot["opt"]["logx"])
+    pad.SetLogy(plot["opt"]["logy"])
 
     # ratio
-    if doRatio:
-        cPlot.cd(2)
+    if plot['ratio']['enable']:
+        pad = cPlot.cd(panels['ratio'])
 
         hDen = inObjs[0].Clone()
         hDen.Rebin(plot['ratio']['rebin'])
-        hRatio = inObjs[1].Clone()
-        hRatio.Rebin(plot['ratio']['rebin'])
-        
-        hRatio.Sumw2()
-        
-        hRatio.Divide(hDen)
 
+        hRatios = []
+        for iInObj, inObj in enumerate(inObjs[1:]):
+            hRatio = inObj.Clone()
+            hRatio.Rebin(plot['ratio']['rebin'])
+            hRatio.Sumw2()
 
-        hRatio.SetTitle(plot['opt']['title'])
-        hRatio.GetYaxis().SetTitle('Ratio')
-        hRatio.GetYaxis().SetRangeUser(plot['ratio']['rangey'][0], plot['ratio']['rangey'][1])
-        hRatio.GetXaxis().SetRangeUser(plot['opt']['rangex'][0], plot['opt']['rangex'][1])
-        hRatio.Draw()
+            hRatio.Divide(hDen)
+
+            hRatio.SetTitle(TranslateToLatex(plot['opt']['title']))
+            hRatio.GetYaxis().SetTitle('Ratio')
+            hRatio.GetYaxis().SetRangeUser(plot['ratio']['rangey'][0], plot['ratio']['rangey'][1])
+            hRatio.GetXaxis().SetRangeUser(plot['opt']['rangex'][0], plot['opt']['rangex'][1])
+
+            hRatios.append(hRatio)
+
+            if iInObj == 0:
+                hRatio.Draw('plc pmc')
+            else:
+                hRatio.Draw('plc pmc same')
 
         line = TLine(plot['opt']['rangex'][0], 1, plot['opt']['rangex'][1], 1)
         line.SetLineColor(13)
@@ -106,5 +130,57 @@ for plot in cfg:
 
         line.Draw('same')
 
+    # relative uncertainties
+    if plot['relunc']['enable']:
+        pad = cPlot.cd(panels['relunc'])
+        pad.SetLeftMargin(0.16)
+
+        inObjsUncs = []
+        for iObj, inObj in enumerate(inObjs):
+            if isinstance(inObj, TH1):
+                inObjUnc = inObj.Clone()
+                for iBin in range(inObj.GetNbinsX()):
+                    inObjUnc.SetBinContent(iBin+1, 100 * inObj.GetBinError(iBin+1)/inObj.GetBinContent(iBin+1))
+                    inObjUnc.SetBinError(iBin+1, 0)
+
+                inObjsUncs.append(inObjUnc)
+            elif isinstance(inObj, TGraph) and False:
+                for iPoint in range(inObj.GetN()):
+
+                    if isinstance(inObjUnc, TGraphAsymmErrors):
+                        x = inObj.GetPointX(iPoint)
+                        y = inObj.GetPointY(iPoint)
+                        xUncUpper = inObj.GetErrorXhigh(iPoint)
+                        xUncLower = inObj.GetErrorXlow(iPoint)
+                        yUncUpper = inObj.GetErrorYhigh(iPoint)
+                        yUncLower = inObj.GetErrorYlow(iPoint)
+
+                        yAvgUnc = (yUncLower + yUncUpper) / 2
+                        inObjUnc.SetPoint(iPoint, x,  100 * yAvgUnc/y)
+
+                        inObjUnc.SetPointError(iPoint, xUncLower, xUncUpper, 0, 0)
+                    elif isinstance(inObjUnc, TGraphAsymmErrors):
+                        x = inObj.GetPointX(iPoint)
+                        y = inObj.GetPointY(iPoint)
+                        xUnc = inObj.GetErrorX(iPoint)
+                        yUnc = inObj.GetErrorY(iPoint)
+
+                        inObjUnc.SetPoint(iPoint, x,  1000 * yUnc/y)
+                        inObjUnc.SetPointError(iPoint, xUnc, 0)
+                    else:
+                        fempy.error('gne')
+
+            if iObj == 0:
+                inObjUnc.GetXaxis().SetRangeUser(plot['opt']['rangex'][0], plot['opt']['rangex'][1])
+                inObjUnc.GetYaxis().SetRangeUser(plot['relunc']['rangey'][0], plot['relunc']['rangey'][1])
+                inObjUnc.GetYaxis().SetTitle('Relative uncertainty (%)')
+                if isinstance(inObjUnc, TGraph):
+                    inObjUnc.Draw('pa plc pmc')
+                else:
+                    inObjUnc.Draw('plc pmc')
+            else:
+                inObjUnc.Draw('plc pmc same')
+
+    # save canvas
     for ext in plot["opt"]["ext"]:
         cPlot.SaveAs(f'{os.path.splitext(plot["output"])[0]}.{ext}')
