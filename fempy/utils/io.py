@@ -35,3 +35,20 @@ def GetObjectFromFile(inFile, pathToObj):
             sys.exit()
 
     return outObj
+
+
+histClasses = [f'TH{n}{t}' for n in [1, 2, 3] for t in ['I', 'F', 'D']]
+def GetHistNamesInDir(directory):
+    return [key.GetName() for key in list(directory.GetListOfKeys()) if key.GetClassName() in histClasses]
+
+
+def GetObjsInDir(directory):
+    return [key.GetName() for key in list(directory.GetListOfKeys()) if key.GetClassName() != 'TDirectoryFile']
+
+
+def GetSubdirsInDir(directory):
+    return [key.GetName() for key in list(directory.GetListOfKeys()) if key.GetClassName() == 'TDirectoryFile']
+
+
+def GetKeyNamesInDir(directory):
+    return [key.GetName() for key in list(directory.GetListOfKeys())]

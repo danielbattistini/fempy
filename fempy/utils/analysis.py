@@ -4,37 +4,66 @@ Utility functions and helpers.
 
 import sys
 
+import yaml
+
 from ROOT import TDatabasePDG
 
+import fempy
 
 class Pair:
     def __init__(self, pair):
         if pair == 'DstarPi':
             self.name = 'DstarPi'
+            self.max_kstar = 3000
+            self.binwidths = [1, 2, 4, 5, 10, 20, 40, 50]
             self.mass_regions = ['sgn', 'sbr']
             self.hpdg = 413
             self.lpdg = 211
-            self.max_kstar = 3000  # MeV/c
             self.norm_range = [1500, 2000]
+            self.heavy_mass_label = '#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c})'
+            self.cfg_sidebands = None
 
         elif pair == 'DPi':
             self.name = 'DPi'
-            self.mass_regions = ['sgn', 'sbl',  'sbr']
+            self.max_kstar = 3000
+            self.binwidths = [1, 2, 4, 5, 10, 20, 40, 50]
+            self.mass_regions = ['sgn', 'sbl', 'sbr']
             self.hpdg = 411
             self.lpdg = 211
-            self.max_kstar = 3000  # MeV/c
             self.norm_range = [1000, 1500]
-
+            self.heavy_mass_label = '#it{M}(K#pi#pi) (GeV/#it{c})'
+            self.cfg_sidebands = None
         elif pair == 'DK':
-            self.name = 'DK'
-            self.mass_regions = ['sgn', 'sbl',  'sbr']
+            self.name = 'DPi'
+            self.max_kstar = 3000
+            self.binwidths = [1, 2, 4, 5, 10, 20, 40, 50]
+            self.mass_regions = ['sgn', 'sbl', 'sbr']
             self.hpdg = 411
             self.lpdg = 321
-            self.max_kstar = 3000  # MeV/c
             self.norm_range = [1500, 2000]
+            self.heavy_mass_label = '#it{M}(K#pi#pi) (GeV/#it{c})'
+            self.cfg_sidebands = None
         else:
             print("Error: pair not implemented. Exit!")
             sys.exit()
+
+        # with open(cfg_file, "r") as stream:
+        #     try:
+        #         cfg = yaml.safe_load(stream)
+        #     except yaml.YAMLError as exc:
+        #         print(exc)
+        #         sys.exit()
+
+        #     self.name = 'DstarPi'
+        #     print(cfg.get('sidebands'))
+        #     self.max_kstar = cfg['max_kstar']
+        #     self.binwidths = cfg['binwidths']
+        #     self.mass_regions = cfg['mass_regions']
+        #     self.hpdg = cfg['hpdg']
+        #     self.lpdg = cfg['lpdg']
+        #     self.norm_range = cfg['norm_range']
+        #     self.heavy_mass_label = cfg['heavy_mass_label']
+        #     self.cfg_sidebands = cfg.get('sidebands')
 
 
 def is_mass_selected(mass, pt, pdg=413, selection='sgn', nsigma_mass=2., nsigma_offset=5., sideband_width=0.2, lower_Dstar_removal=1.992, upper_Dstar_removal=2.028) -> bool:

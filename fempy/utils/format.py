@@ -82,19 +82,27 @@ def TranslateToLatex(text):
 
 
 def FigInit():
-    gROOT.SetBatch(True)
+    # gROOT.SetBatch(True)
 
-    gStyle.SetLegendBorderSize(0)
     gStyle.SetLineWidth(2)
 
     gStyle.SetPadTickX(1)
     gStyle.SetPadTickY(1)
 
-    gStyle.SetPadRightMargin(0.035)
+    gStyle.SetPadRightMargin(0.03)
     gStyle.SetPadLeftMargin(0.14)
-    gStyle.SetPadTopMargin(0.035)
+    gStyle.SetPadTopMargin(0.03)
     gStyle.SetPadBottomMargin(0.1)
+    
     gStyle.SetPalette(55)
     gStyle.SetOptTitle(0)
     gStyle.SetOptStat(0)
     gStyle.SetLegendBorderSize(0)
+
+    gStyle.SetTitleOffset(1., 'x')
+    gStyle.SetTitleOffset(1.4, 'yz')
+    
+    gStyle.SetTitleSize(0.045, 'xyz')
+    gStyle.SetLabelSize(0.04, 'xyz')
+
+    gROOT.ForceStyle()
