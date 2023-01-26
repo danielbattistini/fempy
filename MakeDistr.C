@@ -25,8 +25,9 @@ std::map<std::string, std::string> LoadAliases(YAML::Node);
 std::vector<std::string> LoadSelections(YAML::Node);
 
 void MakeDistr(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
-               std::string cfgFileName = "/home/daniel/phsw/fempy/selections.yml",
-               fs::path oDir = "/home/daniel/an/DstarPi", std::string pair = "DstarPi",
+               std::string cfgFileName = "/home/daniel/an/DPi/cfg_selection_nosel.yml",
+               fs::path oDir = "/home/daniel/an/DstarPi",
+               std::string pair = "DstarPi",
                std::string suffix = "test",
                std::string treeDirName = "HM_CharmFemto_DstarPion_Trees0");
 
@@ -140,6 +141,34 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
                                               3000., 1000u, charmMassMin, charmMassMax},
                                              "kStarMeV", "heavy_invmass");
                 hCharmMassVsKStar->Write();
+            }
+
+            // project mass in bins of k*
+            double kStarBW = 50; // MeV/c
+            double lastMass;
+            auto UseCharmCandidatesOnce = [&lastMass](float mass){
+                if (std::abs(lastMass - mass)/mass < 0.0001)
+                    return false;
+                lastMass = mass;
+                return true;
+            };
+            for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
+                auto dfSel = df.Filter(selections[iSelection].data());
+                int nKStarBins = round(3000/kStarBW);
+                for (int iKStarBin = 0; iKStarBin < nKStarBins; iKStarBin++){
+                    lastMass = -1;
+                    double kStarMin = kStarBW * iKStarBin;
+                    double kStarMax = kStarBW * (iKStarBin + 1);
+
+                    auto dfSelKStar = dfSel.Filter(Form("%f < kStarMeV && kStarMeV < %f", kStarMin, kStarMax))
+                        .Filter(UseCharmCandidatesOnce, {"heavy_invmass"});
+
+                    dfSelKStar.Histo1D<float>({
+                        Form("hCharmMass%lu_kStar%.0f_%.0f", iSelection, kStarMin, kStarMax),
+                        Form(";%s;Counts", heavy_mass_label.data()),
+                        1000u, charmMassMin, charmMassMax},
+                        "heavy_invmass")->Write();
+                }
             }
 
             for (const char *region : regions) {
