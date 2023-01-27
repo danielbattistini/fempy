@@ -32,6 +32,8 @@ void MakeDistr(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResu
                std::string treeDirName = "HM_CharmFemto_DstarPion_Trees0");
 
 void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, std::string pair, std::string suffix, std::string treeDirName) {
+    ROOT::EnableImplicitMT(16);
+
     // configure analysis
     float charmMassMin;
     float charmMassMax;
