@@ -8,45 +8,6 @@ import fempy
 from fempy import CorrelationFunction
 from fempy.utils import Pair
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--pair', default="")
-parser.add_argument('inFileName')
-parser.add_argument('oDir')
-parser.add_argument('--suffix', default="")
-parser.add_argument('--kStarBW', default=50, type=float, help='units=MeV/c')
-parser.add_argument('--charmMassBW', default=1, type=float, help='units=MeV/c2')
-parser.add_argument('--fitMass', default=False, action='store_true')
-
-args = parser.parse_args()
-
-inFile = TFile(args.inFileName)
-oFileName = os.path.join(args.oDir, "RawCF.root" if args.suffix == '' else f'RawCF_{args.suffix}.root')
-oFile = TFile(oFileName, 'recreate')
-
-combs = fempy.utils.io.GetSubdirsInDir(inFile)
-combs = [comb for comb in combs if len(comb) == 2]
-regions = fempy.utils.io.GetSubdirsInDir(inFile.Get(f'{combs[0]}/SE'))
-pair = Pair(args.pair)
-kStarBW = args.kStarBW
-charmMassBW = args.charmMassBW
-nPadsPerCanvas = 12
-
-if pair.name == 'DstarPi':
-    nominalMass = TDatabasePDG.Instance().GetParticle(413).Mass() - TDatabasePDG.Instance().GetParticle(421).Mass()
-    massAxisTitle = '#it{M}(K#pi#pi) - #it{M}(K#pi) (GeV/#it{c}^{2})'
-    boundMassrange = [0.144, 0.146]
-    fitRange = [0.13, 0.16]
-    bkgFitFunc = AliHFInvMassFitter.kPowEx
-elif pair.name == 'DPi':
-    nominalMass = TDatabasePDG.Instance().GetParticle(411).Mass()
-    print(nominalMass)
-    massAxisTitle = pair.heavy_mass_label
-    boundMassrange = [1.85, 1.9]
-    fitRange = [1.8, 1.95]
-    bkgFitFunc = AliHFInvMassFitter.kPol2
-else:
-    fempy.error('hadron not implemented')
-
 
 def GetNSigma(hist, func, name='nsigma'):
     hNSigma = hist.Clone(name)
@@ -107,7 +68,7 @@ def GetYieldsFromFit(hist, event):
         fitters[-1].SetBoundGaussianMean(nominalMass, boundMassrange[0], boundMassrange[1])
         status = fitters[-1].MassFitter(False)
 
-        if status != 1: # fit failed
+        if status != 1:  # fit failed
             hYields.SetBinContent(iKStarBin+1, 0)
             hYields.SetBinError(iKStarBin+1, 0)
             hChi2.SetBinContent(iKStarBin+1, 0)
@@ -126,10 +87,10 @@ def GetYieldsFromFit(hist, event):
         hYields.SetBinError(iKStarBin + 1, 0 if fSgn == None else sgnUnc)
 
         # Draw
-        padMass = cMasses[iKStarBin // nPadsPerCanvas].cd(iKStarBin % nPadsPerCanvas + 1)
+        cMasses[iKStarBin // nPadsPerCanvas].cd(iKStarBin % nPadsPerCanvas + 1)
         fitters[-1].DrawHere(gPad)
 
-        padResiduals = cResiduals[iKStarBin // nPadsPerCanvas].cd(iKStarBin % nPadsPerCanvas + 1)
+        cResiduals[iKStarBin // nPadsPerCanvas].cd(iKStarBin % nPadsPerCanvas + 1)
         fitters[-1].DrawHistoMinusFit(gPad)
 
         cNSigmas[iKStarBin // nPadsPerCanvas].cd(iKStarBin % nPadsPerCanvas + 1)
@@ -150,45 +111,85 @@ def GetYieldsFromFit(hist, event):
     return hYields, hChi2
 
 
-for comb in combs:
-    oFile.mkdir(comb)
-    oFile.cd(comb)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--pair', default="")
+    parser.add_argument('inFileName')
+    parser.add_argument('oDir')
+    parser.add_argument('--suffix', default="")
+    parser.add_argument('--kStarBW', default=50, type=float, help='units=MeV/c')
+    parser.add_argument('--charmMassBW', default=1, type=float, help='units=MeV/c2')
+    parser.add_argument('--fitMass', default=False, action='store_true')
 
-    if args.fitMass: #todo: adapt for Dmeson-pi Dmeson-K
-        hSEMultVsKStar = inFile.Get(f'{comb}/SE/hCharmMassVsKStar0')
-        hSEMultVsKStar.SetName('hSEMultVsKStar')
-        hSEYieldSignal, hSEChi2 = GetYieldsFromFit(hSEMultVsKStar, 'SE')
+    args = parser.parse_args()
 
-        hMEMultVsKStar = inFile.Get(f'{comb}/ME/hCharmMassVsKStar0')
-        hMEMultVsKStar.SetName('hMEMultVsKStar')
-        hMEYieldSignal, hMEChi2 = GetYieldsFromFit(hMEMultVsKStar, 'ME')
+    inFile = TFile(args.inFileName)
+    oFileName = os.path.join(args.oDir, "RawCF.root" if args.suffix == '' else f'RawCF_{args.suffix}.root')
+    oFile = TFile(oFileName, 'recreate')
 
-        hSEYieldSignal.Write('hSEYields')
-        hSEChi2.Write('hSEChi2')
+    combs = fempy.utils.io.GetSubdirsInDir(inFile)
+    combs = [comb for comb in combs if len(comb) == 2]
+    regions = fempy.utils.io.GetSubdirsInDir(inFile.Get(f'{combs[0]}/SE'))
+    pair = Pair(args.pair)
+    kStarBW = args.kStarBW
+    charmMassBW = args.charmMassBW
+    nPadsPerCanvas = 12
 
-        hMEYieldSignal.Write('hMEYields')
-        hMEChi2.Write('hMEChi2')
+    if pair.name == 'DstarPi':
+        nominalMass = TDatabasePDG.Instance().GetParticle(413).Mass() - TDatabasePDG.Instance().GetParticle(421).Mass()
+        massAxisTitle = '#it{M}(K#pi#pi) - #it{M}(K#pi) (GeV/#it{c}^{2})'
+        boundMassrange = [0.144, 0.146]
+        fitRange = [0.13, 0.16]
+        bkgFitFunc = AliHFInvMassFitter.kPowEx
+    elif pair.name == 'DPi':
+        nominalMass = TDatabasePDG.Instance().GetParticle(411).Mass()
+        print(nominalMass)
+        massAxisTitle = pair.heavy_mass_label
+        boundMassrange = [1.85, 1.9]
+        fitRange = [1.8, 1.95]
+        bkgFitFunc = AliHFInvMassFitter.kPol2
+    else:
+        fempy.error('hadron not implemented')
 
-        hCF = CorrelationFunction(se=hSEYieldSignal, me=hMEYieldSignal, norm=pair.norm_range).get_cf()
-        hCF.Write('hCFfit')
+    for comb in combs:
+        oFile.mkdir(comb)
+        oFile.cd(comb)
 
-    for region in regions:
-        hSEMultVsKStar = inFile.Get(f'{comb}/SE/{region}/hCharmMassVsKStar0')
-        hSEMultVsKStar.SetName('hSECharmMassVsKStar0')
-        hMEMultVsKStar = inFile.Get(f'{comb}/ME/{region}/hCharmMassVsKStar0')
-        hMEMultVsKStar.SetName('hMECharmMassVsKStar0')
+        if args.fitMass:  # todo: adapt for Dmeson-pi Dmeson-K
+            hSEMultVsKStar = inFile.Get(f'{comb}/SE/hCharmMassVsKStar0')
+            inFile.ls()
+            hSEMultVsKStar.SetName('hSEMultVsKStar')
+            hSEYieldSignal, hSEChi2 = GetYieldsFromFit(hSEMultVsKStar, 'SE')
 
-        hSE = hSEMultVsKStar.ProjectionX()
-        hSE.Write('SE')
-        hME = hMEMultVsKStar.ProjectionX()
-        hME.Write('ME')
+            hMEMultVsKStar = inFile.Get(f'{comb}/ME/hCharmMassVsKStar0')
+            hMEMultVsKStar.SetName('hMEMultVsKStar')
+            hMEYieldSignal, hMEChi2 = GetYieldsFromFit(hMEMultVsKStar, 'ME')
 
-        hSE.Rebin(round(kStarBW / hSE.GetXaxis().GetBinWidth(0)))
-        hME.Rebin(round(kStarBW / hME.GetXaxis().GetBinWidth(0)))
+            hSEYieldSignal.Write('hSEYields')
+            hSEChi2.Write('hSEChi2')
 
-        hCF = CorrelationFunction(se=hSE, me=hME, norm=pair.norm_range, units='MeV').get_cf()
-        hCF.Write(f'hCFstd_{region}')
+            hMEYieldSignal.Write('hMEYields')
+            hMEChi2.Write('hMEChi2')
 
+            hCF = CorrelationFunction(se=hSEYieldSignal, me=hMEYieldSignal, norm=pair.norm_range).get_cf()
+            hCF.Write('hCFfit')
 
-oFile.Close()
-print(f"output saved in {oFileName}")
+        for region in regions:
+            hSEMultVsKStar = inFile.Get(f'{comb}/SE/{region}/hCharmMassVsKStar0')
+            hSEMultVsKStar.SetName('hSECharmMassVsKStar0')
+            hMEMultVsKStar = inFile.Get(f'{comb}/ME/{region}/hCharmMassVsKStar0')
+            hMEMultVsKStar.SetName('hMECharmMassVsKStar0')
+
+            hSE = hSEMultVsKStar.ProjectionX()
+            hSE.Write('SE')
+            hME = hMEMultVsKStar.ProjectionX()
+            hME.Write('ME')
+
+            hSE.Rebin(round(kStarBW / hSE.GetXaxis().GetBinWidth(0)))
+            hME.Rebin(round(kStarBW / hME.GetXaxis().GetBinWidth(0)))
+
+            hCF = CorrelationFunction(se=hSE, me=hME, norm=pair.norm_range, units='MeV').get_cf()
+            hCF.Write(f'hCFstd_{region}')
+
+    oFile.Close()
+    print(f"output saved in {oFileName}")
