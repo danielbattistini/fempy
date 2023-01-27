@@ -38,17 +38,21 @@ def GetObjectFromFile(inFile, pathToObj):
 
 
 histClasses = [f'TH{n}{t}' for n in [1, 2, 3] for t in ['I', 'F', 'D']]
-def GetHistNamesInDir(directory):
-    return [key.GetName() for key in list(directory.GetListOfKeys()) if key.GetClassName() in histClasses]
+def GetHistNamesInDir(rdir):
+    return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetClassName() in histClasses]
 
 
-def GetObjsInDir(directory):
-    return [key.GetName() for key in list(directory.GetListOfKeys()) if key.GetClassName() != 'TDirectoryFile']
+def GetObjNamesInDir(rdir):
+    return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetClassName() != 'TDirectoryFile']
 
 
-def GetSubdirsInDir(directory):
-    return [key.GetName() for key in list(directory.GetListOfKeys()) if key.GetClassName() == 'TDirectoryFile']
+def GetObjsInDir(rdir):
+    return [rdir.Get(key.GetName()) for key in list(rdir.GetListOfKeys()) if key.GetClassName() != 'TDirectoryFile']
 
 
-def GetKeyNamesInDir(directory):
-    return [key.GetName() for key in list(directory.GetListOfKeys())]
+def GetSubdirsInDir(rdir):
+    return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetClassName() == 'TDirectoryFile']
+
+
+def GetKeyNamesInDir(rdir):
+    return [key.GetName() for key in list(rdir.GetListOfKeys())]
