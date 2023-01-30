@@ -183,7 +183,9 @@ class MassFitter {
         tl.SetTextFont(42);
         tl.DrawLatexNDC(.15, .85, Form("#chi^{2}/NDF = %.2f", fFit->GetChisquare() / fFit->GetNDF()));
         double nSigma = 2;
-        tl.DrawLatexNDC(.15, .8, Form("S(%.2f#sigma) = %.2f", nSigma, this->GetSignal(nSigma)));
+        tl.DrawLatexNDC(
+            .15, .8,
+            Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetSignal(nSigma), this->GetSignalUnc(nSigma)));
         tl.DrawLatexNDC(.15, .75, Form("Counts = %.2f", this->GetCounts()));
     }
 
@@ -213,20 +215,23 @@ class MassFitter {
         return totCounts - bkgCounts;
     }
 
-    double GetSignal(double nsigma) {
+    double GetSignal(double nSigma) {
         if (!fFit) return -1;
+
+        double start = this->GetMean() - nSigma * this->GetSigma();
+        double end = this->GetMean() + nSigma * this->GetSigma();
+
         if (this->sgnFuncName == "gaus") {
-            return fSgn->Integral(this->GetMean() - nsigma * this->GetSigma(),
-                                  this->GetMean() + nsigma * this->GetSigma()) /
-                   this->hist->GetBinWidth(1);
+            return fSgn->Integral(start, end) / this->hist->GetBinWidth(1);
         } else if (this->sgnFuncName == "hat") {
-            double sThin = fHatThin->Integral(this->GetMean() - nsigma * this->GetSigma(),
-                                              this->GetMean() + nsigma * this->GetSigma());
-            double sWide = fHatWide->Integral(this->GetMean() - nsigma * this->GetSigma(),
-                                              this->GetMean() + nsigma * this->GetSigma());
-            return (sWide + sThin) / this->hist->GetBinWidth(1);
+            return (fHatThin->Integral(start, end) + fHatWide->Integral(start, end)) / this->hist->GetBinWidth(1);
         }
         return -1;
+    }
+
+    double GetSignalUnc(double nSigma) {
+        if (!fFit) return -1;
+        return fFit->GetParError(0) / fFit->GetParameter(0) * this->GetSignal(nSigma);
     }
 
    private:
