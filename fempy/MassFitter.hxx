@@ -93,7 +93,7 @@ class MassFitter {
         if (sgnFuncName == "gaus") {
             this->fFit->SetParName(0, "norm");
             this->fFit->SetParameter(0, 0.1);
-            this->fFit->SetParLimits(0, 0, 10);
+            this->fFit->SetParLimits(0, 0, 50);
             this->fFit->SetParName(1, "mean");
             this->fFit->SetParameter(1, 0.145);
             this->fFit->SetParLimits(1, 0.144, 0.146);
@@ -104,7 +104,7 @@ class MassFitter {
             // g1
             this->fFit->SetParName(0, "norm");
             this->fFit->SetParameter(0, 0.1);
-            this->fFit->SetParLimits(0, 0, 10);
+            this->fFit->SetParLimits(0, 0, 50);
             this->fFit->SetParName(1, "mean");
             this->fFit->SetParameter(1, 0.145);
             this->fFit->SetParLimits(1, 0.144, 0.146);
@@ -141,9 +141,15 @@ class MassFitter {
         //     return this->bkgFunc.EvalPar(x, par);
 
         // }, this->fitRangeMin, fitRangeMax, nBkgPars);
-
+        printf("\n\n\nPerfomring the prefit to the background:\n");
         hist->Fit(this->fPrefit, "MR0+", "");
 
+        // set the bkg parameters based on prefit
+        for (int iPar = 0; iPar < this->nBkgPars; iPar++){
+            fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) * 0.8, fPrefit->GetParameter(iPar) * 1.2);
+        }
+
+        printf("\n\n\nPerfomring the full:\n");
         return hist->Fit(this->fFit, "VSMRL+0", "")->Status();
     }
 
