@@ -78,6 +78,18 @@ class MassFitter {
             fitRangeMin, fitRangeMax, nTotPars);
         fFit->SetNpx(300);
 
+
+        this->fPrefit = new TF1("fPrefit", 
+            [&, this](double *x, double * pars) -> double {
+            if (std::abs(x[0] - 0.1455) < 0.003) {
+                TF1::RejectPoint();
+                return this->bkgFunc(x, pars);
+
+                // return 0;
+            }
+            return this->bkgFunc(x, pars);
+        }, this->fitRangeMin, fitRangeMax, nBkgPars);
+
         if (sgnFuncName == "gaus") {
             this->fFit->SetParName(0, "norm");
             this->fFit->SetParameter(0, 0.1);
@@ -112,7 +124,7 @@ class MassFitter {
         if (bkgFuncName == "powex") {
             this->fFit->SetParName(this->nSgnPars + 0, "norm");
             this->fFit->SetParameter(this->nSgnPars + 0, 0.5);
-            this->fFit->SetParLimits(this->nSgnPars + 0, 0, 3000);
+            this->fFit->SetParLimits(this->nSgnPars + 0, 200, 3000);
             this->fFit->SetParName(this->nSgnPars + 1, "slope");
             this->fFit->SetParameter(this->nSgnPars + 1, 0.1);
             this->fFit->SetParLimits(this->nSgnPars + 1, 0, 100);
@@ -120,7 +132,20 @@ class MassFitter {
             bkgFunc = Pol1;
     }
 
-    void Fit() { return hist->Fit(this->fFit, "VSMRL+0", "")->Status(); }
+    void Fit() {
+        // prefit
+        // this->fPrefit = new TF1("fPrefit", [&, this](double *x, double * par) {
+        //     if (std::abs(x[0] - 0.145) < 0.001)
+        //         TF1::RejectPoint();
+        //         return 0;
+        //     return this->bkgFunc.EvalPar(x, par);
+
+        // }, this->fitRangeMin, fitRangeMax, nBkgPars);
+
+        hist->Fit(this->fPrefit, "MR0+", "");
+
+        return hist->Fit(this->fFit, "VSMRL+0", "")->Status();
+    }
 
     void Draw(TVirtualPad *pad) {
         pad->cd();
@@ -129,6 +154,17 @@ class MassFitter {
                         Form("%s;%s;%s", this->hist->GetTitle(), this->hist->GetXaxis()->GetTitle(),
                              this->hist->GetYaxis()->GetTitle()));
 
+        // fPrefit->SetLineStyle(9);
+        // fPrefit->SetLineColor(kGray + 2);
+        // fPrefit->Draw("same");
+
+        // hist->SetMarkerSize(1);
+        // hist->SetMarkerStyle(20);
+        // hist->SetMarkerColor(kBlack);
+        // hist->SetLineColor(kBlack);
+        // hist->SetLineWidth(2);
+        // hist->Draw("same pe");
+        // return;
         if (this->bkgFuncName == "pol1") {
             this->fBkg = new TF1("pol1", Pol1, fitRangeMin, fitRangeMax, 2);
             this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
@@ -171,6 +207,11 @@ class MassFitter {
             this->fSgn->Draw("same");
         }
 
+
+        fPrefit->SetLineStyle(9);
+        fPrefit->SetLineColor(kGray + 2);
+        fPrefit->Draw("same");
+        
         fFit->SetLineColor(kRed);
         fFit->Draw("same");
 
@@ -198,7 +239,7 @@ class MassFitter {
 
         tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("Counts = %.2f", this->GetCounts()));
         pad->Update();
-    }  
+    }
 
     double GetMean() {
         if (!fFit) return -1;
@@ -252,7 +293,7 @@ class MassFitter {
     double GetBackgroundUnc(double nSigma) {
         Int_t leftBand = this->hist->FindBin(this->GetMean() - 6 * this->GetSigma());
         Int_t rightBand = this->hist->FindBin(this->GetMean() + 6 * this->GetSigma());
-        
+
         int start = this->hist->FindBin(this->fitRangeMin * 1.0001);
         int end = this->hist->FindBin(this->fitRangeMax * 0.9999);
         double SidebandBkg = this->hist->Integral(start, leftBand) + this->hist->Integral(rightBand, end);
@@ -280,6 +321,7 @@ class MassFitter {
     TF1 *fHatWide = nullptr;
     TF1 *fBkg = nullptr;
     TF1 *fFit = nullptr;
+    TF1 *fPrefit = nullptr;
 
     std::string sgnFuncName;
     std::string bkgFuncName;
