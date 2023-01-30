@@ -120,12 +120,10 @@ class MassFitter {
             bkgFunc = Pol1;
     }
 
-    void Fit() { hist->Fit(this->fFit, "MRL+", ""); }
+    void Fit() { return hist->Fit(this->fFit, "VSMRL+0", "")->Status(); }
 
-    void Draw() {
-        // hist->Draw("pe");
-        // printf("title: %s", this->hist->GetXaxis()->GetTitle());
-        // return;
+    void Draw(TVirtualPad *pad) {
+        pad->cd();
         hist->GetYaxis()->SetRangeUser(0, 1.3 * hist->GetMaximum());
         gPad->DrawFrame(fitRangeMin, 0, fitRangeMax, 1.3 * hist->GetMaximum(),
                         Form("%s;%s;%s", this->hist->GetTitle(), this->hist->GetXaxis()->GetTitle(),
@@ -172,6 +170,10 @@ class MassFitter {
             this->fSgn->SetLineColor(kAzure + 2);
             this->fSgn->Draw("same");
         }
+
+        fFit->SetLineColor(kRed);
+        fFit->Draw("same");
+
         hist->SetMarkerSize(1);
         hist->SetMarkerStyle(20);
         hist->SetMarkerColor(kBlack);
@@ -195,7 +197,8 @@ class MassFitter {
             Form("B(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetBackground(nSigma), this->GetBackgroundUnc(nSigma)));
 
         tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("Counts = %.2f", this->GetCounts()));
-    }
+        pad->Update();
+    }  
 
     double GetMean() {
         if (!fFit) return -1;
