@@ -1,3 +1,4 @@
+#include "TLatex.h"
 #include "TObject.h"
 
 double Gaus(double *x, double *par) {
@@ -5,9 +6,6 @@ double Gaus(double *x, double *par) {
     return norm * par[0] * TMath::Exp(-(x[0] - par[1]) * (x[0] - par[1]) / 2. / par[2] / par[2]);
 }
 
-// double Gaus(double *x, double *par) {
-//     return par[0] * TMath::Exp(-(x[0] - par[1]) * (x[0] - par[1]) / 2. / par[2] / par[2]);
-// }
 double Hat(double *x, double *par) {
     // p0: total yield
     // p1: mean
@@ -51,8 +49,8 @@ class MassFitter {
         this->bkgFuncName = bkgFuncName;
 
         this->nSgnPars = nPars[this->sgnFuncName];
-        int nBkgPars = nPars[this->bkgFuncName];
-        int nTotPars = this->nSgnPars + nBkgPars;
+        this->nBkgPars = nPars[this->bkgFuncName];
+        int nTotPars = this->nSgnPars + this->nBkgPars;
 
         if (sgnFuncName == "gaus")
             this->sgnFunc = Gaus;
@@ -104,10 +102,10 @@ class MassFitter {
             // g2
             this->fFit->SetParName(3, "Yfrac");
             this->fFit->SetParameter(3, 0.5);
-            this->fFit->SetParLimits(3, 0, 1);
+            this->fFit->SetParLimits(3, 0.1, 1);
             this->fFit->SetParName(4, "sigmaFrac");
             this->fFit->SetParameter(4, 1.5);
-            this->fFit->SetParLimits(4, 1.1, 5);
+            this->fFit->SetParLimits(4, 1, 5);
         }
 
         if (bkgFuncName == "powex") {
@@ -121,52 +119,57 @@ class MassFitter {
             bkgFunc = Pol1;
     }
 
-    void Fit() { hist->Fit(this->fFit, "MR+", ""); }
+    void Fit() { hist->Fit(this->fFit, "MRL+", ""); }
 
     void Draw() {
+        // hist->Draw("pe");
+        // printf("title: %s", this->hist->GetXaxis()->GetTitle());
+        // return;
         hist->GetYaxis()->SetRangeUser(0, 1.3 * hist->GetMaximum());
-        gPad->DrawFrame(fitRangeMin, 0, fitRangeMax, 1.3*hist->GetMaximum());
+        gPad->DrawFrame(fitRangeMin, 0, fitRangeMax, 1.3 * hist->GetMaximum(),
+                        Form("%s;%s;%s", this->hist->GetTitle(), this->hist->GetXaxis()->GetTitle(),
+                             this->hist->GetYaxis()->GetTitle()));
 
         if (this->bkgFuncName == "pol1") {
-            auto fBkg = new TF1("pol1", Pol1, fitRangeMin, fitRangeMax, 2);
-            fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
-            fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
-            fBkg->SetNpx(300);
-            fBkg->SetLineColor(kGray + 2);
-            fBkg->Draw("same");
+            this->fBkg = new TF1("pol1", Pol1, fitRangeMin, fitRangeMax, 2);
+            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
+            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
+            this->fBkg->SetNpx(300);
+            this->fBkg->SetLineColor(kGray + 2);
+            this->fBkg->Draw("same");
         } else if (this->bkgFuncName == "powex") {
-            TF1 *fBkg2 = new TF1("fPowEx", PowEx, fitRangeMin, fitRangeMax, 2);
-            fBkg2->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
-            fBkg2->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
-            fBkg2->SetNpx(300);
-            fBkg2->SetLineColor(kGray + 2);
-            fBkg2->Draw("same");
+            this->fBkg = new TF1("fPowEx", PowEx, fitRangeMin, fitRangeMax, 2);
+            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
+            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
+            this->fBkg->SetNpx(300);
+            this->fBkg->SetLineColor(kGray + 2);
+            this->fBkg->Draw("same");
         }
 
         if (this->sgnFuncName == "hat") {
-            auto fHatThin = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
-            fHatThin->SetParameter(0, this->fFit->GetParameter(0) * this->fFit->GetParameter(3));
-            fHatThin->SetParameter(1, this->fFit->GetParameter(1));
-            fHatThin->SetParameter(2, this->fFit->GetParameter(2));
-            fHatThin->SetLineColor(kMagenta + 3);
-            fHatThin->SetNpx(300);
-            fHatThin->Draw("same");
+            this->fHatThin = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
+            this->fHatThin->SetParameter(0, this->fFit->GetParameter(0) * this->fFit->GetParameter(3));
+            this->fHatThin->SetParameter(1, this->fFit->GetParameter(1));
+            this->fHatThin->SetParameter(2, this->fFit->GetParameter(2));
+            this->fHatThin->SetLineColor(kMagenta + 3);
+            this->fHatThin->SetNpx(300);
+            this->fHatThin->Draw("same");
 
-            auto fHatWide = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
-            fHatWide->SetParameter(0, this->fFit->GetParameter(0) * (1 - this->fFit->GetParameter(3)));
-            fHatWide->SetParameter(1, this->fFit->GetParameter(1));
-            fHatWide->SetParameter(2, this->fFit->GetParameter(2) * this->fFit->GetParameter(4));
-            fHatWide->SetNpx(300);
-            fHatWide->SetLineColor(kAzure + 2);
-            fHatWide->Draw("same");
+            this->fHatWide = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
+            this->fHatWide->SetParameter(0, this->fFit->GetParameter(0) * (1 - this->fFit->GetParameter(3)));
+            this->fHatWide->SetParameter(1, this->fFit->GetParameter(1));
+            this->fHatWide->SetParameter(2, this->fFit->GetParameter(2) * this->fFit->GetParameter(4));
+            this->fHatWide->SetNpx(300);
+            this->fHatWide->SetLineColor(kAzure + 2);
+            this->fHatWide->Draw("same");
         } else if (this->sgnFuncName == "gaus") {
-            auto fGaus = new TF1("fGaus", Gaus, fitRangeMin, fitRangeMax, 3);
-            fGaus->SetParameter(0, this->fFit->GetParameter(0));
-            fGaus->SetParameter(1, this->fFit->GetParameter(1));
-            fGaus->SetParameter(2, this->fFit->GetParameter(2));
-            fGaus->SetNpx(300);
-            fGaus->SetLineColor(kAzure + 2);
-            fGaus->Draw("same");
+            this->fSgn = new TF1("fSgn", Gaus, fitRangeMin, fitRangeMax, 3);
+            this->fSgn->SetParameter(0, this->fFit->GetParameter(0));
+            this->fSgn->SetParameter(1, this->fFit->GetParameter(1));
+            this->fSgn->SetParameter(2, this->fFit->GetParameter(2));
+            this->fSgn->SetNpx(300);
+            this->fSgn->SetLineColor(kAzure + 2);
+            this->fSgn->Draw("same");
         }
         hist->SetMarkerSize(1);
         hist->SetMarkerStyle(20);
@@ -174,11 +177,65 @@ class MassFitter {
         hist->SetLineColor(kBlack);
         hist->SetLineWidth(2);
         hist->Draw("same pe");
+
+        TLatex tl;
+        tl.SetTextSize(0.035);
+        tl.SetTextFont(42);
+        tl.DrawLatexNDC(.15, .85, Form("#chi^{2}/NDF = %.2f", fFit->GetChisquare() / fFit->GetNDF()));
+        double nSigma = 2;
+        tl.DrawLatexNDC(.15, .8, Form("S(%.2f#sigma) = %.2f", nSigma, this->GetSignal(nSigma)));
+        tl.DrawLatexNDC(.15, .75, Form("Counts = %.2f", this->GetCounts()));
+    }
+
+    double GetMean() {
+        if (!fFit) return -1;
+        if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParameter(1);
+        return -1;
+    }
+
+    double GetSigma() {
+        if (!fFit) return -1;
+        if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParameter(2);
+        return -1;
+    }
+
+    double GetCounts() {
+        if (!fFit) return -1;
+        int firstBin = hist->GetXaxis()->FindBin(fitRangeMin * 1.0001);
+        int lastBin = hist->GetXaxis()->FindBin(fitRangeMax * 0.9999);
+
+        double totCounts = hist->Integral(firstBin, lastBin);
+        double bkgCounts =
+            fBkg->Integral(hist->GetXaxis()->GetBinLowEdge(firstBin), hist->GetXaxis()->GetBinLowEdge(lastBin + 1)) /
+            this->hist->GetBinWidth(1);
+        std::cout << totCounts << std::endl;
+        std::cout << bkgCounts << std::endl;
+        return totCounts - bkgCounts;
+    }
+
+    double GetSignal(double nsigma) {
+        if (!fFit) return -1;
+        if (this->sgnFuncName == "gaus") {
+            return fSgn->Integral(this->GetMean() - nsigma * this->GetSigma(),
+                                  this->GetMean() + nsigma * this->GetSigma()) /
+                   this->hist->GetBinWidth(1);
+        } else if (this->sgnFuncName == "hat") {
+            double sThin = fHatThin->Integral(this->GetMean() - nsigma * this->GetSigma(),
+                                              this->GetMean() + nsigma * this->GetSigma());
+            double sWide = fHatWide->Integral(this->GetMean() - nsigma * this->GetSigma(),
+                                              this->GetMean() + nsigma * this->GetSigma());
+            return (sWide + sThin) / this->hist->GetBinWidth(1);
+        }
+        return -1;
     }
 
    private:
-    TH1 *hist;
-    TF1 *fFit;
+    TH1 *hist = nullptr;
+    TF1 *fSgn = nullptr;
+    TF1 *fHatThin = nullptr;
+    TF1 *fHatWide = nullptr;
+    TF1 *fBkg = nullptr;
+    TF1 *fFit = nullptr;
 
     std::string sgnFuncName;
     std::string bkgFuncName;
@@ -187,6 +244,7 @@ class MassFitter {
     double (*bkgFunc)(double *x, double *par);
 
     int nSgnPars;
+    int nBkgPars;
     double fitRangeMin;
     double fitRangeMax;
 };
