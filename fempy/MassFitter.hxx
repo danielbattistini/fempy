@@ -76,6 +76,7 @@ class MassFitter {
                 return this->sgnFunc(x, pars) + this->bkgFunc(x, &pars[this->nSgnPars]);
             },
             fitRangeMin, fitRangeMax, nTotPars);
+        fFit->SetNpx(300);
 
         if (sgnFuncName == "gaus") {
             this->fFit->SetParName(0, "norm");
@@ -181,12 +182,19 @@ class MassFitter {
         TLatex tl;
         tl.SetTextSize(0.035);
         tl.SetTextFont(42);
-        tl.DrawLatexNDC(.15, .85, Form("#chi^{2}/NDF = %.2f", fFit->GetChisquare() / fFit->GetNDF()));
         double nSigma = 2;
+        double step = 0.05;
+        int iStep = 0;
+        tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("#chi^{2}/NDF = %.2f", fFit->GetChisquare() / fFit->GetNDF()));
         tl.DrawLatexNDC(
-            .15, .8,
+            .15, .85 - step * iStep++,
             Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetSignal(nSigma), this->GetSignalUnc(nSigma)));
-        tl.DrawLatexNDC(.15, .75, Form("Counts = %.2f", this->GetCounts()));
+
+        tl.DrawLatexNDC(
+            .15, .85 - step * iStep++,
+            Form("B(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetBackground(nSigma), this->GetBackgroundUnc(nSigma)));
+
+        tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("Counts = %.2f", this->GetCounts()));
     }
 
     double GetMean() {
@@ -227,6 +235,34 @@ class MassFitter {
             return (fHatThin->Integral(start, end) + fHatWide->Integral(start, end)) / this->hist->GetBinWidth(1);
         }
         return -1;
+    }
+
+    double GetBackground(double nSigma) {
+        if (!fFit) return -1;
+
+        double start = this->GetMean() - nSigma * this->GetSigma();
+        double end = this->GetMean() + nSigma * this->GetSigma();
+
+        return fBkg->Integral(start, end) / this->hist->GetBinWidth(1);
+    }
+
+    double GetBackgroundUnc(double nSigma) {
+        Int_t leftBand = this->hist->FindBin(this->GetMean() - 6 * this->GetSigma());
+        Int_t rightBand = this->hist->FindBin(this->GetMean() + 6 * this->GetSigma());
+        
+        int start = this->hist->FindBin(this->fitRangeMin * 1.0001);
+        int end = this->hist->FindBin(this->fitRangeMax * 0.9999);
+        double SidebandBkg = this->hist->Integral(start, leftBand) + this->hist->Integral(rightBand, end);
+
+        double sum2 = 0;
+        for (Int_t i = start; i <= leftBand; i++) {
+            sum2 += this->hist->GetBinError(i) * this->hist->GetBinError(i);
+        }
+        for (Int_t i = rightBand; i <= end; i++) {
+            sum2 += this->hist->GetBinError(i) * this->hist->GetBinError(i);
+        }
+
+        return TMath::Sqrt(sum2) / SidebandBkg * this->GetBackground(nSigma);
     }
 
     double GetSignalUnc(double nSigma) {
