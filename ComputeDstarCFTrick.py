@@ -370,8 +370,8 @@ if __name__ == '__main__':
                     hDistr[event].SetBinContent(iKStarBin, hDistr[event].GetBinContent(iKStarBin + 1) * hPurity.GetBinContent(iKStarBin+1))
                 hDistr[event].Write()
             
-            # hCF = CorrelationFunction(se=hDistr['SE'], me=hDistr['ME'], norm=pair.norm_range).get_cf()
-            # hCF.Write('hCFPurityRew')
+            hCF = CorrelationFunction(se=hDistr['SE'], me=hDistr['ME'], norm=pair.norm_range).get_cf()
+            hCF.Write('hCFPurityRew')
             # break
         break
         for region in regions:
