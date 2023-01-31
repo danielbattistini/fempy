@@ -78,17 +78,18 @@ class MassFitter {
             fitRangeMin, fitRangeMax, nTotPars);
         fFit->SetNpx(300);
 
+        this->fPrefit = new TF1(
+            "fPrefit",
+            [&, this](double *x, double *pars) -> double {
+                if (std::abs(x[0] - 0.1455) < 0.003) {
+                    TF1::RejectPoint();
+                    return this->bkgFunc(x, pars);
 
-        this->fPrefit = new TF1("fPrefit", 
-            [&, this](double *x, double * pars) -> double {
-            if (std::abs(x[0] - 0.1455) < 0.003) {
-                TF1::RejectPoint();
+                    // return 0;
+                }
                 return this->bkgFunc(x, pars);
-
-                // return 0;
-            }
-            return this->bkgFunc(x, pars);
-        }, this->fitRangeMin, fitRangeMax, nBkgPars);
+            },
+            this->fitRangeMin, fitRangeMax, nBkgPars);
 
         if (sgnFuncName == "gaus") {
             this->fFit->SetParName(0, "norm");
@@ -145,12 +146,43 @@ class MassFitter {
         hist->Fit(this->fPrefit, "MR0+", "");
 
         // set the bkg parameters based on prefit
-        for (int iPar = 0; iPar < this->nBkgPars; iPar++){
-            fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) * 0.8, fPrefit->GetParameter(iPar) * 1.2);
+        for (int iPar = 0; iPar < this->nBkgPars; iPar++) {
+            fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) * 0.8,
+                               fPrefit->GetParameter(iPar) * 1.2);
         }
 
         printf("\n\n\nPerfomring the full:\n");
-        return hist->Fit(this->fFit, "VSMRL+0", "")->Status();
+        int status = hist->Fit(this->fFit, "VSMRL+0", "")->Status();
+
+        // decompose the fit function in its contributions
+        if (this->bkgFuncName == "pol1") {
+            this->fBkg = new TF1("pol1", Pol1, fitRangeMin, fitRangeMax, 2);
+            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
+            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
+        } else if (this->bkgFuncName == "powex") {
+            this->fBkg = new TF1("fPowEx", PowEx, fitRangeMin, fitRangeMax, 2);
+            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
+            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
+        }
+
+        if (this->sgnFuncName == "hat") {
+            this->fHatThin = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
+            this->fHatThin->SetParameter(0, this->fFit->GetParameter(0) * this->fFit->GetParameter(3));
+            this->fHatThin->SetParameter(1, this->fFit->GetParameter(1));
+            this->fHatThin->SetParameter(2, this->fFit->GetParameter(2));
+
+            this->fHatWide = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
+            this->fHatWide->SetParameter(0, this->fFit->GetParameter(0) * (1 - this->fFit->GetParameter(3)));
+            this->fHatWide->SetParameter(1, this->fFit->GetParameter(1));
+            this->fHatWide->SetParameter(2, this->fFit->GetParameter(2) * this->fFit->GetParameter(4));
+        } else if (this->sgnFuncName == "gaus") {
+            this->fSgn = new TF1("fSgn", Gaus, fitRangeMin, fitRangeMax, 3);
+            this->fSgn->SetParameter(0, this->fFit->GetParameter(0));
+            this->fSgn->SetParameter(1, this->fFit->GetParameter(1));
+            this->fSgn->SetParameter(2, this->fFit->GetParameter(2));
+        }
+
+        return status;
     }
 
     void Draw(TVirtualPad *pad) {
@@ -172,52 +204,33 @@ class MassFitter {
         // hist->Draw("same pe");
         // return;
         if (this->bkgFuncName == "pol1") {
-            this->fBkg = new TF1("pol1", Pol1, fitRangeMin, fitRangeMax, 2);
-            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
-            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
             this->fBkg->SetNpx(300);
             this->fBkg->SetLineColor(kGray + 2);
             this->fBkg->Draw("same");
         } else if (this->bkgFuncName == "powex") {
-            this->fBkg = new TF1("fPowEx", PowEx, fitRangeMin, fitRangeMax, 2);
-            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
-            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
             this->fBkg->SetNpx(300);
             this->fBkg->SetLineColor(kGray + 2);
             this->fBkg->Draw("same");
         }
 
         if (this->sgnFuncName == "hat") {
-            this->fHatThin = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
-            this->fHatThin->SetParameter(0, this->fFit->GetParameter(0) * this->fFit->GetParameter(3));
-            this->fHatThin->SetParameter(1, this->fFit->GetParameter(1));
-            this->fHatThin->SetParameter(2, this->fFit->GetParameter(2));
             this->fHatThin->SetLineColor(kMagenta + 3);
             this->fHatThin->SetNpx(300);
             this->fHatThin->Draw("same");
 
-            this->fHatWide = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
-            this->fHatWide->SetParameter(0, this->fFit->GetParameter(0) * (1 - this->fFit->GetParameter(3)));
-            this->fHatWide->SetParameter(1, this->fFit->GetParameter(1));
-            this->fHatWide->SetParameter(2, this->fFit->GetParameter(2) * this->fFit->GetParameter(4));
             this->fHatWide->SetNpx(300);
             this->fHatWide->SetLineColor(kAzure + 2);
             this->fHatWide->Draw("same");
         } else if (this->sgnFuncName == "gaus") {
-            this->fSgn = new TF1("fSgn", Gaus, fitRangeMin, fitRangeMax, 3);
-            this->fSgn->SetParameter(0, this->fFit->GetParameter(0));
-            this->fSgn->SetParameter(1, this->fFit->GetParameter(1));
-            this->fSgn->SetParameter(2, this->fFit->GetParameter(2));
             this->fSgn->SetNpx(300);
             this->fSgn->SetLineColor(kAzure + 2);
             this->fSgn->Draw("same");
         }
 
-
         fPrefit->SetLineStyle(9);
         fPrefit->SetLineColor(kGray + 2);
         fPrefit->Draw("same");
-        
+
         fFit->SetLineColor(kRed);
         fFit->Draw("same");
 
@@ -253,9 +266,15 @@ class MassFitter {
         return -1;
     }
 
-    double GetSigma() {
+    double GetWidth() {
         if (!fFit) return -1;
         if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParameter(2);
+        return -1;
+    }
+
+    double GetWidthUnc() {
+        if (!fFit) return -1;
+        if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParError(2);
         return -1;
     }
 
@@ -276,8 +295,8 @@ class MassFitter {
     double GetSignal(double nSigma) {
         if (!fFit) return -1;
 
-        double start = this->GetMean() - nSigma * this->GetSigma();
-        double end = this->GetMean() + nSigma * this->GetSigma();
+        double start = this->GetMean() - nSigma * this->GetWidth();
+        double end = this->GetMean() + nSigma * this->GetWidth();
 
         if (this->sgnFuncName == "gaus") {
             return fSgn->Integral(start, end) / this->hist->GetBinWidth(1);
@@ -286,19 +305,21 @@ class MassFitter {
         }
         return -1;
     }
+    double GetChi2Ndf() { return fFit->GetChisquare() / fFit->GetNDF(); }
 
     double GetBackground(double nSigma) {
         if (!fFit) return -1;
 
-        double start = this->GetMean() - nSigma * this->GetSigma();
-        double end = this->GetMean() + nSigma * this->GetSigma();
+        double start = this->GetMean() - nSigma * this->GetWidth();
+        double end = this->GetMean() + nSigma * this->GetWidth();
 
+        printf("%d\n", fBkg);
         return fBkg->Integral(start, end) / this->hist->GetBinWidth(1);
     }
 
     double GetBackgroundUnc(double nSigma) {
-        Int_t leftBand = this->hist->FindBin(this->GetMean() - 6 * this->GetSigma());
-        Int_t rightBand = this->hist->FindBin(this->GetMean() + 6 * this->GetSigma());
+        Int_t leftBand = this->hist->FindBin(this->GetMean() - 6 * this->GetWidth());
+        Int_t rightBand = this->hist->FindBin(this->GetMean() + 6 * this->GetWidth());
 
         int start = this->hist->FindBin(this->fitRangeMin * 1.0001);
         int end = this->hist->FindBin(this->fitRangeMax * 0.9999);
@@ -317,6 +338,8 @@ class MassFitter {
 
     double GetSignalUnc(double nSigma) {
         if (!fFit) return -1;
+        if (this->GetSignal(nSigma) <= 0) return 0;
+
         return fFit->GetParError(0) / fFit->GetParameter(0) * this->GetSignal(nSigma);
     }
 
