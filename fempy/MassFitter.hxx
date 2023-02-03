@@ -276,8 +276,6 @@ class MassFitter {
         double bkgCounts =
             fBkg->Integral(hist->GetXaxis()->GetBinLowEdge(firstBin), hist->GetXaxis()->GetBinLowEdge(lastBin + 1)) /
             this->hist->GetBinWidth(1);
-        std::cout << totCounts << std::endl;
-        std::cout << bkgCounts << std::endl;
         return totCounts - bkgCounts;
     }
 
