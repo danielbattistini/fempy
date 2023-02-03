@@ -192,17 +192,6 @@ class MassFitter {
                         Form("%s;%s;%s", this->hist->GetTitle(), this->hist->GetXaxis()->GetTitle(),
                              this->hist->GetYaxis()->GetTitle()));
 
-        // fPrefit->SetLineStyle(9);
-        // fPrefit->SetLineColor(kGray + 2);
-        // fPrefit->Draw("same");
-
-        // hist->SetMarkerSize(1);
-        // hist->SetMarkerStyle(20);
-        // hist->SetMarkerColor(kBlack);
-        // hist->SetLineColor(kBlack);
-        // hist->SetLineWidth(2);
-        // hist->Draw("same pe");
-        // return;
         if (this->bkgFuncName == "pol1") {
             this->fBkg->SetNpx(300);
             this->fBkg->SetLineColor(kGray + 2);
@@ -313,7 +302,6 @@ class MassFitter {
         double start = this->GetMean() - nSigma * this->GetWidth();
         double end = this->GetMean() + nSigma * this->GetWidth();
 
-        printf("%d\n", fBkg);
         return fBkg->Integral(start, end) / this->hist->GetBinWidth(1);
     }
 
