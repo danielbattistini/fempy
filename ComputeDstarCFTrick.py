@@ -22,7 +22,6 @@ def Pol0(x, pars):
 
 
 def Pol1(x, pars):
-    print(type(pars))
     return pars[0] + pars[1]*x[0]
 
 
@@ -165,7 +164,6 @@ if __name__ == '__main__':
         fempy.error("signal fit function not implemented")
 
     bkgFitFunc = args.bkgFitFunc
-    print(bkgFitFunc)
     if bkgFitFunc not in ["powex"]:
         fempy.error("background fit function not implemented")
 
@@ -176,7 +174,6 @@ if __name__ == '__main__':
         fitRange = [0.141, 0.154]
     elif pair.name == 'DPi':
         nominalMass = TDatabasePDG.Instance().GetParticle(411).Mass()
-        print(nominalMass)
         massAxisTitle = pair.heavy_mass_label
         boundMassrange = [1.85, 1.9]
         fitRange = [1.8, 1.95]
@@ -192,7 +189,6 @@ if __name__ == '__main__':
                 oFile.cd(f'{comb}')
 
                 hMasses = [h for h in fempy.utils.GetObjsInDir(inFile.Get(f'{comb}/{event}')) if 'hCharmMass0' in h.GetName()]
-                print(len(hMasses))
 
                 nKStarBins = len(hMasses)
                 kStarBW = round(3000/nKStarBins)
