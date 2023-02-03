@@ -24,15 +24,28 @@ bool MassSelection(const double &mass, const double &pt, const int &hpdg, const 
 std::map<std::string, std::string> LoadAliases(YAML::Node);
 std::vector<std::string> LoadSelections(YAML::Node);
 
-void MakeDistr(std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
-               std::string cfgFileName = "/home/daniel/an/DPi/cfg_selection_nosel.yml",
-               fs::path oDir = "/home/daniel/an/DstarPi",
-               std::string pair = "DstarPi",
-               std::string suffix = "test",
-               std::string treeDirName = "HM_CharmFemto_DstarPion_Trees0");
+void MakeDistr(
+    std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
+    std::string cfgFileName = "/home/daniel/an/DPi/cfg_selection_nosel.yml",
+    fs::path oDir = "/home/daniel/an/DstarPi",
+    std::string pair = "DstarPi",
+    std::string suffix = "test",
+    double kStarBW = 50, // MeV/c
+    std::string treeDirName = "HM_CharmFemto_DstarPion_Trees0",
+    int nJobs=16);
 
-void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, std::string pair, std::string suffix, std::string treeDirName) {
-    ROOT::EnableImplicitMT(16);
+void MakeDistr(
+    std::string inFileName,
+    std::string cfgFileName,
+    fs::path oDir,
+    std::string pair,
+    std::string suffix,
+    double kStarBW,
+    std::string treeDirName,
+    int nJobs) {
+
+    if (nJobs>1)
+        ROOT::EnableImplicitMT(nJobs); 
 
     // configure analysis
     float charmMassMin;
@@ -146,7 +159,6 @@ void MakeDistr(std::string inFileName, std::string cfgFileName, fs::path oDir, s
             }
 
             // project mass in bins of k*
-            double kStarBW = 50; // MeV/c
             double lastMass;
             auto UseCharmCandidatesOnce = [&lastMass](float mass){
                 if (std::abs(lastMass - mass)/mass < 0.0001)
