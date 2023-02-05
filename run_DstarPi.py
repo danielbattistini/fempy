@@ -7,9 +7,9 @@ datasets = {
     "18_fixmix": {
         "data": [
             "/data/DstarPi/18_fixmix/data/AnalysisResults_4654.root",
-            # "/data/DstarPi/18_fixmix/data/AnalysisResults_4655.root",
-            # "/data/DstarPi/18_fixmix/data/AnalysisResults_4656.root",
-            # "/data/DstarPi/18_fixmix/data/AnalysisResults_4657.root",
+            "/data/DstarPi/18_fixmix/data/AnalysisResults_4655.root",
+            "/data/DstarPi/18_fixmix/data/AnalysisResults_4656.root",
+            "/data/DstarPi/18_fixmix/data/AnalysisResults_4657.root",
         ]
     }
 }
@@ -165,6 +165,7 @@ class DstarPiTask(luigi.Task):
             # ComputeCFTask(data_version=self.data_version, sample="data", kStarBW=self.kStarBW, sgnFitFunc="gaus", charmMassBW=0.2),
             ComputeCFTask(data_version=self.data_version, sample="data", kStarBW=self.kStarBW, sgnFitFunc="gaus", bkgFitFunc="powex", charmMassBW=0.5, aliFitter=True),
             ComputeCFTask(data_version=self.data_version, sample="data", kStarBW=self.kStarBW, sgnFitFunc="gaus", bkgFitFunc="powex", charmMassBW=0.5, aliFitter=False),
+            ComputeCFTask(data_version=self.data_version, sample="data", kStarBW=self.kStarBW, sgnFitFunc="hat", bkgFitFunc="powex", charmMassBW=0.5, aliFitter=False),
         ]
 
 if __name__ == '__main__':
