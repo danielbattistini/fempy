@@ -175,6 +175,14 @@ class MassFitter {
             this->fHatWide->SetParameter(0, this->fFit->GetParameter(0) * (1 - this->fFit->GetParameter(3)));
             this->fHatWide->SetParameter(1, this->fFit->GetParameter(1));
             this->fHatWide->SetParameter(2, this->fFit->GetParameter(2) * this->fFit->GetParameter(4));
+
+            this->fSgn = new TF1("fSgn", Hat, fitRangeMin, fitRangeMax, 5);
+            this->fSgn->SetParameter(0, this->fFit->GetParameter(0));
+            this->fSgn->SetParameter(1, this->fFit->GetParameter(1));
+            this->fSgn->SetParameter(2, this->fFit->GetParameter(2));
+            this->fSgn->SetParameter(3, this->fFit->GetParameter(3));
+            this->fSgn->SetParameter(4, this->fFit->GetParameter(4));
+            
         } else if (this->sgnFuncName == "gaus") {
             this->fSgn = new TF1("fSgn", Gaus, fitRangeMin, fitRangeMax, 3);
             this->fSgn->SetParameter(0, this->fFit->GetParameter(0));
@@ -210,9 +218,13 @@ class MassFitter {
             this->fHatWide->SetNpx(300);
             this->fHatWide->SetLineColor(kAzure + 2);
             this->fHatWide->Draw("same");
+
+            this->fSgn->SetNpx(300);
+            this->fSgn->SetLineColor(kBlue + 2);
+            this->fSgn->Draw("same");
         } else if (this->sgnFuncName == "gaus") {
             this->fSgn->SetNpx(300);
-            this->fSgn->SetLineColor(kAzure + 2);
+            this->fSgn->SetLineColor(kBlue + 2);
             this->fSgn->Draw("same");
         }
 
@@ -282,25 +294,37 @@ class MassFitter {
     double GetSignal(double nSigma) {
         if (!fFit) return -1;
 
-        double start = this->GetMean() - nSigma * this->GetWidth();
-        double end = this->GetMean() + nSigma * this->GetWidth();
+        // convert nSigma to quantiles
+        double probs[2] = {TMath::Freq(-nSigma), TMath::Freq(nSigma)};
+        double quantiles[2];
+        fSgn->GetQuantiles(2, quantiles, probs); // returns the limits in which the sgn func should be integrated
 
-        if (this->sgnFuncName == "gaus") {
-            return fSgn->Integral(start, end) / this->hist->GetBinWidth(1);
-        } else if (this->sgnFuncName == "hat") {
-            return (fHatThin->Integral(start, end) + fHatWide->Integral(start, end)) / this->hist->GetBinWidth(1);
-        }
-        return -1;
+        return fSgn->Integral(quantiles[0], quantiles[1]) / this->hist->GetBinWidth(1);
+        // double start = this->GetMean() - nSigma * this->GetWidth();
+        // double end = this->GetMean() + nSigma * this->GetWidth();
+
+        // if (this->sgnFuncName == "gaus") {
+        //     return fSgn->Integral(start, end) / this->hist->GetBinWidth(1);
+        // } else if (this->sgnFuncName == "hat") {
+        //     return (fHatThin->Integral(start, end) + fHatWide->Integral(start, end)) / this->hist->GetBinWidth(1);
+        // }
+        // return -1;
     }
     double GetChi2Ndf() { return fFit->GetChisquare() / fFit->GetNDF(); }
 
     double GetBackground(double nSigma) {
         if (!fFit) return -1;
+        double probs[2] = {TMath::Freq(-nSigma), TMath::Freq(nSigma)};
+        double quantiles[2];
+        fSgn->GetQuantiles(2, quantiles, probs); // returns the limits in which the sgn func should be integrated
 
-        double start = this->GetMean() - nSigma * this->GetWidth();
-        double end = this->GetMean() + nSigma * this->GetWidth();
+        return fBkg->Integral(quantiles[0], quantiles[1]) / this->hist->GetBinWidth(1);
+        
 
-        return fBkg->Integral(start, end) / this->hist->GetBinWidth(1);
+        // double start = this->GetMean() - nSigma * this->GetWidth();
+        // double end = this->GetMean() + nSigma * this->GetWidth();
+
+        // return fBkg->Integral(start, end) / this->hist->GetBinWidth(1);
     }
 
     double GetBackgroundUnc(double nSigma) {
