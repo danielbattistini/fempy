@@ -219,6 +219,7 @@ if __name__ == '__main__':
                     print(f"\n\nProcessing {comb} {event} kStar: [{kStarMin:.0f}, {kStarMax:.0f}]")
 
                     charmMassRebin = round(charmMassBW / hCharmMass.GetXaxis().GetBinWidth(0) / 1000)
+                    nSigma = 2
 
                     if args.aliFitter:
                         hMass = TH1F()
@@ -259,19 +260,28 @@ if __name__ == '__main__':
                             cMasses[iKStarBin // nPadsPerCanvas].cd(iKStarBin % nPadsPerCanvas + 1)
                             hCharmMass.DrawClone()
                             continue
-
+                        chi2 = fitters[-1].GetReducedChiSquare()
                         fMass = fitters[-1].GetMassFunc()
                         fSgn = fitters[-1].GetSignalFunc()
                         fBkg = fitters[-1].GetBackgroundRecalcFunc()
                         sgn, sgnUnc = ctypes.c_double(), ctypes.c_double()
                         bkg, bkgUnc = ctypes.c_double(), ctypes.c_double()
                         fitters[-1].Signal(2, sgn, sgnUnc)
+                        width = fitters[-1].GetSigma()
+                        widthUnc = fitters[-1].GetSigmaUncertainty()
                         fitters[-1].Background(2, bkg, bkgUnc)
+                        
                         cMasses[iKStarBin // nPadsPerCanvas].cd(iKStarBin % nPadsPerCanvas + 1)
                         fitters[-1].DrawHere(gPad)
 
                         cResiduals[iKStarBin // nPadsPerCanvas].cd(iKStarBin % nPadsPerCanvas + 1)
                         fitters[-1].DrawHistoMinusFit(gPad)
+
+                        sgn = sgn.value
+                        sgnUnc = sgnUnc.value
+                        bkg = bkg.value
+                        bkgUnc = bkgUnc.value
+                        
 
                     else:
                         hCharmMass.SetTitle(f'{kStarMin:.0f}  <  #it{{k}}* < {kStarMax:.0f} MeV/#it{{c}}')
@@ -281,38 +291,38 @@ if __name__ == '__main__':
                         fitters.append(MassFitter(hCharmMass, sgnFitFunc, "powex", fitRange[0], fitRange[1]))
                         status = fitters[-1].Fit()
 
-                        hChi2.SetBinContent(iKStarBin + 1, fitters[-1].GetChi2Ndf())
 
-                        nSigma = 2
+                        chi2 = fitters[-1].GetChi2Ndf()
                         sgn = fitters[-1].GetSignal(nSigma)
                         sgnUnc = fitters[-1].GetSignalUnc(nSigma)
                         bkg = fitters[-1].GetBackground(nSigma)
                         bkgUnc = fitters[-1].GetBackgroundUnc(nSigma)
 
                         width = fitters[-1].GetWidth()
-
-                        hBkg.SetBinContent(iKStarBin + 1, bkg)
-                        hBkg.SetBinError(iKStarBin + 1, bkgUnc)
-
-                        hYieldsFromFit.SetBinContent(iKStarBin + 1, sgn)
-                        hYieldsFromFit.SetBinError(iKStarBin + 1, sgnUnc)
-
-                        firstBin = hCharmMass.GetXaxis().FindBin((nominalMass - nSigma * width)*1.0001)
-                        lastBin = hCharmMass.GetXaxis().FindBin((nominalMass + nSigma * width)*0.9999)
-                        sgnFromHist = hCharmMass.Integral(firstBin, lastBin)
-                        sgnFromHistUnc = np.sqrt(sum((hCharmMass.GetBinContent(bin) for bin in range(firstBin, lastBin+1))))
-
-                        hYieldsFromHistMinusBkg.SetBinContent(iKStarBin + 1, sgnFromHist - bkg)
-                        hYieldsFromHistMinusBkg.SetBinError(iKStarBin + 1, np.sqrt(sgnFromHistUnc**2 + bkgUnc**2))
-
-                        hWidth.SetBinContent(iKStarBin + 1, width)
-                        hWidth.SetBinError(iKStarBin + 1, fitters[-1].GetWidthUnc())
-                        hPurity.SetBinContent(iKStarBin + 1, sgn/(sgn + bkg))
-                        hPurity.SetBinError(iKStarBin + 1, np.sqrt(bkg**2 * sgnUnc**2 + sgn**2 * bkgUnc ** 2) / (sgn + bkg)**2)
+                        widthUnc = fitters[-1].GetWidthUnc()
 
                         # Draw
                         cMasses[iKStarBin // nPadsPerCanvas].cd(iKStarBin % nPadsPerCanvas + 1)
                         fitters[-1].Draw(gPad)
+                        
+                    hChi2.SetBinContent(iKStarBin + 1, chi2)
+                    hBkg.SetBinContent(iKStarBin + 1, bkg)
+                    hBkg.SetBinError(iKStarBin + 1, bkgUnc)
+                    hYieldsFromFit.SetBinContent(iKStarBin + 1, sgn)
+                    hYieldsFromFit.SetBinError(iKStarBin + 1, sgnUnc)
+
+                    firstBin = hCharmMass.GetXaxis().FindBin((nominalMass - nSigma * width)*1.0001)
+                    lastBin = hCharmMass.GetXaxis().FindBin((nominalMass + nSigma * width)*0.9999)
+                    sgnFromHist = hCharmMass.Integral(firstBin, lastBin)
+                    sgnFromHistUnc = np.sqrt(sum((hCharmMass.GetBinContent(bin) for bin in range(firstBin, lastBin+1))))
+
+                    hYieldsFromHistMinusBkg.SetBinContent(iKStarBin + 1, sgnFromHist - bkg)
+                    hYieldsFromHistMinusBkg.SetBinError(iKStarBin + 1, np.sqrt(sgnFromHistUnc**2 + bkgUnc**2))
+
+                    hWidth.SetBinContent(iKStarBin + 1, width)
+                    hWidth.SetBinError(iKStarBin + 1, widthUnc)
+                    hPurity.SetBinContent(iKStarBin + 1, sgn/(sgn + bkg))
+                    hPurity.SetBinError(iKStarBin + 1, np.sqrt(bkg**2 * sgnUnc**2 + sgn**2 * bkgUnc ** 2) / (sgn + bkg)**2)
 
                 hBkg.Write()
                 hYieldsFromFit.Write()
