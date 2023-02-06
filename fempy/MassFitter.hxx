@@ -193,7 +193,7 @@ class MassFitter {
         return status;
     }
 
-    void Draw(TVirtualPad *pad) {
+    void Draw(TVirtualPad *pad, std::string method) {
         pad->cd();
         hist->GetYaxis()->SetRangeUser(0, 1.3 * hist->GetMaximum());
         gPad->DrawFrame(fitRangeMin, 0, fitRangeMax, 1.3 * hist->GetMaximum(),
@@ -251,7 +251,7 @@ class MassFitter {
         tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("#chi^{2}/NDF = %.2f", fFit->GetChisquare() / fFit->GetNDF()));
         tl.DrawLatexNDC(
             .15, .85 - step * iStep++,
-            Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetSignal(nSigma), this->GetSignalUnc(nSigma)));
+            Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetSignal(nSigma, method), this->GetSignalUnc(nSigma, method)));
 
         tl.DrawLatexNDC(
             .15, .85 - step * iStep++,
@@ -269,13 +269,18 @@ class MassFitter {
 
     double GetWidth() {
         if (!fFit) return -1;
-        if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParameter(2);
-        return -1;
+
+        double probs[2] = {TMath::Freq(-1), TMath::Freq(1)};
+        double quantiles[2];
+        fSgn->GetQuantiles(2, quantiles, probs);
+        return (quantiles[1] - quantiles[0])/2;
     }
 
     double GetWidthUnc() {
         if (!fFit) return -1;
-        if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParError(2);
+
+        if (this->sgnFuncName == "gaus") return fFit->GetParError(2);
+        else if(this->sgnFuncName == "hat") return fFit->GetParError(2) / fFit->GetParameter(2) * GetWidth();  // assume rel error is the same
         return -1;
     }
 
@@ -291,7 +296,7 @@ class MassFitter {
         return totCounts - bkgCounts;
     }
 
-    double GetSignal(double nSigma) {
+    double GetSignal(double nSigma, std::string method) {
         if (!fFit) return -1;
 
         // convert nSigma to quantiles
@@ -299,16 +304,20 @@ class MassFitter {
         double quantiles[2];
         fSgn->GetQuantiles(2, quantiles, probs); // returns the limits in which the sgn func should be integrated
 
-        return fSgn->Integral(quantiles[0], quantiles[1]) / this->hist->GetBinWidth(1);
-        // double start = this->GetMean() - nSigma * this->GetWidth();
-        // double end = this->GetMean() + nSigma * this->GetWidth();
+        if (method=="sgn_int") {
+            return fSgn->Integral(quantiles[0], quantiles[1]) / this->hist->GetBinWidth(1);
+        } else if (method == "data_minus_bkg") {
+            int firstBin = hist->GetXaxis()->FindBin(quantiles[0] * 1.0001);
+            int lastBin = hist->GetXaxis()->FindBin(quantiles[1] * 0.9999);
 
-        // if (this->sgnFuncName == "gaus") {
-        //     return fSgn->Integral(start, end) / this->hist->GetBinWidth(1);
-        // } else if (this->sgnFuncName == "hat") {
-        //     return (fHatThin->Integral(start, end) + fHatWide->Integral(start, end)) / this->hist->GetBinWidth(1);
-        // }
-        // return -1;
+            double data = this->hist->Integral(firstBin, lastBin);
+            double bkg = GetBackground(nSigma);
+            return data - bkg;
+        } else {
+            printf(Form("'%s' is an invalid signal extraction method. Exit!\n", method.data()));
+            exit(1);
+        }
+        return -1;
     }
     double GetChi2Ndf() { return fFit->GetChisquare() / fFit->GetNDF(); }
 
@@ -319,12 +328,6 @@ class MassFitter {
         fSgn->GetQuantiles(2, quantiles, probs); // returns the limits in which the sgn func should be integrated
 
         return fBkg->Integral(quantiles[0], quantiles[1]) / this->hist->GetBinWidth(1);
-        
-
-        // double start = this->GetMean() - nSigma * this->GetWidth();
-        // double end = this->GetMean() + nSigma * this->GetWidth();
-
-        // return fBkg->Integral(start, end) / this->hist->GetBinWidth(1);
     }
 
     double GetBackgroundUnc(double nSigma) {
@@ -333,24 +336,24 @@ class MassFitter {
 
         int start = this->hist->FindBin(this->fitRangeMin * 1.0001);
         int end = this->hist->FindBin(this->fitRangeMax * 0.9999);
-        double SidebandBkg = this->hist->Integral(start, leftBand) + this->hist->Integral(rightBand, end);
+        double SidebandBkg = this->hist->Integral(1, leftBand) + this->hist->Integral(rightBand, this->hist->GetNbinsX());
 
         double sum2 = 0;
-        for (Int_t i = start; i <= leftBand; i++) {
+        for (Int_t i = 1; i <= leftBand; i++) {
             sum2 += this->hist->GetBinError(i) * this->hist->GetBinError(i);
         }
-        for (Int_t i = rightBand; i <= end; i++) {
+        for (Int_t i = rightBand; i <= this->hist->GetNbinsX(); i++) {
             sum2 += this->hist->GetBinError(i) * this->hist->GetBinError(i);
         }
 
         return TMath::Sqrt(sum2) / SidebandBkg * this->GetBackground(nSigma);
     }
 
-    double GetSignalUnc(double nSigma) {
+    double GetSignalUnc(double nSigma, std::string method) {
         if (!fFit) return -1;
-        if (this->GetSignal(nSigma) <= 0) return 0;
+        if (this->GetSignal(nSigma, method) <= 0) return 0;
 
-        return fFit->GetParError(0) / fFit->GetParameter(0) * this->GetSignal(nSigma);
+        return fFit->GetParError(0) / fFit->GetParameter(0) * this->GetSignal(nSigma, method);
     }
 
    private:
