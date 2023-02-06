@@ -32,6 +32,7 @@ void MakeDistr(
     std::string suffix = "test",
     double kStarBW = 50, // MeV/c
     std::string treeDirName = "HM_CharmFemto_DstarPion_Trees0",
+    bool uniq = false,
     int nJobs=16);
 
 void MakeDistr(
@@ -42,6 +43,7 @@ void MakeDistr(
     std::string suffix,
     double kStarBW,
     std::string treeDirName,
+    bool uniq,
     int nJobs) {
 
     if (nJobs>1)
@@ -174,14 +176,21 @@ void MakeDistr(
                     double kStarMin = kStarBW * iKStarBin;
                     double kStarMax = kStarBW * (iKStarBin + 1);
 
-                    auto dfSelKStar = dfSel.Filter(Form("%f < kStarMeV && kStarMeV < %f", kStarMin, kStarMax))
-                        .Filter(UseCharmCandidatesOnce, {"heavy_invmass"});
+                    if (uniq) {
+                        auto dfSelKStar = dfSel.Filter(Form("%f < kStarMeV && kStarMeV < %f", kStarMin, kStarMax))
+                            .Filter(UseCharmCandidatesOnce, {"heavy_invmass"});
 
-                    dfSelKStar.Histo1D<float>({
-                        Form("hCharmMass%lu_kStar%.0f_%.0f", iSelection, kStarMin, kStarMax),
-                        Form(";%s;Counts", heavy_mass_label.data()),
-                        1000u, charmMassMin, charmMassMax},
-                        "heavy_invmass")->Write();
+                        dfSelKStar.Histo1D<float>({
+                            Form("hCharmMassUniq%lu_kStar%.0f_%.0f", iSelection, kStarMin, kStarMax),
+                            Form(";%s;Counts", heavy_mass_label.data()),
+                            1000u, charmMassMin, charmMassMax},
+                            "heavy_invmass")->Write();
+                    }
+                    dfSel.Histo1D<float>({
+                            Form("hCharmMass%lu_kStar%.0f_%.0f", iSelection, kStarMin, kStarMax),
+                            Form(";%s;Counts", heavy_mass_label.data()),
+                            1000u, charmMassMin, charmMassMax},
+                            "heavy_invmass")->Write();
                 }
             }
 
@@ -411,11 +420,11 @@ std::vector<std::string> LoadSelections(YAML::Node config) {
     for (YAML::iterator itSel = config.begin(); itSel != config.end(); ++itSel) {
         auto var = (*itSel)["var_name"].as<std::string>();
         auto sign = (*itSel)["sign"].as<std::string>();
-        auto values = (*itSel)["values"].as<std::vector<float>>();
+        auto values = (*itSel)["values"].as<std::vector<std::string>>();
 
         elemSelections.push_back({});
         for (auto value : values) {
-            elemSelections.back().push_back(Form("%s %s %f", var.data(), sign.data(), float(value)));
+            elemSelections.back().push_back(Form("%s %s %s", var.data(), sign.data(), value.data()));
         }
     }
 
