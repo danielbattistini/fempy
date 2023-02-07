@@ -446,8 +446,8 @@ std::vector<std::string> LoadSelections(YAML::Node config, int n) {
         tot_selections.push_back(tot_sel);
     }
     if ((long unsigned int)n > tot_selections.size()) {
-        std::cout << "Warning: you are trying to remove " << n << " selections "
-                  << "but only " << tot_selections.size() << " were found --> no selection is kept." << std::endl;
+        std::cout << "\033[33mWarning: you are trying to remove " << n << " selections "
+                  << "but only " << tot_selections.size() << " were found --> no selection is kept.\033[0m" << std::endl;
         return {};
     } else if (n>0) { // don't remove if n<=0
         std::vector<int> indeces = {};
