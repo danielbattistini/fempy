@@ -35,6 +35,7 @@ void MakeDistr(
     double kStarBW = 50, // MeV/c
     std::string treeDirName = "HM_CharmFemto_DstarPion_Trees0",
     bool uniq = false,
+    bool doOnlyFD = false,
     int nJobs=16);
 
 void MakeDistr(
@@ -47,6 +48,7 @@ void MakeDistr(
     double kStarBW,
     std::string treeDirName,
     bool uniq,
+    bool doOnlyFD,
     int nJobs) {
 
     if (nJobs>1)
@@ -155,6 +157,7 @@ void MakeDistr(
             oFile->mkdir(Form("%s/%s", comb, event));
             oFile->cd(Form("%s/%s", comb, event));
             for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
+                if (doOnlyFD) break;
                 auto hCharmMassVsKStar =
                     df.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
                                               Form(";#it{k}* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u, 0.,
@@ -173,6 +176,7 @@ void MakeDistr(
             };
             for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
                 auto dfSel = df.Filter(selections[iSelection].data());
+                if (doOnlyFD) continue;
                 int nKStarBins = round(3000/kStarBW);
                 for (int iKStarBin = 0; iKStarBin < nKStarBins; iKStarBin++){
                     lastMass = -1;
