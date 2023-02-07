@@ -454,7 +454,7 @@ std::vector<std::string> LoadSelections(YAML::Node config, int n) {
         int idx;
         for (long unsigned int iSel=0; iSel<tot_selections.size() - n; iSel++) {
             do {
-                idx = rand()%(tot_selections.size());
+                idx = rand()%(tot_selections.size()-1)+1; // always keep the central selection (idx=0)
             } while (std::find(indeces.begin(), indeces.end(), idx) != indeces.end());
             indeces.push_back(idx);
         }
