@@ -28,7 +28,7 @@ std::vector<std::string> LoadSelections(YAML::Node, int n=0);
 void MakeDistr(
     std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
     std::string cfgFileName = "/home/daniel/an/DPi/cfg_selection_nosel.yml",
-    unsigned int nSelToKeep,
+    unsigned int nSelToKeep = 0,
     fs::path oDir = "/home/daniel/an/DstarPi",
     std::string pair = "DstarPi",
     std::string suffix = "test",
@@ -36,6 +36,7 @@ void MakeDistr(
     std::string treeDirName = "HM_CharmFemto_DstarPion_Trees0",
     bool uniq = false,
     bool doOnlyFD = false,
+    bool doSyst = false,
     int nJobs=16);
 
 void MakeDistr(
@@ -49,6 +50,7 @@ void MakeDistr(
     std::string treeDirName,
     bool uniq,
     bool doOnlyFD,
+    bool doSyst,
     int nJobs) {
 
     if (nJobs>1)
@@ -100,7 +102,7 @@ void MakeDistr(
     YAML::Node config = YAML::LoadFile(cfgFileName.data());
     auto aliases = LoadAliases(config["aliases"]);
     auto selections = LoadSelections(config["selections"], nSelToKeep);
-
+    if (!doSyst) selections = {selections[0]};
     // open input file
     auto inFile = TFile::Open(inFileName.data());
 
