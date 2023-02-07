@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <map>
 #include <string>
+#include <algorithm>
 
 #include "ROOT/RDataFrame.hxx"
 #include "Riostream.h"
@@ -12,7 +13,7 @@
 namespace fs = std::filesystem;
 
 template <typename T>
-void print(std::vector<T>);
+void print(std::vector<T>, std::string="\n");
 
 template <typename T>
 std::vector<std::vector<T>> Combinations(std::vector<std::vector<T>>);
@@ -22,11 +23,12 @@ bool MassSelection(const double &mass, const double &pt, const int &hpdg, const 
                    double fLowerDstarRemoval = 1.992, double fUpperDstarRemoval = 2.028);
 
 std::map<std::string, std::string> LoadAliases(YAML::Node);
-std::vector<std::string> LoadSelections(YAML::Node);
+std::vector<std::string> LoadSelections(YAML::Node, int n=0);
 
 void MakeDistr(
     std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
     std::string cfgFileName = "/home/daniel/an/DPi/cfg_selection_nosel.yml",
+    unsigned int nSelToKeep,
     fs::path oDir = "/home/daniel/an/DstarPi",
     std::string pair = "DstarPi",
     std::string suffix = "test",
@@ -38,6 +40,7 @@ void MakeDistr(
 void MakeDistr(
     std::string inFileName,
     std::string cfgFileName,
+    unsigned int nSelToKeep,
     fs::path oDir,
     std::string pair,
     std::string suffix,
@@ -94,7 +97,7 @@ void MakeDistr(
     // load configuration for systematic variations
     YAML::Node config = YAML::LoadFile(cfgFileName.data());
     auto aliases = LoadAliases(config["aliases"]);
-    auto selections = LoadSelections(config["selections"]);
+    auto selections = LoadSelections(config["selections"], nSelToKeep);
 
     // open input file
     auto inFile = TFile::Open(inFileName.data());
@@ -241,9 +244,9 @@ void MakeDistr(
                     hCharmMassVsPt->Write();
 
                     // QA histograms
-                    dfSel.Histo1D<float>(
-                        {Form("hHeavyBkgScore%lu", iSelection), ";Background score;Counts",
-                         500u, 0, 0.1}, "heavy_bkg_score")->Write();
+                    dfSel.Histo2D<float, float>(
+                        {Form("hHeavyBkgScoreVsPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});Background score;Counts",
+                         100u, 0., 10., 500u, 0, 0.1}, "heavy_pt", "heavy_bkg_score")->Write();
                     dfSel.Histo2D<float, float>(
                         {Form("hLightNSigmaTOFVsNSigmaTPC%lu", iSelection), ";#it{n}_{#sigma}^{TPC};#it{n}_{#sigma}^{TOF};Counts",
                          200u, -10, 10, 200u, -10, 10}, "light_nsigtpc", "light_nsigtof")->Write();
@@ -265,8 +268,11 @@ void MakeDistr(
                     listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->ProjectionX()->Clone(Form("%sDist_%s", event, pairsToFD[comb].data())));
                     listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->Clone(Form("%sMultDist_%s", event, pairsToFD[comb].data())));
                 } // selections
+                break;
             } // regions
+            break;
         } // SE, ME
+        break;
     } // charge comb
 
     // save output in FD format
@@ -303,8 +309,8 @@ void MakeDistr(
 
 // print vector
 template <typename T>
-void print(std::vector<T> vec) {
-    for (auto elem : vec) std::cout << elem << "  ";
+void print(std::vector<T> vec, std::string separator) {
+    for (auto elem : vec) std::cout << elem << separator;
     std::cout << std::endl;
 }
 
@@ -414,7 +420,7 @@ Given a yaml node configuration with the systematic selections for each
 variable, returns a vector of all the possible
 combinations of the elementary selections.
 */
-std::vector<std::string> LoadSelections(YAML::Node config) {
+std::vector<std::string> LoadSelections(YAML::Node config, int n) {
     std::vector<std::vector<std::string>> elemSelections = {};
 
     for (YAML::iterator itSel = config.begin(); itSel != config.end(); ++itSel) {
@@ -435,5 +441,25 @@ std::vector<std::string> LoadSelections(YAML::Node config) {
         for (long unsigned int iSel = 1; iSel < sel.size(); iSel++) tot_sel += Form(" && %s", sel[iSel].data());
         tot_selections.push_back(tot_sel);
     }
+    if ((long unsigned int)n > tot_selections.size()) {
+        std::cout << "Warning: you are trying to remove " << n << " selections "
+                  << "but only " << tot_selections.size() << " were found --> no selection is kept." << std::endl;
+        return {};
+    } else if (n>0) { // don't remove if n<=0
+        std::vector<int> indeces = {};
+        int idx;
+        for (long unsigned int iSel=0; iSel<tot_selections.size() - n; iSel++) {
+            do {
+                idx = rand()%(tot_selections.size());
+            } while (std::find(indeces.begin(), indeces.end(), idx) != indeces.end());
+            indeces.push_back(idx);
+        }
+        // decreasing order so that the last elements are removed first and no shift in index occurs
+        std::sort(indeces.begin(), indeces.end(), std::greater<int>());
+        for (auto &idx : indeces) {
+            tot_selections.erase(tot_selections.begin() + idx);
+        }
+    }
+    
     return tot_selections;
 }
