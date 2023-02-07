@@ -256,7 +256,7 @@ void MakeDistr(
                          200u, -10, 10, 200u, -10, 10}, "light_nsigtpc", "light_nsigtof")->Write();
                     dfSel.Histo2D<double, float>(
                         {Form("hLightEtaVsPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});#eta;Counts",
-                         200u, -1, 1, 200u, 0, 5}, "light_pt", "light_eta")->Write();
+                         200u, 0, 5, 200u, -1, 1}, "light_pt", "light_eta")->Write();
                     dfSel.Histo1D<int>(
                         {Form("hLightNCls%lu", iSelection), ";#it{n}_{clusters};Counts",
                          100, 59.5, 159.5}, "light_ncls")->Write();
