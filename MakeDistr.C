@@ -261,8 +261,6 @@ void MakeDistr(
                         {Form("hLightNCls%lu", iSelection), ";#it{n}_{clusters};Counts",
                          100, 59.5, 159.5}, "light_ncls")->Write();
 
-
-
                     // save as FD output
                     auto hMultVsKStarGeV = dfSel.Histo2D<float, int>(
                         {Form("hMultVsKStar%lu", iSelection), ";#it{k}* (GeV/#it{c});Multiplicity;Counts", 600u, 0.,
@@ -272,11 +270,8 @@ void MakeDistr(
                     listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->ProjectionX()->Clone(Form("%sDist_%s", event, pairsToFD[comb].data())));
                     listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->Clone(Form("%sMultDist_%s", event, pairsToFD[comb].data())));
                 } // selections
-                break;
             } // regions
-            break;
         } // SE, ME
-        break;
     } // charge comb
 
     // save output in FD format
