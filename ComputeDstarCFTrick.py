@@ -144,8 +144,12 @@ if __name__ == '__main__':
     parser.add_argument('--aliFitter', default=False, action='store_true')
     parser.add_argument('--sgnFitFunc', default="")
     parser.add_argument('--bkgFitFunc', default="")
+    parser.add_argument('--lowKStarCharmMassBW', nargs=2, metavar=('charmMassBW', 'until'), type=float,  default=(-1, -1))
 
     args = parser.parse_args()
+
+    lowKStarCharmMassMax = args.lowKStarCharmMassBW[1]
+    lowKStarCharmMassBW = args.lowKStarCharmMassBW[0]
 
     inFile = TFile(args.inFileName)
     oFileName = os.path.join(args.oDir, "RawCF.root" if args.suffix == '' else f'RawCF_{args.suffix}.root')
@@ -288,9 +292,10 @@ if __name__ == '__main__':
                         
 
                     else:
-                        hCharmMass.SetTitle(f'{kStarMin:.0f}  <  #it{{k}}* < {kStarMax:.0f} MeV/#it{{c}}')
-                        charmMassRebin = round(charmMassBW / hCharmMass.GetXaxis().GetBinWidth(0) / 1000)
+                        bw = lowKStarCharmMassBW if iKStarBin *kStarBW < lowKStarCharmMassMax else charmMassBW
+                        charmMassRebin = round(bw / hCharmMass.GetXaxis().GetBinWidth(0) / 1000)
                         hCharmMass.Rebin(charmMassRebin)
+                        hCharmMass.SetTitle(f'{kStarMin:.0f}  <  #it{{k}}* < {kStarMax:.0f} MeV/#it{{c}};Counts/{bw} MeV/#it{{c}}')
                         hCharmMass.GetXaxis().SetRangeUser(0.135, 0.160)
                         fitters.append(MassFitter(hCharmMass, sgnFitFunc, "powex", fitRange[0], fitRange[1]))
                         status = fitters[-1].Fit()
