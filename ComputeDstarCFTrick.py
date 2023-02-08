@@ -357,7 +357,7 @@ if __name__ == '__main__':
                     hDistrPurityFromDataMinusBkg[event].SetName(f'h{event}PurityRewFromDataMinusBkg')
                     hDistrPurityFromDataMinusBkg[event].Rebin(round(kStarBW/hDistrPurityFromDataMinusBkg[event].GetXaxis().GetBinWidth(1)))
                     for iKStarBin in range(nKStarBins):
-                        hDistrPurityFromDataMinusBkg[event].SetBinContent(iKStarBin, hDistrPurityFromDataMinusBkg[event].GetBinContent(iKStarBin + 1) * hPurityFromSgnFuncInt.GetBinContent(iKStarBin+1))
+                        hDistrPurityFromDataMinusBkg[event].SetBinContent(iKStarBin, hDistrPurityFromDataMinusBkg[event].GetBinContent(iKStarBin + 1) * hPurityFromDataMinusBkg.GetBinContent(iKStarBin+1))
                     hDistrPurityFromDataMinusBkg[event].Write()
 
                 oFile.cd(f'{comb}/fits')
