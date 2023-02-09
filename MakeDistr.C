@@ -442,25 +442,18 @@ std::vector<std::string> LoadSelections(YAML::Node config, int n) {
         for (long unsigned int iSel = 1; iSel < sel.size(); iSel++) tot_sel += Form(" && %s", sel[iSel].data());
         tot_selections.push_back(tot_sel);
     }
-    if ((long unsigned int)n > tot_selections.size()) {
-        std::cout << "\033[33mWarning: you are trying to remove " << n << " selections "
-                  << "but only " << tot_selections.size() << " were found --> no selection is kept.\033[0m" << std::endl;
-        return {};
-    } else if (n>0) { // don't remove if n<=0
+    if (n<0) return tot_selections;
+
+    // reduce the number of selections to n
+    int idx;
         std::vector<int> indeces = {};
-        int idx;
-        for (long unsigned int iSel=0; iSel<tot_selections.size() - n; iSel++) {
+    std::vector<std::string> red_selections = {tot_selections[0]};
+    for (unsigned long int iSel = 1; iSel < n && iSel < tot_selections.size(); iSel++) {
             do {
                 idx = rand()%(tot_selections.size()-1)+1; // always keep the central selection (idx=0)
             } while (std::find(indeces.begin(), indeces.end(), idx) != indeces.end());
             indeces.push_back(idx);
+        red_selections.push_back(tot_selections[idx]);
         }
-        // decreasing order so that the last elements are removed first and no shift in index occurs
-        std::sort(indeces.begin(), indeces.end(), std::greater<int>());
-        for (auto &idx : indeces) {
-            tot_selections.erase(tot_selections.begin() + idx);
-        }
-    }
-    
-    return tot_selections;
+    return red_selections;
 }
