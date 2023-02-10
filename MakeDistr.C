@@ -34,7 +34,7 @@ void MakeDistr(
     std::string suffix = "test",
     double kStarBW = 50, // MeV/c
     std::string treeDirName = "HM_CharmFemto_DstarPion_Trees0",
-    bool uniq = false,
+    bool uniq = true,
     bool doOnlyFD = false,
     bool doSyst = false,
     int nJobs=16);
@@ -160,46 +160,52 @@ void MakeDistr(
             oFile->cd(Form("%s/%s", comb, event));
             for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
                 if (doOnlyFD) break;
+                auto dfSel = df.Filter(selections[iSelection].data());
+
                 auto hCharmMassVsKStar =
-                    df.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
+                    dfSel.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
                                               Form(";#it{k}* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u, 0.,
                                               3000., 1000u, charmMassMin, charmMassMax},
                                              "kStarMeV", "heavy_invmass");
                 hCharmMassVsKStar->Write();
-            }
-
-            // project mass in bins of k*
-            double lastMass;
-            auto UseCharmCandidatesOnce = [&lastMass](float mass){
-                if (std::abs(lastMass - mass)/mass < 0.0001)
-                    return false;
-                lastMass = mass;
-                return true;
-            };
-            for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
-                auto dfSel = df.Filter(selections[iSelection].data());
-                if (doOnlyFD) continue;
                 int nKStarBins = round(3000/kStarBW);
                 for (int iKStarBin = 0; iKStarBin < nKStarBins; iKStarBin++){
-                    lastMass = -1;
                     double kStarMin = kStarBW * iKStarBin;
                     double kStarMax = kStarBW * (iKStarBin + 1);
 
+                    int firstBin = hCharmMassVsKStar->GetXaxis()->FindBin(kStarMin * 1.0001);
+                    int lastBin = hCharmMassVsKStar->GetXaxis()->FindBin(kStarMax * 0.9999);
+
+                    auto hCharmMassKStarBin = hCharmMassVsKStar->ProjectionY(Form("hCharmMass%lu_kStar%.0f_%.0f", iSelection, kStarMin, kStarMax), firstBin, lastBin);
+                    hCharmMassKStarBin->SetTitle(Form(";%s;Counts", heavy_mass_label.data()));
+                    hCharmMassKStarBin->Write();
+
                     if (uniq) {
+                        // switch off multi-thread, otherwise it will break the filtering with the lambda
+                        if (nJobs>1) ROOT::DisableImplicitMT();
+
+                        static std::vector<float> seenMasses = {};
+                        auto UseCharmCandidatesOnce = [](float mass) {
+                            for (const auto &seenMass : seenMasses) {
+                                if (std::abs(seenMass - mass)/mass < 0.000000001) {
+                                    return false;
+                                }
+                            }
+                            seenMasses.insert(seenMasses.begin(), mass); // insert in the front saves time
+                            return true;
+                        };
                         auto dfSelKStar = dfSel.Filter(Form("%f < kStarMeV && kStarMeV < %f", kStarMin, kStarMax))
                             .Filter(UseCharmCandidatesOnce, {"heavy_invmass"});
-
                         dfSelKStar.Histo1D<float>({
                             Form("hCharmMassUniq%lu_kStar%.0f_%.0f", iSelection, kStarMin, kStarMax),
                             Form(";%s;Counts", heavy_mass_label.data()),
                             1000u, charmMassMin, charmMassMax},
                             "heavy_invmass")->Write();
+                        seenMasses.clear();
+                        
+                        // re-enable the multi thread for the rest of the processing
+                        if (nJobs>1) ROOT::EnableImplicitMT(nJobs);
                     }
-                    dfSel.Histo1D<float>({
-                            Form("hCharmMass%lu_kStar%.0f_%.0f", iSelection, kStarMin, kStarMax),
-                            Form(";%s;Counts", heavy_mass_label.data()),
-                            1000u, charmMassMin, charmMassMax},
-                            "heavy_invmass")->Write();
                 }
             }
 
@@ -446,14 +452,14 @@ std::vector<std::string> LoadSelections(YAML::Node config, int n) {
 
     // reduce the number of selections to n
     int idx;
-        std::vector<int> indeces = {};
+    std::vector<int> indeces = {};
     std::vector<std::string> red_selections = {tot_selections[0]};
     for (unsigned long int iSel = 1; iSel < n && iSel < tot_selections.size(); iSel++) {
-            do {
-                idx = rand()%(tot_selections.size()-1)+1; // always keep the central selection (idx=0)
-            } while (std::find(indeces.begin(), indeces.end(), idx) != indeces.end());
-            indeces.push_back(idx);
+        do {
+            idx = rand()%(tot_selections.size()-1)+1; // always keep the central selection (idx=0)
+        } while (std::find(indeces.begin(), indeces.end(), idx) != indeces.end());
+        indeces.push_back(idx);
         red_selections.push_back(tot_selections[idx]);
-        }
+    }
     return red_selections;
 }
