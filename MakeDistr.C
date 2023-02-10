@@ -53,7 +53,7 @@ void MakeDistr(
     bool doSyst,
     int nJobs) {
 
-    if (nJobs>1)
+    if (nJobs>1 && ! uniq)
         ROOT::EnableImplicitMT(nJobs); 
 
     // configure analysis
@@ -181,9 +181,6 @@ void MakeDistr(
                     hCharmMassKStarBin->Write();
 
                     if (uniq) {
-                        // switch off multi-thread, otherwise it will break the filtering with the lambda
-                        if (nJobs>1) ROOT::DisableImplicitMT();
-
                         static std::vector<float> seenMasses = {};
                         auto UseCharmCandidatesOnce = [](float mass) {
                             for (const auto &seenMass : seenMasses) {
@@ -202,9 +199,6 @@ void MakeDistr(
                             1000u, charmMassMin, charmMassMax},
                             "heavy_invmass")->Write();
                         seenMasses.clear();
-                        
-                        // re-enable the multi thread for the rest of the processing
-                        if (nJobs>1) ROOT::EnableImplicitMT(nJobs);
                     }
                 }
             }
