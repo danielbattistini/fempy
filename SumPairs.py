@@ -10,7 +10,6 @@ args = parser.parse_args()
 
 inFileName = args.inFileName
 inFile = TFile(inFileName, 'update')
-inFile.ls()
 
 summedCombs = {
     'sc': ['pp', 'mm'],
