@@ -74,10 +74,17 @@ def TranslateToLatex(text):
         'kDstarPi_mp': "D*^{#minus} #pi^{+}",
         'kDstarPi_sc': "D*^{+} #pi^{+} #oplus D*^{#minus} #pi^{#minus}",
         'kDstarPi_oc': "D*^{+} #pi^{#minus} #oplus D*^{#minus} #pi^{+}",
+        # axix labels
+        'ciccio': "pasticcio",
+        '__invmass_Dstar__': "#it{M}(K#pi#pi) - #it{M}(K#pi) (GeV/#it{c}^{2})",
+        '__invmass_D__': '#it{M}(K#pi#pi) (GeV/#it{c})^{2}',
+        '__MeVc__': 'MeV/#it{c}',
+        '__GeVc__': 'GeV/#it{c}',
+        '__GeVc2__': 'GeV/#it{c}^{2}',
     }
-    for key in dPairs2Latex:
+    for key, value in dPairs2Latex.items():
         if key in text:
-            text = text.replace(key, dPairs2Latex[key])
+            text = text.replace(key, value)
     return text
 
 
