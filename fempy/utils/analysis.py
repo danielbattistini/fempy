@@ -20,7 +20,7 @@ class Pair:
             self.hpdg = 413
             self.lpdg = 211
             self.norm_range = [1500, 2000]
-            self.heavy_mass_label = '#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c})'
+            self.heavy_mass_label = '#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c}^{2})'
             self.cfg_sidebands = None
 
         elif pair == 'DPi':
@@ -31,7 +31,7 @@ class Pair:
             self.hpdg = 411
             self.lpdg = 211
             self.norm_range = [1000, 1500]
-            self.heavy_mass_label = '#it{M}(K#pi#pi) (GeV/#it{c})'
+            self.heavy_mass_label = '#it{M}(K#pi#pi) (GeV/#it{c})^{2}'
             self.cfg_sidebands = None
         elif pair == 'DK':
             self.name = 'DPi'
@@ -41,7 +41,7 @@ class Pair:
             self.hpdg = 411
             self.lpdg = 321
             self.norm_range = [1500, 2000]
-            self.heavy_mass_label = '#it{M}(K#pi#pi) (GeV/#it{c})'
+            self.heavy_mass_label = '#it{M}(K#pi#pi) (GeV/#it{c})^{2}'
             self.cfg_sidebands = None
         else:
             print("Error: pair not implemented. Exit!")
