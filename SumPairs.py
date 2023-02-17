@@ -15,11 +15,12 @@ summedCombs = {
     'sc': ['pp', 'mm'],
     'oc': ['pm', 'mp'],
 }
-
+inFile.ls()
 regions = fempy.utils.io.GetSubdirsInDir(inFile.Get('pp/SE'))
 
 
 def SumHists(hists):
+    print("Summming: ", hists)
     hSum = hists[0].Clone()
     for hist in hists[1:]:
         hSum.Add(hist)
@@ -31,13 +32,13 @@ for combName, combsToSum in summedCombs.items():
         inFile.mkdir(f'{combName}/{event}')
         inFile.cd(f'{combName}/{event}')
 
-        for histoName in fempy.utils.io.GetHistNamesInDir(inFile.Get('pp/SE')):
+        for histoName in fempy.utils.io.GetHistNamesInDir(inFile.Get(f'pp/{event}')):
             SumHists([inFile.Get(f'{comb}/{event}/{histoName}') for comb in combsToSum]).Write()
 
         for region in regions:
             inFile.mkdir(f'{combName}/{event}/{region}')
             inFile.cd(f'{combName}/{event}/{region}')
 
-            for histoName in fempy.utils.io.GetHistNamesInDir(inFile.Get('pp/SE/sgn')):
+            for histoName in fempy.utils.io.GetHistNamesInDir(inFile.Get(f'pp/{event}/{region}')):
                 SumHists([inFile.Get(f'{comb}/{event}/{region}/{histoName}') for comb in combsToSum]).Write()
 inFile.Close()
