@@ -76,7 +76,7 @@ for plot in cfg:
         inObj.SetStats(0)
         inObj.SetLineWidth(2)
         if iObj == 0:
-            inObj.SetTitle(plot['opt']['title'])
+            inObj.SetTitle(TranslateToLatex(plot['opt']['title']))
             inObj.GetXaxis().SetRangeUser(
                 plot['opt']['rangex'][0], plot['opt']['rangex'][1])
             inObj.GetYaxis().SetRangeUser(
