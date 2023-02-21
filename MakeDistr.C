@@ -18,6 +18,11 @@ void print(std::vector<T>, std::string="\n");
 template <typename T>
 std::vector<std::vector<T>> Combinations(std::vector<std::vector<T>>);
 
+bool IsColInDF(ROOT::RDF::RInterface<ROOT::Detail::RDF::RJittedFilter, void> df, std::string colName) {
+    for (auto &&dfColName : df.GetColumnNames()) if (std::string(dfColName)==colName) return true;
+    return false;
+}
+
 bool MassSelection(const double &mass, const double &pt, const int &hpdg, const std::string &massRegion,
                    const double fNSigmaMass = 2., double fNSigmaOffsetSideband = 5., double fSidebandWidth = 0.2,
                    double fLowerDstarRemoval = 1.992, double fUpperDstarRemoval = 2.028);
@@ -28,6 +33,7 @@ std::vector<std::string> LoadSelections(YAML::Node, int n=0);
 void MakeDistr(
     std::string inFileName = "/data/DstarPi/tree_pc/mcgp/AnalysisResults_3998.root",
     std::string cfgFileName = "/home/daniel/an/DPi/cfg_selection_nosel.yml",
+    bool isMC = false,
     unsigned int nSelToKeep = 0,
     fs::path oDir = "/home/daniel/an/DstarPi",
     std::string pair = "DstarPi",
@@ -37,11 +43,12 @@ void MakeDistr(
     bool uniq = true,
     bool doOnlyFD = false,
     bool doSyst = false,
-    int nJobs=16);
+    int nJobs=1);
 
 void MakeDistr(
     std::string inFileName,
     std::string cfgFileName,
+    bool isMC,
     unsigned int nSelToKeep,
     fs::path oDir,
     std::string pair,
@@ -80,6 +87,16 @@ void MakeDistr(
         exit(1);
     }
 
+    if (isMC) regions = {"sgn"};
+    int lpdg;
+    if (pair == "DstarPi" || pair == "DPi") {
+        lpdg = 211;
+    } else if (pair == "DK") {
+        lpdg = 321;
+    } else {
+        printf("\033[31mAnalysis not implemented. Exit!\033[0m\n");
+        exit(1);
+    }
     // For conversion to FD
     std::map<std::string, std::string> pairsToFD = {
         {"pp", "Particle0_Particle2"},
@@ -145,8 +162,8 @@ void MakeDistr(
             exit(1);
         }
 
-        for (const char *event : {"SE", "ME"}) {
-            auto tree = (TTree *)dir->Get(Form("t%s_%s", event, comb));
+        for (std::string event : {"SE", "ME"}) {
+            auto tree = (TTree *)dir->Get(Form("t%s_%s", event.data(), comb));
             ROOT::RDF::RInterface<ROOT::Detail::RDF::RLoopManager> df = ROOT::RDataFrame(*tree);
 
             // define aliases
@@ -156,8 +173,9 @@ void MakeDistr(
             }
 
             // project charm mass histograms
-            oFile->mkdir(Form("%s/%s", comb, event));
-            oFile->cd(Form("%s/%s", comb, event));
+            oFile->mkdir(Form("%s/%s", comb, event.data()));
+            oFile->cd(Form("%s/%s", comb, event.data()));
+            
             for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
                 if (doOnlyFD) break;
                 auto dfSel = df.Filter(selections[iSelection].data());
@@ -179,27 +197,6 @@ void MakeDistr(
                     auto hCharmMassKStarBin = hCharmMassVsKStar->ProjectionY(Form("hCharmMass%lu_kStar%.0f_%.0f", iSelection, kStarMin, kStarMax), firstBin, lastBin);
                     hCharmMassKStarBin->SetTitle(Form(";%s;Counts", heavy_mass_label.data()));
                     hCharmMassKStarBin->Write();
-
-                    if (uniq) {
-                        static std::vector<float> seenMasses = {};
-                        auto UseCharmCandidatesOnce = [](float mass) {
-                            for (const auto &seenMass : seenMasses) {
-                                if (std::abs(seenMass - mass)/mass < 0.000000001) {
-                                    return false;
-                                }
-                            }
-                            seenMasses.insert(seenMasses.begin(), mass); // insert in the front saves time
-                            return true;
-                        };
-                        auto dfSelKStar = dfSel.Filter(Form("%f < kStarMeV && kStarMeV < %f", kStarMin, kStarMax))
-                            .Filter(UseCharmCandidatesOnce, {"heavy_invmass"});
-                        dfSelKStar.Histo1D<float>({
-                            Form("hCharmMassUniq%lu_kStar%.0f_%.0f", iSelection, kStarMin, kStarMax),
-                            Form(";%s;Counts", heavy_mass_label.data()),
-                            1000u, charmMassMin, charmMassMax},
-                            "heavy_invmass")->Write();
-                        seenMasses.clear();
-                    }
                 }
             }
 
@@ -215,8 +212,8 @@ void MakeDistr(
                     << region
                     << std::endl;
 
-                oFile->mkdir(Form("%s/%s/%s", comb, event, region));
-                oFile->cd(Form("%s/%s/%s", comb, event, region));
+                oFile->mkdir(Form("%s/%s/%s", comb, event.data(), region));
+                oFile->cd(Form("%s/%s/%s", comb, event.data(), region));
 
                 auto lamMassSelection = [hpdg, region](float mass, float pt) {
                     return MassSelection(mass, pt, hpdg, region);
@@ -230,38 +227,60 @@ void MakeDistr(
 
                     auto dfSel = dfMass.Filter(selections[iSelection].data());
 
-                    auto hCharmMassVsKStar =
-                        dfSel.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
-                                                     Form(";#it{k}* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u,
-                                                     0., 3000., 1000u, charmMassMin, charmMassMax},
-                                                    "kStarMeV", "heavy_invmass");
-                    auto hMultVsKStar = dfSel.Histo2D<float, int>(
-                        {Form("hMultVsKStar%lu", iSelection), ";#it{k}* (MeV/#it{c});Multiplicity;Counts", 3000u, 0.,
-                         3000., 180u, 0.5, 180.5},
-                        "kStarMeV", "mult");
-                    auto hCharmMassVsPt =
-                        dfSel.Histo2D<float, float>({Form("hCharmMassVsPt%lu", iSelection),
-                                                     Form(";#it{p}_{T} (GeV/#it{c});%s;Counts", heavy_mass_label.data()),
-                                                     100u, 0., 10., 1000u, charmMassMin, charmMassMax},
-                                                    "heavy_pt", "heavy_invmass");
+                    if (!doOnlyFD) {
+                        auto hCharmMassVsKStar =
+                            dfSel.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
+                                                        Form(";#it{k}* (MeV/#it{c});%s;Counts", heavy_mass_label.data()), 3000u,
+                                                        0., 3000., 1000u, charmMassMin, charmMassMax},
+                                                        "kStarMeV", "heavy_invmass");
+                        auto hMultVsKStar = dfSel.Histo2D<float, int>(
+                            {Form("hMultVsKStar%lu", iSelection), ";#it{k}* (MeV/#it{c});Multiplicity;Counts", 3000u, 0.,
+                            3000., 180u, 0.5, 180.5},
+                            "kStarMeV", "mult");
+                        auto hCharmMassVsPt =
+                            dfSel.Histo2D<float, float>({Form("hCharmMassVsPt%lu", iSelection),
+                                                        Form(";#it{p}_{T} (GeV/#it{c});%s;Counts", heavy_mass_label.data()),
+                                                        100u, 0., 10., 1000u, charmMassMin, charmMassMax},
+                                                        "heavy_pt", "heavy_invmass");
 
-                    hCharmMassVsKStar->Write();
-                    hMultVsKStar->Write();
-                    hCharmMassVsPt->Write();
+                        hCharmMassVsKStar->Write();
+                        hMultVsKStar->Write();
+                        hCharmMassVsPt->Write();
+                    }
 
-                    // QA histograms
-                    dfSel.Histo2D<float, float>(
-                        {Form("hHeavyBkgScoreVsPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});Background score;Counts",
-                         100u, 0., 10., 500u, 0, 0.1}, "heavy_pt", "heavy_bkg_score")->Write();
-                    dfSel.Histo2D<float, float>(
-                        {Form("hLightNSigmaTOFVsNSigmaTPC%lu", iSelection), ";#it{n}_{#sigma}^{TPC};#it{n}_{#sigma}^{TOF};Counts",
-                         200u, -10, 10, 200u, -10, 10}, "light_nsigtpc", "light_nsigtof")->Write();
-                    dfSel.Histo2D<double, float>(
-                        {Form("hLightEtaVsPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});#eta;Counts",
-                         200u, 0, 5, 200u, -1, 1}, "light_pt", "light_eta")->Write();
-                    dfSel.Histo1D<int>(
-                        {Form("hLightNCls%lu", iSelection), ";#it{n}_{clusters};Counts",
-                         100, 59.5, 159.5}, "light_ncls")->Write();
+                    if (uniq && event == "SE") {
+                        static std::vector<double> seenDouble = {};
+                        auto EraseDoubleDuplicates = [](double var) {
+                            for (const auto &seenMass : seenDouble) {
+                                if (std::abs(seenMass - var)/var < 0.000000001) {
+                                    return false;
+                                }
+                            }
+                            seenDouble.insert(seenDouble.begin(), var); // insert in the front saves time
+                            return true;
+                        };
+                        
+                        std::string name, title;
+
+                        // uniq light pt
+                        title = ";#it{p}_{T} (GeV/#it{c});Counts";
+                        name = Form("hLightPtUniq%lu_kStar0_3000", iSelection);
+                        dfSel.Filter(EraseDoubleDuplicates, {"light_pt"})
+                            .Histo1D<double>({name.data(), title.data(), 200u, 0, 5}, "light_pt")
+                            ->Write();
+                        seenDouble.clear();
+
+                        if (isMC) {
+                            // uniq true light pt
+                            name = Form("hTrueLightPtUniq%lu_kStar0_3000", iSelection);
+                            title = ";#it{p}_{T} (GeV/#it{c});Counts";
+                            dfSel.Filter(EraseDoubleDuplicates, {"light_pt"})
+                                .Filter(Form("light_pdg == %d", comb[1] == 'p' ? +lpdg : -lpdg))
+                                .Histo1D<double>({name.data(), title.data(), 200u, 0, 5}, "light_pt")
+                                ->Write();
+                            seenDouble.clear();
+                        }
+                    }
 
                     // save as FD output
                     auto hMultVsKStarGeV = dfSel.Histo2D<float, int>(
@@ -269,8 +288,45 @@ void MakeDistr(
                          3., 180u, 0.5, 180.5},
                         "kStar", "mult");
                     
-                    listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->ProjectionX()->Clone(Form("%sDist_%s", event, pairsToFD[comb].data())));
-                    listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->Clone(Form("%sMultDist_%s", event, pairsToFD[comb].data())));
+                    listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->ProjectionX()->Clone(Form("%sDist_%s", event.data(), pairsToFD[comb].data())));
+                    listPairsFD[iSelection][region][comb]->Add(hMultVsKStarGeV.GetPtr()->Clone(Form("%sMultDist_%s", event.data(), pairsToFD[comb].data())));
+
+                    if (doOnlyFD) continue;
+
+                    // QA histograms
+                    if (IsColInDF(dfSel, "heavy_bkg_score")) {
+                        dfSel.Histo2D<float, float>(
+                            {Form("hHeavyBkgScoreVsPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});Background score;Counts",
+                            100u, 0., 10., 500u, 0, 0.1}, "heavy_pt", "heavy_bkg_score")->Write();
+                    }
+                            
+                    if (IsColInDF(dfSel, "light_nsigtpc") && IsColInDF(dfSel, "light_nsigtof")) {
+                        dfSel.Histo2D<float, float>(
+                            {Form("hLightNSigmaTOFVsNSigmaTPC%lu", iSelection), ";#it{n}_{#sigma}^{TPC};#it{n}_{#sigma}^{TOF};Counts",
+                            200u, -10, 10, 200u, -10, 10}, "light_nsigtpc", "light_nsigtof")->Write();
+                    }
+
+                    if (IsColInDF(dfSel, "light_pt") && IsColInDF(dfSel, "light_eta")) {
+                        auto hLightEtaVsPt = dfSel.Histo2D<double, float>(
+                            {Form("hLightEtaVsPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});#eta;Counts",
+                            200u, 0, 5, 200u, -1, 1}, "light_pt", "light_eta");
+                        hLightEtaVsPt->SetTitle(";#it{p}_{T} (GeV/#it{c});Counts");
+                        hLightEtaVsPt->Write();
+                        hLightEtaVsPt->ProjectionX()->Write(Form("hLightPt%lu", iSelection));
+                    }
+
+                    if (IsColInDF(dfSel, "light_ncls")) {
+                        dfSel.Histo1D<int>(
+                            {Form("hLightNCls%lu", iSelection), ";#it{n}_{clusters};Counts",
+                            100, 59.5, 159.5}, "light_ncls")->Write();
+                    }
+
+                    if (isMC) {
+                        dfSel.Filter(Form("light_pdg == %d", comb[1] == 'p' ? +lpdg : -lpdg)).Histo1D<double>(
+                            {Form("hTrueLightPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});Counts",
+                            200u, 0, 5}, "light_pt")->Write();
+                    }
+                    
                 } // selections
             } // regions
         } // SE, ME
