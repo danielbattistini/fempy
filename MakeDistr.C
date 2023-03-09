@@ -70,7 +70,7 @@ void MakeDistr(
     std::string heavy_mass_label;
     int hpdg;
 
-    if (pair == "DstarPi") {
+    if (pair == "DstarPi" || pair == "DstarK") {
         hpdg = 413;
         regions = {"sgn", "sbr"};
         heavy_mass_label  = "#it{M}(K#pi#pi) #minus #it{M}(K#pi) (GeV/#it{c})";
@@ -91,7 +91,7 @@ void MakeDistr(
     int lpdg;
     if (pair == "DstarPi" || pair == "DPi") {
         lpdg = 211;
-    } else if (pair == "DK") {
+    } else if (pair == "DK" || pair == "DstarK") {
         lpdg = 321;
     } else {
         printf("\033[31mAnalysis not implemented. Exit!\033[0m\n");
@@ -270,7 +270,7 @@ void MakeDistr(
                             ->Write();
                         seenDouble.clear();
 
-                        if (isMC) {
+                        if (IsColInDF(dfSel, "light_pdg")) {
                             // uniq true light pt
                             name = Form("hTrueLightPtUniq%lu_kStar0_3000", iSelection);
                             title = ";#it{p}_{T} (GeV/#it{c});Counts";
@@ -321,12 +321,11 @@ void MakeDistr(
                             100, 59.5, 159.5}, "light_ncls")->Write();
                     }
 
-                    if (isMC) {
+                    if (IsColInDF(dfSel, "light_pdg")) {
                         dfSel.Filter(Form("light_pdg == %d", comb[1] == 'p' ? +lpdg : -lpdg)).Histo1D<double>(
                             {Form("hTrueLightPt%lu", iSelection), ";#it{p}_{T} (GeV/#it{c});Counts",
                             200u, 0, 5}, "light_pt")->Write();
                     }
-                    
                 } // selections
             } // regions
         } // SE, ME
