@@ -499,6 +499,5 @@ if __name__ == '__main__':
         ApplyCenterOfGravity(hCFGen, gGravities).Write('gGenCF')
         gGenCFTot.Write('gGenCFTot')
         hCFGen.Write('hGenCF')
-        break
     oFile.Close()
     print(f'Output saved in {oFileName}')
