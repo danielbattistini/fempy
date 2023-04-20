@@ -33,15 +33,23 @@ double PowEx(double *x, double *par) {
 }
 double Pol1(double *x, double *par) { return par[0] + par[1] * x[0]; };
 
+
+double Exp(double *x, double *par) {
+    // p0: total yield
+    // p1: slope
+    return par[0] * TMath::Exp(par[1] * x[0]);
+}
+
 class MassFitter {
    public:
     std::map<std::string, int> nPars = {
-        {"ngaus", 3}, {"gaus", 3}, {"hat", 5}, {"pol1", 2}, {"powex", 2},
+        {"ngaus", 3}, {"gaus", 3}, {"hat", 5}, {"pol1", 2}, {"powex", 2}, {"exp", 2}
     };
 
     enum SgnFuncs { kGaus = 0 };
     enum BkgFuncs { kPol1 = 0 };
     MassFitter(TH1 *hist, std::string sgnFuncName, std::string bkgFuncName, double fitRangeMin, double fitRangeMax) {
+        
         this->hist = (TH1 *)hist->Clone();
         this->fitRangeMin = fitRangeMin;
         this->fitRangeMax = fitRangeMax;
@@ -63,6 +71,8 @@ class MassFitter {
 
         if (bkgFuncName == "powex")
             this->bkgFunc = PowEx;
+        else if (bkgFuncName == "exp")
+            this->bkgFunc = Exp;
         else if (bkgFuncName == "pol1")
             this->bkgFunc = Pol1;
         else {
@@ -80,27 +90,36 @@ class MassFitter {
 
         this->fPrefit = new TF1(
             "fPrefit",
-            [&, this](double *x, double *pars) -> double {
-                if (std::abs(x[0] - 0.1455) < 0.003) {
+            [&, this, bkgFuncName](double *x, double *pars) -> double {
+                if (bkgFuncName == "powex" && std::abs(x[0] - 0.1455) < 0.003) {
                     TF1::RejectPoint();
                     return this->bkgFunc(x, pars);
-
-                    // return 0;
-                }
+                } else if (bkgFuncName == "exp" && std::abs(x[0] - 1.87) < 0.05) {
+                    TF1::RejectPoint();
+                    return this->bkgFunc(x, pars);
+                } else
                 return this->bkgFunc(x, pars);
             },
             this->fitRangeMin, fitRangeMax, nBkgPars);
 
         if (sgnFuncName == "gaus") {
             this->fFit->SetParName(0, "norm");
-            this->fFit->SetParameter(0, 0.1);
-            this->fFit->SetParLimits(0, 0, 50);
+            this->fFit->SetParameter(0, 0.5);
+            this->fFit->SetParLimits(0, 0.0, 50);
             this->fFit->SetParName(1, "mean");
-            this->fFit->SetParameter(1, 0.145);
-            this->fFit->SetParLimits(1, 0.144, 0.146);
-            this->fFit->SetParName(2, "sigma");
-            this->fFit->SetParameter(2, 0.001);
-            this->fFit->SetParLimits(2, 0.0002, 0.002);
+            if (bkgFuncName == "powex") {
+                this->fFit->SetParameter(1, 0.145);
+                this->fFit->SetParLimits(1, 0.144, 0.146);
+                this->fFit->SetParName(2, "sigma");
+                this->fFit->SetParLimits(2, 0.0003, 0.0009);
+                this->fFit->SetParameter(2, 0.0006);
+            } else {
+                this->fFit->SetParameter(1, 1.8);
+                this->fFit->SetParLimits(1, 1.84, 1.9);
+                this->fFit->SetParName(2, "sigma");
+                this->fFit->SetParameter(2, 0.006);
+                this->fFit->SetParLimits(2, 0.0001, 0.01);
+            }
         } else if (sgnFuncName == "hat") {
             // g1
             this->fFit->SetParName(0, "norm");
@@ -129,30 +148,45 @@ class MassFitter {
             this->fFit->SetParName(this->nSgnPars + 1, "slope");
             this->fFit->SetParameter(this->nSgnPars + 1, 0.1);
             this->fFit->SetParLimits(this->nSgnPars + 1, 0, 100);
+        } else if (bkgFuncName == "exp") {
+            this->fFit->SetParName(this->nSgnPars + 0, "norm");
+            this->fFit->SetParameter(this->nSgnPars + 0, 1);
+            this->fFit->SetParLimits(this->nSgnPars + 0, 0, 1e6);
+            this->fFit->SetParName(this->nSgnPars + 1, "slope");
+            this->fFit->SetParameter(this->nSgnPars + 1, 0.1);
+            this->fFit->SetParLimits(this->nSgnPars + 1, -100, 100);
         } else if (bkgFuncName == "pol1")
             bkgFunc = Pol1;
     }
 
+
     void Fit() {
+        
+        // printf("---> %s\n", this->bkg.data());
         // prefit
         // this->fPrefit = new TF1("fPrefit", [&, this](double *x, double * par) {
         //     if (std::abs(x[0] - 0.145) < 0.001)
         //         TF1::RejectPoint();
         //         return 0;
-        //     return this->bkgFunc.EvalPar(x, par);
+        //     return this->bkgFunc.EvalPar(x, par);cc
 
         // }, this->fitRangeMin, fitRangeMax, nBkgPars);
-        printf("\n\n\nPerfomring the prefit to the background:\n");
-        hist->Fit(this->fPrefit, "MR0+", "");
+        // printf("\n\n\nPerfomring the prefit to the background:\n");
+        hist->Fit(this->fPrefit, "QMR0+", "");
 
         // set the bkg parameters based on prefit
         for (int iPar = 0; iPar < this->nBkgPars; iPar++) {
-            fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) * 0.8,
-                               fPrefit->GetParameter(iPar) * 1.2);
+            fFit->SetParameter(this->nSgnPars + iPar, fPrefit->GetParameter(iPar));
+            if (fPrefit->GetParameter(iPar) > 0)
+                fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) / 3,
+                               fPrefit->GetParameter(iPar) * 3);
+            else
+                fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) * 3,
+                               fPrefit->GetParameter(iPar) / 3);
         }
 
-        printf("\n\n\nPerfomring the full:\n");
-        int status = hist->Fit(this->fFit, "VSMRL+0", "")->Status();
+        // printf("\n\n\nPerfomring the full fit:\n");
+        int status = hist->Fit(this->fFit, "QSMRL+0", "")->Status();
 
         // decompose the fit function in its contributions
         if (this->bkgFuncName == "pol1") {
@@ -161,6 +195,10 @@ class MassFitter {
             this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
         } else if (this->bkgFuncName == "powex") {
             this->fBkg = new TF1("fPowEx", PowEx, fitRangeMin, fitRangeMax, 2);
+            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
+            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
+        } else if (this->bkgFuncName == "exp") {
+            this->fBkg = new TF1("fExp", Exp, fitRangeMin, fitRangeMax, 2);
             this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
             this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
         }
@@ -204,7 +242,7 @@ class MassFitter {
             this->fBkg->SetNpx(300);
             this->fBkg->SetLineColor(kGray + 2);
             this->fBkg->Draw("same");
-        } else if (this->bkgFuncName == "powex") {
+        } else if (this->bkgFuncName == "powex" || this->bkgFuncName == "exp") {
             this->fBkg->SetNpx(300);
             this->fBkg->SetLineColor(kGray + 2);
             this->fBkg->Draw("same");
