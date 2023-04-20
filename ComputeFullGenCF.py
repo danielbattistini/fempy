@@ -326,8 +326,8 @@ if __name__ == '__main__':
             
             oFile.mkdir(f"{comb}/fits")
             oFile.cd(f"{comb}/fits")
-            
-            with alive_bar(nPurityVar*nSystVar * len(fitRanges) * len(radii1) * len(lamPars) * (args.bs+1), force_tty=True) as bar:
+            nTotalSystVars = nPurityVar*nSystVar * len(fitRanges) * len(radii1) * len(lamPars)
+            with alive_bar(nTotalSystVars, force_tty=True) as bar:
                 for iVar, (syst, fitRange, (radius1, radius2, weight1), lamPars) in enumerate(varProduct):
                     # Perform bootstrap for each syst variation
                     # Make kStar slices
@@ -471,9 +471,7 @@ if __name__ == '__main__':
                             tl.DrawLatex(0.6, 0.85 - 2 * step, f'#chi^{{2}}/ndf = {chi2ndf:.2f}')
 
                             cFit.Write()
-
-
-                            bar()
+                    bar()
 
         oFile.cd(comb)
         
