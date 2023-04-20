@@ -3,7 +3,7 @@ import sys
 from ROOT import gROOT, gStyle
 
 from .correlation_function import CorrelationFunction
-from .utils import io
+from .utils import *
 
 gROOT.SetBatch(True)
 
