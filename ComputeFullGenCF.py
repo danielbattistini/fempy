@@ -257,9 +257,17 @@ if __name__ == '__main__':
             with alive_bar(nTotalSystVars, force_tty=True) as bar:
                 for iVar, (syst, fitRange, (radius1, radius2, weight1), lamPars) in enumerate(varProduct):
                     # Perform bootstrap for each syst variation
+                    if iVar > 0 and np.random.uniform(0, 1) > float(args.syst)/nTotalSystVars:
+                        continue
+
+                    #! Check purity here!!
+                    hPurityDstar = TH1D(f"hPurityDstar_{iVar}", "", 60, 0, 3000)
+                    for iBin in range(hPurityDstar.GetNbinsX()):
+                        hPurityDstar.SetBinContent(iBin+1, 0.77)
+                        hPurityDstar.SetBinError(iBin+1, 0.01)
+                    purityDstar = CorrelationFunction(cf=hPurityDstar)
+
                     for iIter in range(args.bs+1): # In addition to the central variation that is always run
-                        # if np.random.uniform(0, 1) > float(args.syst)/nTotalSystVars:
-                        #     continue
                         if iIter > 0:
                             cfSgn = CorrelationFunction(cf=Bootstrap(cfData['sgn'][syst].get_cf()))
                             cfSbr = CorrelationFunction(cf=Bootstrap(cfData['sbr'][syst].get_cf()))
@@ -271,18 +279,13 @@ if __name__ == '__main__':
                         # Fit the baseline
                         fBaseLine = TF1('fBaseLine', '[0]', 0, 3000)
                         cfSgn.get_cf() # dummy call to compute the CF
-                        hPurityDstar = TH1D("hPurityDstar", "", 60, 0, 3000)
-                        for iBin in range(hPurityDstar.GetNbinsX()):
-                            hPurityDstar.SetBinContent(iBin+1, 0.77)
-                            hPurityDstar.SetBinError(iBin+1, 0.01)
-                        purityDstar = CorrelationFunction(cf=hPurityDstar)
 
-                        cfBkg = cfSgn/cfMC.get_cf()
+                        cfBkg = (cfSgn - CorrelationFunction(cf=cfSbr.get_cf() * lamPars['sb']))/(cfMC.get_cf() * (lamPars['gen'] + lamPars['flat']))
                         ApplyCenterOfGravity(cfBkg.get_cf(), gGravities).Fit(fBaseLine, 'Q', '', 300, 1000)
                         blNorm = fBaseLine.GetParameter(0)
 
                         # Compute Gen CF
-                        cfGen = (cfSgn/cfMC.get_cf()/blNorm - lamPars['flat'])/lamPars['gen']
+                        cfGen = ((cfSgn - CorrelationFunction(cf=cfSbr.get_cf() * lamPars['sb']))/cfMC.get_cf()/blNorm - lamPars['flat'] )/lamPars['gen']
                         
                         # fill lists for syst var
                         for iBin in range(cfGen.get_cf().GetNbinsX()):
