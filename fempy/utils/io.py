@@ -1,5 +1,6 @@
 import os
 import sys
+import fempy
 
 from ROOT import TFile, TDirectoryFile, TList
 
@@ -38,9 +39,20 @@ def GetObjectFromFile(inFile, pathToObj):
 
 
 histClasses = [f'TH{n}{t}' for n in [1, 2, 3] for t in ['I', 'F', 'D']]
+graphClasses = ['TGraph', 'TGraphErrors', 'TGraphAsymErrors']
 def GetHistNamesInDir(rdir):
     return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetClassName() in histClasses]
 
+def GetHistsInDir(rdir):
+    return [rdir.Get(key.GetName()) for key in list(rdir.GetListOfKeys()) if key.GetClassName() in histClasses]
+
+
+def GetRegions(rdir):
+    return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetName() in ['sgn', 'sbl', 'sbr']]
+
+
+def GetGraphsInDir(rdir):
+    return [rdir.Get(key.GetName()) for key in list(rdir.GetListOfKeys()) if key.GetClassName() in graphClasses]
 
 def GetObjNamesInDir(rdir):
     return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetClassName() != 'TDirectoryFile']
@@ -51,8 +63,22 @@ def GetObjsInDir(rdir):
 
 
 def GetSubdirsInDir(rdir):
+    if rdir == None:
+        return []
     return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetClassName() == 'TDirectoryFile']
+
+def GetCombs(rdir):
+    if rdir == None:
+        return []
+    return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetName() in ['sc', 'oc', 'pp', 'mm', 'pm', 'mp']]
 
 
 def GetKeyNamesInDir(rdir):
     return [key.GetName() for key in list(rdir.GetListOfKeys())]
+
+def GetPairName(rdir):
+    pairs = []
+    for keyName in GetKeyNamesInDir(rdir):
+        if 'HM_CharmFemto' in keyName and 'Results' in keyName:
+            pairs.append(keyName[14:keyName.find('_Results')])
+    return list(dict.fromkeys(pairs))
