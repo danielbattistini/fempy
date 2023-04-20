@@ -208,35 +208,37 @@ if __name__ == '__main__':
                 hMEData.Rebin(rebinFactor)
                 cfData[region][syst] = CorrelationFunction(se=hSEData, me=hMEData, norm=norm)
 
-        lamParMatr = {}
-        for heavyContrib in cfg['heavy']:
-            heavyKey = list(heavyContrib.keys())[0]
-            heavyPurity = heavyContrib[heavyKey]['purity']
-            heavyFrac = heavyContrib[heavyKey]['frac']
-            lamParMatr[heavyKey] = {}
-            for lightContrib in cfg['light']:
-                lightKey = list(lightContrib.keys())[0]
-                lightPurity = lightContrib[lightKey]['purity']
-                lightFrac = lightContrib[lightKey]['frac']
+        def LoadLambdaParam(cfgCentr, npFracVar = 1.):
+            cfgVar = dict(cfgCentr)
+            cfgVar['heavy'][1]['nonprompt']['frac'] *= npFracVar
+            cfgVar['heavy'][0]['prompt']['frac'] = 1 - cfgVar['heavy'][1]['nonprompt']['frac']
+            lamParMatrCentr = {}
+            for heavyContrib in cfgVar['heavy']:
+                heavyKey = list(heavyContrib.keys())[0]
+                heavyPurity = heavyContrib[heavyKey]['purity']
+                heavyFrac = heavyContrib[heavyKey]['frac']
+                lamParMatrCentr[heavyKey] = {}
+                for lightContrib in cfgVar['light']:
+                    lightKey = list(lightContrib.keys())[0]
+                    lightPurity = lightContrib[lightKey]['purity']
+                    lightFrac = lightContrib[lightKey]['frac']
 
-                lamParMatr[heavyKey][lightKey] = lightFrac * lightPurity * heavyFrac * heavyPurity
-        lamParCentr = SumLamPar(lamParMatr, cfg['treatment'])
-        print("Lambda parameters for the central variation:")
-        print(lamParMatr)
-        print(lamParCentr)
-        # sys.exit()
-        if not IsSummedLamParMatValid(lamParCentr):
-            print("Lambda parameters don't sum to 1. Exit!")
-            sys.exit()
+                    lamParMatrCentr[heavyKey][lightKey] = lightFrac * lightPurity * heavyFrac * heavyPurity
+            return lamParMatrCentr
 
         # Variations on lambda parameters
-        lamParSharp = dict(lamParCentr) # Explicit copy with dict()
-        lamParSharp['flat'] *= 1.2
-        lamParSharp['gen'] = 1 - lamParSharp['flat']
+        lamParCentr = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
+        lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1), cfg['treatment'])
+        lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9), cfg['treatment'])
 
-        lamParFlat = dict(lamParCentr)
-        lamParFlat['flat'] *= 0.8
-        lamParFlat['gen'] = 1 - lamParFlat['flat']
+        print(lamParCentr)
+        print(lamParSharp)
+        print(lamParFlat)
+
+        
+        if not IsSummedLamParMatValid(lamParCentr) or not IsSummedLamParMatValid(lamParSharp) or not IsSummedLamParMatValid(lamParFlat):
+            print("Lambda parameters don't sum to 1. Exit!")
+            sys.exit()
 
         lamPars = [lamParCentr, lamParFlat, lamParSharp]
         if not args.syst:
