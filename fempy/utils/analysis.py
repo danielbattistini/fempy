@@ -12,8 +12,8 @@ import fempy
 
 class Pair:
     def __init__(self, pair):
-        if pair == 'DstarPi':
-            self.name = 'DstarPi'
+        self.name = pair
+        if pair == 'DstarPi' or pair == 'DstarK':
             self.max_kstar = 3000
             self.binwidths = [1, 2, 4, 5, 10, 20, 40, 50]
             self.mass_regions = ['sgn', 'sbr']
@@ -24,7 +24,6 @@ class Pair:
             self.cfg_sidebands = None
 
         elif pair == 'DPi':
-            self.name = 'DPi'
             self.max_kstar = 3000
             self.binwidths = [1, 2, 4, 5, 10, 20, 40, 50]
             self.mass_regions = ['sgn', 'sbl', 'sbr']
@@ -34,7 +33,6 @@ class Pair:
             self.heavy_mass_label = '#it{M}(K#pi#pi) (GeV/#it{c})^{2}'
             self.cfg_sidebands = None
         elif pair == 'DK':
-            self.name = 'DPi'
             self.max_kstar = 3000
             self.binwidths = [1, 2, 4, 5, 10, 20, 40, 50]
             self.mass_regions = ['sgn', 'sbl', 'sbr']
