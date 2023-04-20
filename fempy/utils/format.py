@@ -74,13 +74,22 @@ def TranslateToLatex(text):
         'kDstarPi_mp': "D*^{#minus} #pi^{+}",
         'kDstarPi_sc': "D*^{+} #pi^{+} #oplus D*^{#minus} #pi^{#minus}",
         'kDstarPi_oc': "D*^{+} #pi^{#minus} #oplus D*^{#minus} #pi^{+}",
+        # Dstar-kaon
+        'kDstarK_pp': "D*^{+} K^{+}",
+        'kDstarK_mm': "D*^{#minus} K^{#minus}",
+        'kDstarK_pm': "D*^{+} K^{#minus}",
+        'kDstarK_mp': "D*^{#minus} K^{+}",
+        'kDstarK_sc': "D*^{+} K^{+} #oplus D*^{#minus} K^{#minus}",
+        'kDstarK_oc': "D*^{+} K^{#minus} #oplus D*^{#minus} K^{+}",
         # axix labels
-        'ciccio': "pasticcio",
         '__invmass_Dstar__': "#it{M}(K#pi#pi) - #it{M}(K#pi) (GeV/#it{c}^{2})",
         '__invmass_D__': '#it{M}(K#pi#pi) (GeV/#it{c})^{2}',
         '__MeVc__': 'MeV/#it{c}',
         '__GeVc__': 'GeV/#it{c}',
         '__GeVc2__': 'GeV/#it{c}^{2}',
+        '__C__': '#it{C}(#it{k}*)',
+        '__kStarMeV__': '#it{k}* (MeV/#it{c})',
+        '__kStarGeV__': '#it{k}* (GeV/#it{c})',
     }
     for key, value in dPairs2Latex.items():
         if key in text:
