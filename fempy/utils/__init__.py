@@ -1,7 +1,7 @@
 import fempy
 from .analysis import Pair
 from .io import *
-
+from .format import *
 
 def DivideCanvas(canvas, n):
     if n <= 1:
