@@ -166,7 +166,6 @@ class CorrelationFunction:
             for iBin in range(cf.GetNbinsX()+2):
                 cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) - other)
         elif isinstance(other, CorrelationFunction):
-            print('add cf')
             cf.Add(other.cf, -1)
         else:
             print(f'Error: the type {type(other)} is not implemented. Exit!')
@@ -188,14 +187,14 @@ class CorrelationFunction:
                     # todo bin error
                     # cf.SetBinError(iBin, self.cf.GetBinError(iBin) * other)
             else:
-                fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
+                fempy.error(f' __mul__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
         elif isinstance(self.cf, TF1):
             if isinstance(other, (int, float)):
                 self.func = lambda x, par: self.cf.Eval(x[0]) * other
                 cf = TF1(f'{self.cf.GetName()}_', self.func, 0, 3000)
 
         else:
-            fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')  
+            fempy.error(f' __mul__ with left={type(self.cf)} and rigth={type(other)} is not implemented')  
 
         return CorrelationFunction(cf=cf)
 
@@ -207,16 +206,29 @@ class CorrelationFunction:
                 # for iBin in range(cf.GetNbinsX()+2):
                 #     cf.SetBinContent(iBin, self.cf.GetBinContent(iBin) / other)
                 #     cf.SetBinError(iBin, self.cf.GetBinError(iBin) / other)
+            elif isinstance(other, TH1):
+                cf = self.cf.Clone()
+                if cf.GetNbinsX() != other.GetNbinsX():
+                    fempy.error("Different number of bins")
+                if cf.GetBinWidth(1) != other.GetBinWidth(1):
+                    fempy.error("Different bin width")
+                
+                for iBin in range(self.cf.GetNbinsX()+1):
+                    if other.GetBinContent(iBin+1) > 0 and self.cf.GetBinContent(iBin+1) > 0:
+                        cf.SetBinContent(iBin + 1, self.cf.GetBinContent(iBin+1) / other.GetBinContent(iBin+1))
+                        cf.SetBinError(iBin + 1, ((self.cf.GetBinError(iBin+1) / self.cf.GetBinContent(iBin+1))**2  + (other.GetBinError(iBin+1)/ other.GetBinContent(iBin+1))**2)**0.5)
+                    else:
+                        cf.SetBinContent(iBin + 1, 0)
             else:
-                fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
+                fempy.error(f' __truediv__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
         elif isinstance(self.cf, TF1):
             if isinstance(other, (int, float)):
                 self.func = lambda x, par: self.cf.Eval(x[0]) / other
                 cf = TF1(f'{self.cf.GetName()}_', self.func, 0, 3000)
             else:
-                fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
+                fempy.error(f' __truediv__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
         else:
-            fempy.error(f' __add__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
+            fempy.error(f' __truediv__ with left={type(self.cf)} and rigth={type(other)} is not implemented')
         return CorrelationFunction(cf=cf)
 
     def __radd__(self, other):
