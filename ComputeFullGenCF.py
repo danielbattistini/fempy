@@ -68,6 +68,7 @@ def SumLamPar(lam_par, treamtments):
     lam_par_summed = {
         'gen': 0,
         'flat': 0,
+        'sb': 0,
     }
     for hk, h_lam in lam_par.items():
         for lk, l_lam in h_lam.items():
@@ -266,7 +267,6 @@ if __name__ == '__main__':
                             cfSbr = cfData['sbr'][syst]
                             cfMC = cfMCOrig
                         # Fit the baseline
-                        print("pirupiru")
                         fBaseLine = TF1('fBaseLine', '[0]', 0, 3000)
                         cfSgn.get_cf() # dummy call to compute the CF
                         hPurityDstar = TH1D("hPurityDstar", "", 60, 0, 3000)
@@ -401,7 +401,6 @@ if __name__ == '__main__':
                             for iBin in range(hBL.GetNbinsX()):
                                 hBL.SetBinContent(iBin+1, blNorm)
                                 hBL.SetBinError(iBin+1, blNormUnc)
-
 
                             # Compute Gen CF
                             cfGen = (cfSgn/cfMC.get_cf()/blNorm - lamPars['flat'])/lamPars['gen']
