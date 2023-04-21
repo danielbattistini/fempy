@@ -68,6 +68,7 @@ def SumLamPar(lam_par, treamtments):
     lam_par_summed = {
         'gen': 0,
         'flat': 0,
+        'sb': 0,
     }
     for hk, h_lam in lam_par.items():
         for lk, l_lam in h_lam.items():
@@ -207,35 +208,37 @@ if __name__ == '__main__':
                 hMEData.Rebin(rebinFactor)
                 cfData[region][syst] = CorrelationFunction(se=hSEData, me=hMEData, norm=norm)
 
-        lamParMatr = {}
-        for heavyContrib in cfg['heavy']:
-            heavyKey = list(heavyContrib.keys())[0]
-            heavyPurity = heavyContrib[heavyKey]['purity']
-            heavyFrac = heavyContrib[heavyKey]['frac']
-            lamParMatr[heavyKey] = {}
-            for lightContrib in cfg['light']:
-                lightKey = list(lightContrib.keys())[0]
-                lightPurity = lightContrib[lightKey]['purity']
-                lightFrac = lightContrib[lightKey]['frac']
+        def LoadLambdaParam(cfgCentr, npFracVar = 1.):
+            cfgVar = dict(cfgCentr)
+            cfgVar['heavy'][1]['nonprompt']['frac'] *= npFracVar
+            cfgVar['heavy'][0]['prompt']['frac'] = 1 - cfgVar['heavy'][1]['nonprompt']['frac']
+            lamParMatrCentr = {}
+            for heavyContrib in cfgVar['heavy']:
+                heavyKey = list(heavyContrib.keys())[0]
+                heavyPurity = heavyContrib[heavyKey]['purity']
+                heavyFrac = heavyContrib[heavyKey]['frac']
+                lamParMatrCentr[heavyKey] = {}
+                for lightContrib in cfgVar['light']:
+                    lightKey = list(lightContrib.keys())[0]
+                    lightPurity = lightContrib[lightKey]['purity']
+                    lightFrac = lightContrib[lightKey]['frac']
 
-                lamParMatr[heavyKey][lightKey] = lightFrac * lightPurity * heavyFrac * heavyPurity
-        lamParCentr = SumLamPar(lamParMatr, cfg['treatment'])
-        print("Lambda parameters for the central variation:")
-        print(lamParMatr)
-        print(lamParCentr)
-        # sys.exit()
-        if not IsSummedLamParMatValid(lamParCentr):
-            print("Lambda parameters don't sum to 1. Exit!")
-            sys.exit()
+                    lamParMatrCentr[heavyKey][lightKey] = lightFrac * lightPurity * heavyFrac * heavyPurity
+            return lamParMatrCentr
 
         # Variations on lambda parameters
-        lamParSharp = dict(lamParCentr) # Explicit copy with dict()
-        lamParSharp['flat'] *= 1.2
-        lamParSharp['gen'] = 1 - lamParSharp['flat']
+        lamParCentr = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
+        lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1), cfg['treatment'])
+        lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9), cfg['treatment'])
 
-        lamParFlat = dict(lamParCentr)
-        lamParFlat['flat'] *= 0.8
-        lamParFlat['gen'] = 1 - lamParFlat['flat']
+        print(lamParCentr)
+        print(lamParSharp)
+        print(lamParFlat)
+
+        
+        if not IsSummedLamParMatValid(lamParCentr) or not IsSummedLamParMatValid(lamParSharp) or not IsSummedLamParMatValid(lamParFlat):
+            print("Lambda parameters don't sum to 1. Exit!")
+            sys.exit()
 
         lamPars = [lamParCentr, lamParFlat, lamParSharp]
         if not args.syst:
@@ -254,9 +257,17 @@ if __name__ == '__main__':
             with alive_bar(nTotalSystVars, force_tty=True) as bar:
                 for iVar, (syst, fitRange, (radius1, radius2, weight1), lamPars) in enumerate(varProduct):
                     # Perform bootstrap for each syst variation
+                    if iVar > 0 and np.random.uniform(0, 1) > float(args.syst)/nTotalSystVars:
+                        continue
+
+                    #! Check purity here!!
+                    hPurityDstar = TH1D(f"hPurityDstar_{iVar}", "", 60, 0, 3000)
+                    for iBin in range(hPurityDstar.GetNbinsX()):
+                        hPurityDstar.SetBinContent(iBin+1, 0.77)
+                        hPurityDstar.SetBinError(iBin+1, 0.01)
+                    purityDstar = CorrelationFunction(cf=hPurityDstar)
+
                     for iIter in range(args.bs+1): # In addition to the central variation that is always run
-                        # if np.random.uniform(0, 1) > float(args.syst)/nTotalSystVars:
-                        #     continue
                         if iIter > 0:
                             cfSgn = CorrelationFunction(cf=Bootstrap(cfData['sgn'][syst].get_cf()))
                             cfSbr = CorrelationFunction(cf=Bootstrap(cfData['sbr'][syst].get_cf()))
@@ -266,21 +277,15 @@ if __name__ == '__main__':
                             cfSbr = cfData['sbr'][syst]
                             cfMC = cfMCOrig
                         # Fit the baseline
-                        print("pirupiru")
                         fBaseLine = TF1('fBaseLine', '[0]', 0, 3000)
                         cfSgn.get_cf() # dummy call to compute the CF
-                        hPurityDstar = TH1D("hPurityDstar", "", 60, 0, 3000)
-                        for iBin in range(hPurityDstar.GetNbinsX()):
-                            hPurityDstar.SetBinContent(iBin+1, 0.77)
-                            hPurityDstar.SetBinError(iBin+1, 0.01)
-                        purityDstar = CorrelationFunction(cf=hPurityDstar)
 
-                        cfBkg = cfSgn/cfMC.get_cf()
+                        cfBkg = (cfSgn - CorrelationFunction(cf=cfSbr.get_cf() * lamPars['sb']))/(cfMC.get_cf() * (lamPars['gen'] + lamPars['flat']))
                         ApplyCenterOfGravity(cfBkg.get_cf(), gGravities).Fit(fBaseLine, 'Q', '', 300, 1000)
                         blNorm = fBaseLine.GetParameter(0)
 
                         # Compute Gen CF
-                        cfGen = (cfSgn/cfMC.get_cf()/blNorm - lamPars['flat'])/lamPars['gen']
+                        cfGen = ((cfSgn - CorrelationFunction(cf=cfSbr.get_cf() * lamPars['sb']))/cfMC.get_cf()/blNorm - lamPars['flat'] )/lamPars['gen']
                         
                         # fill lists for syst var
                         for iBin in range(cfGen.get_cf().GetNbinsX()):
@@ -324,8 +329,8 @@ if __name__ == '__main__':
             
             oFile.mkdir(f"{comb}/fits")
             oFile.cd(f"{comb}/fits")
-            
-            with alive_bar(nPurityVar*nSystVar * len(fitRanges) * len(radii1) * len(lamPars) * (args.bs+1), force_tty=True) as bar:
+            nTotalSystVars = nPurityVar*nSystVar * len(fitRanges) * len(radii1) * len(lamPars)
+            with alive_bar(nTotalSystVars, force_tty=True) as bar:
                 for iVar, (syst, fitRange, (radius1, radius2, weight1), lamPars) in enumerate(varProduct):
                     # Perform bootstrap for each syst variation
                     # Make kStar slices
@@ -402,7 +407,6 @@ if __name__ == '__main__':
                                 hBL.SetBinContent(iBin+1, blNorm)
                                 hBL.SetBinError(iBin+1, blNormUnc)
 
-
                             # Compute Gen CF
                             cfGen = (cfSgn/cfMC.get_cf()/blNorm - lamPars['flat'])/lamPars['gen']
                             hGenCF = cfGen.get_cf()
@@ -470,9 +474,7 @@ if __name__ == '__main__':
                             tl.DrawLatex(0.6, 0.85 - 2 * step, f'#chi^{{2}}/ndf = {chi2ndf:.2f}')
 
                             cFit.Write()
-
-
-                            bar()
+                    bar()
 
         oFile.cd(comb)
         
