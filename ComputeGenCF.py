@@ -1,6 +1,8 @@
 import yaml
 import sys
+import argparse
 
+import fempy
 from fempy import CorrelationFunction
 
 from ROOT import TFile, gROOT
@@ -26,11 +28,14 @@ def SumLamPar(lam_par, treamtments):
 
 
 if __name__ == '__main__':
-    inFile = TFile("~/an/DstarPi/18_fixmix/cf/RawCF_data_nopc_kStarBW15MeV_gaus_charmMassBW0.2MeV_lowKStarCharmMassBW0.4MeV_until50MeV.root")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('inFile')
+    parser.add_argument('cfg')
+    parser.add_argument('oFile')
+    parser.add_argument('--dry', default=False, action='store_true')
+    args = parser.parse_args()
 
-    hCFRaw = inFile.Get("sc/hCFPurityRewFromDataMinusBkg")
-
-    with open("/home/daniel/phsw/fempy/cfg_gencf_DstarPi.yml", "r") as stream:
+    with open(args.cfg, "r") as stream:
         try:
             cfg = yaml.safe_load(stream)
         except yaml.YAMLError as exc:
@@ -49,15 +54,84 @@ if __name__ == '__main__':
             l_frac = l_contrib[l_key]['frac']
 
             lam_par_matr[h_key][l_key] = l_frac * l_purity * h_frac * h_purity
-
     print('\n\n\n---> ', lam_par_matr, 'sum=', IsLamParMatValid(lam_par_matr))
-
     lam_par_sum = SumLamPar(lam_par_matr, cfg['treatment'])
+    if args.dry:
+        print(lam_par_sum)
+        sys.exit()
 
-    CFRaw = CorrelationFunction(cf=hCFRaw)
-    CFGen = (CFRaw - lam_par_sum['flat'])/lam_par_sum['gen']
+    inFile = TFile(args.inFile)
+    if not args.dry:
+        oFile = TFile(args.oFile, "recreate")
+    # inFile = TFile("~/an/DstarPi/18_fixmix/cf/RawCF_data_nopc_kStarBW15MeV_gaus_charmMassBW0.2MeV_lowKStarCharmMassBW0.4MeV_until50MeV.root")
+    # oFileName = "~/an/DstarPi/18_fixmix/cf/GenCF_nopc_kStarBW15MeV_gaus_charmMassBW0.2MeV_lowKStarCharmMassBW0.4MeV_until50MeV.root"
 
-    gROOT.SetBatch(False)
-    CFGen.get_cf().Draw()
-    hCFRaw.SetLineColor(3)
-    hCFRaw.Draw('same')
+    histNames = fempy.utils.io.GetHistNamesInDir(inFile.Get("pp"))
+    nSysts = len([name for name in histNames if "hCFPurityRewFromDataMinusBkg" in name])
+    if nSysts == 0:
+        nSysts = len([name for name in histNames if "hCFstd_sgn" in name])
+
+    print(nSysts)
+    # gROOT.SetBatch(False)
+    # print(systs)
+
+    
+    for comb in ['sc', 'oc']:
+        if not args.dry:
+            oFile.mkdir(comb)
+
+        CFMinijet = 1
+        if cfg['mj']['enable']:
+            inFileMJ = TFile.Open(cfg['mj']['file'])
+            CFMinijet = inFileMJ.Get(f'{comb}/hCFstd_sgn0')
+
+        for syst in range(nSysts):
+            hCFRaw = inFile.Get(f"{comb}/hCFPurityRewFromDataMinusBkg{syst}")
+            if not hCFRaw:
+                hCFRaw = inFile.Get(f"{comb}/hCFstd_sgn{syst}")
+            if not hCFRaw:
+                print("hCFRaw not leaded")
+                inFile.ls()
+                fempy.error("hCFRaw not leaded")
+            # print(hCFRaw.GetNbinsX())
+            CFRaw = CorrelationFunction(cf=hCFRaw)
+            # print("kakas")
+            print(CFRaw, CFMinijet,  lam_par_sum['flat'], lam_par_sum['gen'])
+            # CFMinijet.Draw()
+            CFGen = (CFRaw/CFMinijet - lam_par_sum['flat'])/lam_par_sum['gen']
+            # CFGen = (CFRaw - lam_par_sum['flat'])/lam_par_sum['gen']/CFMinijet
+
+            CFGen.get_cf().Draw()
+            hCFRaw.SetLineColor(3)
+            hCFRaw.Draw('same')
+
+            if not args.dry:
+                oFile.cd(comb)
+                CFGen.get_cf().Write(f"hGenCF{ſyst}")
+
+                # save graph
+                if syst == 0:
+                    hCF = CFGen.get_cf()
+                    gCF = inFile.Get(f"{comb}/gCFPurityRewFromDataMinusBkg")
+                    inFile.Get(comb).ls()
+                    if gCF == None:
+                        gCF = inFile.Get(f"{comb}/gCFstd_sgn")
+
+                    yCF = [hCF.GetBinContent(iBin+1) for iBin in range(hCF.GetNbinsX())]
+                    yCFUnc = [hCF.GetBinError(iBin+1) for iBin in range(hCF.GetNbinsX())]
+                    xCF = [gCF.GetPointX(iBin) for iBin in range(hCF.GetNbinsX())]
+                    xCFUnc = [gCF.GetErrorX(iBin) for iBin in range(hCF.GetNbinsX())]
+                    
+                    print(xCF)
+                    print(yCF)
+                    print(xCFUnc)
+                    print(yCFUnc)
+                    for iPoint, (x, y, xUnc, yUnc) in enumerate(zip(xCF, yCF, xCFUnc, yCFUnc)):
+                        gCF.SetPoint(iPoint, x, y)
+                        gCF.SetPointError(iPoint, xUnc, yUnc)
+                    gCF.Write(f"gGenCF{ſyst}")
+
+    if not args.dry:
+        
+        print("output saved in ", args.oFile)
+        oFile.Close()

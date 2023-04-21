@@ -9,8 +9,8 @@ from rich import print
 from ROOT import TFile, TCanvas, kRed, TLegend, gStyle, gPad, TLatex, SetOwnership, kRed, kOrange, kMagenta, kViolet, kAzure, gROOT
 
 sys.path.append('../')
-from utils.format import GetNormRangeFromPDG, GetNormRangeFromPDG, dPDG2Label, TranslateToLatex, FigInit
-from core.CorrelationFunction import CorrelationFunction
+from fempy.utils.format import GetNormRangeFromPDG, GetNormRangeFromPDG, dPDG2Label, TranslateToLatex, FigInit
+from fempy import CorrelationFunction
 
 parser = argparse.ArgumentParser(description='Arguments')
 parser.add_argument('inFileName')
@@ -61,7 +61,7 @@ gStyle.SetPadTopMargin(0.035)
 gStyle.SetPadBottomMargin(0.1)
 
 
-rebin = 4
+rebin = 50
 lightPDG = [211, 321]  # pions, kaons
 charmPDG = [411]  # D+, D*
 suffix = ''
@@ -140,8 +140,8 @@ for cPDG in charmPDG:
 inFile.Close()
 
 # project CFs in momentum
-ptMins = [0, 5]
-ptMaxs = [2, 10]
+ptMins = [1]
+ptMaxs = [10]
 
 # include the integrated ptbin
 ptMins.append(ptMins[0])
@@ -253,9 +253,9 @@ for lPDG in lightPDG:
 
                     # Draw correlation function
                     cCF.cd(2)
-                    cf = CorrelationFunction(se, me, um='GeV2MeV', norm=norm)
-                    cf.Rebin(rebin)
-                    hCF = cf.GetCF()
+                    cf = CorrelationFunction(se=se, me=me, um='GeV2MeV', norm=norm)
+                    # cf.rebin(rebin)
+                    hCF = cf.get_cf()
                     if hCF is not None:
                         hCF.SetLineWidth(2)
                         hCF.GetYaxis().SetRangeUser(0.8, 1.1 * max([hCF.GetMaximum(), hCF.GetMaximum()]))

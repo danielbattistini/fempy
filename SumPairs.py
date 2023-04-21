@@ -32,6 +32,7 @@ for combName, combsToSum in summedCombs.items():
         inFile.mkdir(f'{combName}/{event}')
         inFile.cd(f'{combName}/{event}')
 
+        inFile.Get(f'pp/{event}').ls()
         for histoName in fempy.utils.io.GetHistNamesInDir(inFile.Get(f'pp/{event}')):
             SumHists([inFile.Get(f'{comb}/{event}/{histoName}') for comb in combsToSum]).Write()
 

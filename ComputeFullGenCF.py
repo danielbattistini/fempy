@@ -118,7 +118,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pair')
     parser.add_argument('--fitMass', default=False, action='store_true')
-    parser.add_argument('--syst', default=False, action='store_true')
+    # parser.add_argument('--syst', default=False, action='store_true')
+    parser.add_argument('--syst', default=0, type=int)
     parser.add_argument('--bs', type=int, default=0)
     parser.add_argument('-b', default=False, action='store_true')
     args = parser.parse_args()
@@ -135,7 +136,7 @@ if __name__ == '__main__':
         fitRanges = [[10, 450], [10, 400], [10, 500]]
         inFileDistrData = TFile('/home/daniel/an/DstarK/2_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
         inFileDistrMC = TFile('~/an/DstarK/2_luuksel/distr/Distr_mchf_nopc_kStarBW50MeV_fromq.root')
-        oFileName = '/home/daniel/an/DstarK/2_luuksel/GenCF_nopc_kStarBW50MeV_fromq_sbcorr.root'
+        oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCF_nopc_kStarBW50MeV_fromq_sbcorr_syst{args.syst}_bs{args.bs}.root'
         config = '/home/daniel/phsw/fempy/cfg_gencf_DstarK_50MeV.yml'
 
         mLF = TDatabasePDG.Instance().GetParticle(321).Mass()
@@ -144,11 +145,11 @@ if __name__ == '__main__':
         radii1 = [0.86, 0.95, 0.79]
         radii2 = [2.03, 2.22, 1.91]
     elif args.pair == 'DstarPi':
-        fitRanges = [[10, 350], [10, 300], [10, 400]]
-        # fitRanges = [[10, 800], [10, 600], [10, 1000]]
+        # fitRanges = [[10, 350], [10, 300], [10, 400]]
+        fitRanges = [[10, 800], [10, 600], [10, 1000]]
         inFileDistrData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
         inFileDistrMC = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_mcgp_nopc_kStarBW50MeV_true.root')
-        oFileName = '/home/daniel/an/DstarPi/20_luuksel/GenCF_nopc_kStarBW50MeV.root'
+        oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCF_nopc_kStarBW50MeV_syst{args.syst}_bs{args.bs}.root'
         config = '/home/daniel/phsw/fempy/cfg_gencf_DstarPi_50MeV.yml'
         mLF = TDatabasePDG.Instance().GetParticle(211).Mass()
         weights1 = [0.66, 0.69, 0.64]
@@ -288,6 +289,7 @@ if __name__ == '__main__':
                         cfGen = ((cfSgn - CorrelationFunction(cf=cfSbr.get_cf() * lamPars['sb']))/cfMC.get_cf()/blNorm - lamPars['flat'] )/lamPars['gen']
                         
                         # fill lists for syst var
+                        
                         for iBin in range(cfGen.get_cf().GetNbinsX()):
                             lCF[iBin].append(cfGen.get_cf().GetBinContent(iBin+1))
 
@@ -333,7 +335,9 @@ if __name__ == '__main__':
             with alive_bar(nTotalSystVars, force_tty=True) as bar:
                 for iVar, (syst, fitRange, (radius1, radius2, weight1), lamPars) in enumerate(varProduct):
                     # Perform bootstrap for each syst variation
-                    # Make kStar slices
+                    if iVar > 0 and np.random.uniform(0, 1) > float(args.syst)/nTotalSystVars:
+                        print("lanckln")
+                        continue
                     def ComputePurity(hist, kStarBW, event, variation=""):
                         nBins = round(3000/kStarBW)
                         hPurity = TH1D(f'h{event}Purity_{iVar}_{variation}', '', nBins, 0, 3000)
@@ -366,7 +370,7 @@ if __name__ == '__main__':
 
                     # Purity variations for SE
                     hSEMassVsKStar2D = inFileDistrData.Get(f'{comb}/SE/hCharmMassVsKStar{syst}')
-                    hPuritySE = [ComputePurity(hSEMassVsKStar2D, kStarBW, 'SE')]
+                    hPuritySE = [ComputePurity(hSEMassVsKStar2D, kStarBW, 'SE', '+1')]
                     if args.syst:
                         hPuritySE.append(ComputePurity(hSEMassVsKStar2D, kStarBW, 'SE', '+1'))
                         hPuritySE.append(ComputePurity(hSEMassVsKStar2D, kStarBW, 'SE', '-1'))
@@ -399,7 +403,7 @@ if __name__ == '__main__':
                             # print('---------', cfMC.get_cf().GetNbinsX())
                             cfBkg = cfSgn/cfMC.get_cf()
 
-                            ApplyCenterOfGravity(cfBkg.get_cf(), gGravities).Fit(fBaseLine, 'Q', '', 300, 600)
+                            ApplyCenterOfGravity(cfBkg.get_cf(), gGravities).Fit(fBaseLine, 'Q', '', 300, 1000)
                             blNorm = fBaseLine.GetParameter(0)
                             blNormUnc = fBaseLine.GetParError(0)
                             hBL = cfSgn.get_cf().Clone('hBL')
@@ -411,14 +415,14 @@ if __name__ == '__main__':
                             cfGen = (cfSgn/cfMC.get_cf()/blNorm - lamPars['flat'])/lamPars['gen']
                             hGenCF = cfGen.get_cf()
 
-                            for iBin in range(hGenCF.GetNbinsX()):
-                                cfMJVal = cfMC.get_cf().GetBinContent(iBin+1)
-                                cfSgnVal = cfSgn.get_cf().GetBinContent(iBin+1)
-                                cfUnc = (1./lamPars['gen']/cfMJVal/blNorm * cfSgn.get_cf().GetBinError(iBin+1)) ** 2
-                                cfUnc += (cfSgnVal/lamPars['gen']/blNorm/cfMJVal/cfMJVal * cfMC.get_cf().GetBinError(iBin+1)) ** 2
-                                cfUnc += (cfSgnVal/lamPars['gen']/blNorm/blNorm/cfMJVal * blNormUnc) ** 2
-                                # print(f"class: {hGenCF.GetBinError(iBin+1):.3f}    standalone: {cfUnc** 0.5 : .3f}")
-                                hGenCF.SetBinError(iBin+1, cfUnc**0.5)
+                            # for iBin in range(hGenCF.GetNbinsX()):
+                            #     cfMJVal = cfMC.get_cf().GetBinContent(iBin+1)
+                            #     cfSgnVal = cfSgn.get_cf().GetBinContent(iBin+1)
+                            #     cfUnc = (1./lamPars['gen']/cfMJVal/blNorm * cfSgn.get_cf().GetBinError(iBin+1)) ** 2
+                            #     cfUnc += (cfSgnVal/lamPars['gen']/blNorm/cfMJVal/cfMJVal * cfMC.get_cf().GetBinError(iBin+1)) ** 2
+                            #     cfUnc += (cfSgnVal/lamPars['gen']/blNorm/blNorm/cfMJVal * blNormUnc) ** 2
+                            #     # print(f"class: {hGenCF.GetBinError(iBin+1):.3f}    standalone: {cfUnc** 0.5 : .3f}")
+                            #     hGenCF.SetBinError(iBin+1, cfUnc**0.5)
 
 
                             # cfGen = (cfSgn/cfMC.get_cf()/hBL - lamPars['flat'])/lamPars['gen']
@@ -494,7 +498,8 @@ if __name__ == '__main__':
 
         gGenCFTot = TGraphErrors(1)
         for iPoint in range(60):
-            hCFGen.SetBinContent(iBin+1, yCF[iBin])
+            hCFGen.SetBinContent(iPoint+1, yCF[iPoint])
+            # hCFGen.SetBinContent(iBin+1, yCF[iBin])
             gGenCFTot.SetPoint(iPoint, gCFGen.GetPointX(iPoint), yCF[iPoint])
             gGenCFTot.SetPointError(iPoint, gCFGen.GetErrorX(iPoint), yCFUnc[iPoint])
 
