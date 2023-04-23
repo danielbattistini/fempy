@@ -14,6 +14,37 @@ def ComputeNormFactor(se, me, start, end):
     return me.Integral(firstBin, lastBin) / se.Integral(firstBin, lastBin)
 
 
+def SumLamPar(lam_par, treamtments):
+    lam_par_summed = {
+        'gen': 0,
+        'flat': 0,
+        'sb': 0,
+    }
+    for hk, h_lam in lam_par.items():
+        for lk, l_lam in h_lam.items():
+            lam_par_summed[treamtments[hk][lk]] += l_lam
+    return lam_par_summed
+
+
+def LoadLambdaParam(cfgCentr, npFracVar=1.):
+    cfgVar = dict(cfgCentr)
+    cfgVar['heavy'][1]['nonprompt']['frac'] *= npFracVar
+    cfgVar['heavy'][0]['prompt']['frac'] = 1 - cfgVar['heavy'][1]['nonprompt']['frac']
+    lamParMatr = {}
+    for heavyContrib in cfgVar['heavy']:
+        heavyKey = list(heavyContrib.keys())[0]
+        heavyPurity = heavyContrib[heavyKey]['purity']
+        heavyFrac = heavyContrib[heavyKey]['frac']
+        lamParMatr[heavyKey] = {}
+        for lightContrib in cfgVar['light']:
+            lightKey = list(lightContrib.keys())[0]
+            lightPurity = lightContrib[lightKey]['purity']
+            lightFrac = lightContrib[lightKey]['frac']
+
+            lamParMatr[heavyKey][lightKey] = lightFrac * lightPurity * heavyFrac * heavyPurity
+    return lamParMatr
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pair', choices=('DstarPi', 'DstarK'))
@@ -47,6 +78,11 @@ if __name__ == '__main__':
         except yaml.YAMLError as exc:
             print(exc)
             sys.exit()
+
+    # Variations on lambda parameters
+    lamParCentr = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
+    lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1), cfg['treatment'])
+    lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9), cfg['treatment'])
 
     oFile = TFile(oFileName, 'recreate')
     for comb in ['sc', 'oc']:
