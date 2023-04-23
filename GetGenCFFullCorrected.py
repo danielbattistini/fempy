@@ -5,6 +5,9 @@ import argparse
 
 from ROOT import TFile, TDatabasePDG
 
+import fempy
+
+
 def ComputeNormFactor(se, me, start, end):
     firstBin = se.FindBin(start*1.0001)
     lastBin = me.FindBin(end*0.9999)
@@ -18,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--stat', action='store_true', default=False)
     args = parser.parse_args()
 
-    kStarBW = 50 # MeV/c
+    kStarBW = 50  # MeV/c
     if args.pair == 'DstarK':
         fitRanges = [[10, 450], [10, 400], [10, 500]]
         inFileData = TFile('/home/daniel/an/DstarK/2_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
@@ -63,6 +66,23 @@ if __name__ == '__main__':
         hMEMC.Write()
         hCFMC.SetName('hCFMC')
         hCFMC.Write()
-    
+
+        regions = fempy.utils.GetRegions(inFileData.Get('sc/SE'))
+        dCFData = {}
+        for region in regions:
+            hSEData = inFileData.Get(f'{comb}/SE/{region}/hCharmMassVsKStar0').ProjectionX(f'hSE_{region}')
+            hMEData = inFileData.Get(f'{comb}/ME/{region}/hCharmMassVsKStar0').ProjectionX(f'hME_{region}')
+
+            rebinFactor = round(kStarBW/hSEData.GetBinWidth(1))
+            hSEData.Rebin(rebinFactor)
+            hMEData.Rebin(rebinFactor)
+            hSEData.Scale(ComputeNormFactor(hSEData, hMEData, 1000, 1500))
+            hCFData = hSEData/hMEData
+            hSEData.Write()
+            hMEData.Write()
+            hCFData.SetName(f'hCF_{region}')
+            hCFData.Write()
+            dCFData[region] = hCFData
+
     print(f'output saved in {oFileName}')
     oFile.Close()
