@@ -3,9 +3,30 @@ import yaml
 
 import argparse
 
-from ROOT import TFile, TDatabasePDG
+from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG
 
 import fempy
+
+
+def Average(hist, xmin, xmax):
+    firstBin = hist.GetXaxis().FindBin(xmin * 1.0001)
+    lastBin = hist.GetXaxis().FindBin(xmax * 0.9999)
+
+    avg = 0
+    for iBin in range(firstBin, lastBin + 1):
+        avg += hist.GetBinContent(iBin) * hist.GetBinCenter(iBin)
+    return avg/hist.Integral(firstBin, lastBin)
+
+
+def StdDev(hist, xmin, xmax):
+    firstBin = hist.GetXaxis().FindBin(xmin * 1.0001)
+    lastBin = hist.GetXaxis().FindBin(xmax * 0.9999)
+    mu = Average(hist, xmin, xmax)
+
+    stdDev = 0
+    for iBin in range(firstBin, lastBin + 1):
+        stdDev += hist.GetBinContent(iBin) * (hist.GetBinCenter(iBin) - mu)**2
+    return (stdDev/hist.Integral(firstBin, lastBin))**0.5
 
 
 def ComputeNormFactor(se, me, start, end):
@@ -43,6 +64,33 @@ def LoadLambdaParam(cfgCentr, npFracVar=1.):
 
             lamParMatr[heavyKey][lightKey] = lightFrac * lightPurity * heavyFrac * heavyPurity
     return lamParMatr
+
+
+def LoadGravities(hME, kStarBW):
+    nKStarBins = round(hME.GetNbinsX()/kStarBW)
+    xCF = [Average(hME, iBin*kStarBW, (iBin+1)*kStarBW) for iBin in range(nKStarBins)]
+    xCFUnc = [StdDev(hME, iBin*kStarBW, (iBin+1)*kStarBW) for iBin in range(nKStarBins)]
+    yCF = [1 for _ in range(nKStarBins)]
+    yCFUnc = [0 for _ in range(nKStarBins)]
+    gGravities = TGraphErrors(1)
+    for iBin, (x, y, xUnc, yUnc) in enumerate(zip(xCF, yCF, xCFUnc, yCFUnc)):
+        gGravities.SetPoint(iBin, x, y)
+        gGravities.SetPointError(iBin, xUnc, yUnc)
+    return gGravities
+
+
+def ApplyCenterOfGravity(hist, graph):
+    nBins = hist.GetNbinsX()
+    if nBins != graph.GetN():
+        fempy.error(f"hist '{hist.GetName()}' has {hist.GetNbinsX()} bins "
+                    f"but graph '{graph.GetName()}' has {graph.GetN()} points.")
+
+    gCentered = graph.Clone(f'{hist.GetName()}_grav')
+    for iBin in range(hist.GetNbinsX()):
+        gCentered.SetPoint(iBin, graph.GetPointX(iBin), hist.GetBinContent(iBin+1))
+        gCentered.SetPointError(iBin, graph.GetErrorX(iBin), hist.GetBinError(iBin+1))
+
+    return gCentered
 
 
 if __name__ == '__main__':
@@ -84,6 +132,8 @@ if __name__ == '__main__':
     lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1), cfg['treatment'])
     lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9), cfg['treatment'])
 
+    lamPar = lamParCentr
+
     oFile = TFile(oFileName, 'recreate')
     for comb in ['sc', 'oc']:
         oFile.mkdir(comb)
@@ -119,6 +169,26 @@ if __name__ == '__main__':
             hCFData.SetName(f'hCF_{region}')
             hCFData.Write()
             dCFData[region] = hCFData
+
+        # Prefit the background
+        hCFNorm = (dCFData['sgn'] - lamPar['sb'] * dCFData['sbr']) / (hCFMC * (lamPar['gen'] + lamPar['flat']))
+        hCFNorm.SetName('hCFNorm')
+        hCFNorm.Write()
+
+        # Compute center of gravity of the bins in the ME
+        hGravities = inFileData.Get(f'{comb}/ME/sgn/hCharmMassVsKStar0').ProjectionX('hGravities')
+        print(kStarBW)
+        gGravities = LoadGravities(hGravities, kStarBW)
+
+        # Fit the baseline
+        fBaseLine = TF1('fBaseLine', '[0]', 0, 3000)
+        ApplyCenterOfGravity(hCFNorm, gGravities).Fit(fBaseLine, 'Q', '', 300, 1000)
+        blNorm = fBaseLine.GetParameter(0)
+
+        # Compute the total background mode
+        hCFBkg = lamPar['sb'] * dCFData['sbr'] + blNorm * hCFMC * (lamPar['gen'] + lamPar['flat'])
+        hCFBkg.SetName('hCFBkg')
+        hCFBkg.Write()
 
     print(f'output saved in {oFileName}')
     oFile.Close()
