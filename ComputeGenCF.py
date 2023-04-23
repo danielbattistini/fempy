@@ -3,7 +3,7 @@ import yaml
 
 import argparse
 
-from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend
+from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend, gRandom
 gInterpreter.ProcessLine('#include "fempy/utils/functions.h"')
 gInterpreter.ProcessLine('#include "fempy/MassFitter.hxx"')
 from ROOT import MassFitter, GeneralCoulombLednicky
@@ -69,13 +69,14 @@ def LoadLambdaParam(cfgCentr, npFracVar=1.):
     return lamParMatr
 
 
-def LoadGravities(hME, kStarBW):
+def LoadGravities(hME, kStarBW, name='gGravities'):
     nKStarBins = round(hME.GetNbinsX()/kStarBW)
     xCF = [Average(hME, iBin*kStarBW, (iBin+1)*kStarBW) for iBin in range(nKStarBins)]
     xCFUnc = [StdDev(hME, iBin*kStarBW, (iBin+1)*kStarBW) for iBin in range(nKStarBins)]
     yCF = [1 for _ in range(nKStarBins)]
     yCFUnc = [0 for _ in range(nKStarBins)]
     gGravities = TGraphErrors(1)
+    gGravities.SetName(name)
     for iBin, (x, y, xUnc, yUnc) in enumerate(zip(xCF, yCF, xCFUnc, yCFUnc)):
         gGravities.SetPoint(iBin, x, y)
         gGravities.SetPointError(iBin, xUnc, yUnc)
@@ -139,7 +140,19 @@ def MakeFlatHist(hSkeleton, value, name='hFlat'):
     return hFlat
 
 
-def ComputeGenCF(cfg):
+def Bootstrap(hist):
+    hBootstrapped = hist.Clone(f'{hist.GetName()}_bootstrap')
+    for iBin in range(hist.GetNbinsX()+2):
+        mu = hist.GetBinContent(iBin)
+        sigma = hist.GetBinError(iBin)
+
+        hBootstrapped.SetBinContent(iBin, gRandom.Gaus(mu, sigma))
+        hBootstrapped.SetBinError(iBin, sigma)
+    return hBootstrapped
+
+
+def ComputeGenCF(args):
+    print(args)
     gStyle.SetOptStat(0)
 
     kStarBW = 50  # MeV/c
@@ -213,86 +226,99 @@ def ComputeGenCF(cfg):
             hCFData.Write()
             dCFData[region] = hCFData
 
-        # Prefit the background
-        hCFNorm = (dCFData['sgn'] - lamPar['sb'] * dCFData['sbr']) / (hCFMC * (lamPar['gen'] + lamPar['flat']))
-        hCFNorm.SetName('hCFNorm')
-        hCFNorm.Write()
-
         # Compute center of gravity of the bins in the ME
         hGravities = inFileData.Get(f'{comb}/ME/sgn/hCharmMassVsKStar0').ProjectionX('hGravities')
-        print(kStarBW)
         gGravities = LoadGravities(hGravities, kStarBW)
+        gGravities.Write()
 
-        # Fit the baseline
-        fBaseLine = TF1('fBaseLine', '[0]', 0, 3000)
-        ApplyCenterOfGravity(hCFNorm, gGravities).Fit(fBaseLine, 'Q', '', 300, 1000)
-        blNorm = fBaseLine.GetParameter(0)
+        oFile.mkdir(f'{comb}/stat')
+        oFile.cd(f'{comb}/stat')
+        for iIter in range(args.bs + 1): #iter 0 is for the central
+            if iIter == 0:
+                hCFSgn = dCFData['sgn'].Clone(f'hCFSgn{iIter}')
+                hCFSbr = dCFData['sbr'].Clone(f'hCFSbr{iIter}')
+                hCFMJ = hCFMC.Clone(f'hCFMC{iIter}')
+            else:
+                hCFSgn = Bootstrap(dCFData['sgn'].Clone(f'hCFSgn{iIter}'))
+                hCFSbr = Bootstrap(dCFData['sbr'].Clone(f'hCFSbr{iIter}'))
+                hCFMJ = Bootstrap(hCFMC.Clone(f'hCFMC{iIter}'))
 
-        # Compute the total background mode
-        hCFBkg = lamPar['sb'] * dCFData['sbr'] + blNorm * hCFMC * (lamPar['gen'] + lamPar['flat'])
-        hCFBkg.SetName('hCFBkg')
-        hCFBkg.Write()
+            # Compute the normalization of the MJ
+            hCFNorm = (hCFSgn - lamPar['sb'] * hCFSbr) / (hCFMJ * (lamPar['gen'] + lamPar['flat']))
+            hCFNorm.SetName(f'hCFNorm{iIter}')
+            hCFNorm.Write()
 
-        # Compute the Gen CF
-        hCFFlat = MakeFlatHist(dCFData['sgn'], lamPar['flat'], 'hCFFlat')
-        hCFGen = (dCFData['sgn'] - lamPar['sb'] * dCFData['sbr'])/(blNorm * hCFMC) - hCFFlat
-        hCFGen.Scale(1./lamPar['gen'])
-        hCFGen.SetName('hCFGen')
-        hCFGen.Write()
+            # Fit the baseline
+            fBaseLine = TF1(f'fBaseLine{iIter}', '[0]', 0, 3000)
+            ApplyCenterOfGravity(hCFNorm, gGravities).Fit(fBaseLine, 'Q', '', 300, 1000)
+            blNorm = fBaseLine.GetParameter(0)
 
-        # Compute the coulomb-only CF with Lednicky
-        fitRange = fitRanges[0]
-        fCoulomb = TF1("fCoulomb", WeightedCoulombLednicky, fitRange[0], fitRange[1], 8)
-        fCoulomb.FixParameter(0, radii1[0])
-        fCoulomb.FixParameter(1, radii2[0])
-        fCoulomb.FixParameter(2, weights1[0])
-        fCoulomb.FixParameter(3, 0)
-        fCoulomb.FixParameter(4, 0.)
-        fCoulomb.FixParameter(5, 0.)
-        fCoulomb.FixParameter(6, 1 if comb == 'sc' else -1)
-        fCoulomb.FixParameter(7, RedMass(heavyMass, lightMass) * 1000)
-        fCoulomb.SetLineColor(kBlue)
+            # Compute the total background mode
+            hCFBkg = lamPar['sb'] * hCFSbr + blNorm * hCFMJ * (lamPar['gen'] + lamPar['flat'])
+            hCFBkg.SetName(f'hCFBkg{iIter}')
+            hCFBkg.Write()
 
-        # Fit the CF
-        gCFGen = ApplyCenterOfGravity(hCFGen, gGravities)
-        fWeightedLL = TF1("fWeightedLL", WeightedCoulombLednicky, fitRange[0], fitRange[1], 8)
-        fWeightedLL.FixParameter(0, radii1[0])
-        fWeightedLL.FixParameter(1, radii2[0])
-        fWeightedLL.FixParameter(2, weights1[0])
-        fWeightedLL.SetParameter(3, 0.1)
-        fWeightedLL.SetParLimits(3, -1, 1)
-        fWeightedLL.FixParameter(4, 0.)
-        fWeightedLL.FixParameter(5, 0.)
-        fWeightedLL.FixParameter(6, 1 if comb == 'sc' else -1)
-        fWeightedLL.FixParameter(7, RedMass(heavyMass, lightMass) * 1000)
+            # Compute the Gen CF
+            hCFFlat = MakeFlatHist(hCFSgn, lamPar['flat'], 'hCFFlat')
+            hCFGen = (hCFSgn - lamPar['sb'] * hCFSbr)/(blNorm * hCFMJ) - hCFFlat
+            hCFGen.Scale(1./lamPar['gen'])
+            hCFGen.SetName(f'hCFGen{iIter}')
+            hCFGen.Write()
 
-        status = gCFGen.Fit(fWeightedLL, "SMRQ+0").Status()
-        chi2ndf = fWeightedLL.GetChisquare()/fWeightedLL.GetNDF()
-        scattLen = fWeightedLL.GetParameter(3)
-        scattLenUnc = fWeightedLL.GetParError(3)
+            # Compute the coulomb-only CF with Lednicky
+            fitRange = fitRanges[0]
+            fCoulomb = TF1("fCoulomb", WeightedCoulombLednicky, fitRange[0], fitRange[1], 8)
+            fCoulomb.FixParameter(0, radii1[0])
+            fCoulomb.FixParameter(1, radii2[0])
+            fCoulomb.FixParameter(2, weights1[0])
+            fCoulomb.FixParameter(3, 0)
+            fCoulomb.FixParameter(4, 0.)
+            fCoulomb.FixParameter(5, 0.)
+            fCoulomb.FixParameter(6, 1 if comb == 'sc' else -1)
+            fCoulomb.FixParameter(7, RedMass(heavyMass, lightMass) * 1000)
+            fCoulomb.SetLineColor(kBlue)
 
-        cFit = TCanvas(f'cFit_{comb}', '', 600, 600)
-        cFit.DrawFrame(0, 0, 500, 2)
-        hCFGen.Draw('pe')
-        fWeightedLL.Draw('same')
-        fCoulomb.Draw('same')
+            # Fit the CF
+            gCFGen = ApplyCenterOfGravity(hCFGen, gGravities)
+            fWeightedLL = TF1(f"fWeightedLL{iIter}", WeightedCoulombLednicky, fitRange[0], fitRange[1], 8)
+            fWeightedLL.FixParameter(0, radii1[0])
+            fWeightedLL.FixParameter(1, radii2[0])
+            fWeightedLL.FixParameter(2, weights1[0])
+            fWeightedLL.SetParameter(3, 0.1)
+            fWeightedLL.SetParLimits(3, -1, 1)
+            fWeightedLL.FixParameter(4, 0.)
+            fWeightedLL.FixParameter(5, 0.)
+            fWeightedLL.FixParameter(6, 1 if comb == 'sc' else -1)
+            fWeightedLL.FixParameter(7, RedMass(heavyMass, lightMass) * 1000)
 
-        step = 0.05
-        iVar = 0
-        tl = TLatex()
-        tl.SetNDC()
-        tl.SetTextSize(0.035)
-        tl.SetTextFont(42)
-        tl.DrawLatex(0.2, 0.85 - 0 * step, fempy.utils.format.TranslateToLatex(f'k{args.pair}_{comb}   iVar: {iVar}'))
-        tl.DrawLatex(0.2, 0.85 - 1 * step, f'a_{{0}} = {scattLen:.3f} #pm {scattLenUnc:.3f}')
-        tl.DrawLatex(0.2, 0.85 - 2 * step, f'#chi^{{2}}/ndf = {chi2ndf:.2f}')
+            status = gCFGen.Fit(fWeightedLL, "SMRQ+0").Status()
+            chi2ndf = fWeightedLL.GetChisquare()/fWeightedLL.GetNDF()
+            scattLen = fWeightedLL.GetParameter(3)
+            scattLenUnc = fWeightedLL.GetParError(3)
 
-        leg = TLegend(0.5, 0.7, 0.85, 0.85)
-        leg.AddEntry(hCFGen, 'Data')
-        leg.AddEntry(fWeightedLL, 'Fit LL')
-        leg.AddEntry(fCoulomb, 'Coulomb LL')
-        leg.Draw()
-        cFit.Write()
+            # Draw canvas
+            cFit = TCanvas(f'cFit_{comb}{iIter}', '', 600, 600)
+            cFit.DrawFrame(0, 0, 500, 2)
+            hCFGen.Draw('pe')
+            fWeightedLL.Draw('same')
+            fCoulomb.Draw('same')
+
+            step = 0.05
+            iVar = 0
+            tl = TLatex()
+            tl.SetNDC()
+            tl.SetTextSize(0.035)
+            tl.SetTextFont(42)
+            tl.DrawLatex(0.2, 0.85 - 0 * step, fempy.utils.format.TranslateToLatex(f'k{args.pair}_{comb}   iVar: {iVar}'))
+            tl.DrawLatex(0.2, 0.85 - 1 * step, f'a_{{0}} = {scattLen:.3f} #pm {scattLenUnc:.3f}')
+            tl.DrawLatex(0.2, 0.85 - 2 * step, f'#chi^{{2}}/ndf = {chi2ndf:.2f}')
+
+            leg = TLegend(0.5, 0.7, 0.85, 0.85)
+            leg.AddEntry(hCFGen, 'Data')
+            leg.AddEntry(fWeightedLL, 'Fit LL')
+            leg.AddEntry(fCoulomb, 'Coulomb LL')
+            leg.Draw()
+            cFit.Write()
 
     print(f'output saved in {oFileName}')
     oFile.Close()
@@ -302,7 +328,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pair', choices=('DstarPi', 'DstarK'))
     parser.add_argument('--syst', action='store_true', default=False)
-    parser.add_argument('--stat', action='store_true', default=False)
+    parser.add_argument('--bs', type=int, default=0)
     args = parser.parse_args()
 
     ComputeGenCF(args)
