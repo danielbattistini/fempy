@@ -3,7 +3,7 @@ import yaml
 
 import argparse
 
-from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend, gRandom
+from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend, gRandom, TNtuple, TH2D
 gInterpreter.ProcessLine('#include "fempy/utils/functions.h"')
 gInterpreter.ProcessLine('#include "fempy/MassFitter.hxx"')
 from ROOT import MassFitter, GeneralCoulombLednicky
@@ -231,8 +231,13 @@ def ComputeGenCF(args):
         gGravities = LoadGravities(hGravities, kStarBW)
         gGravities.Write()
 
+        tTrials = TNtuple('tTrials_stat', 'trials', 'a0:a0unc:status:chi2ndf:iVar:w1:r1:r2:fitMax:lFlat:lGen')
+
         oFile.mkdir(f'{comb}/stat')
         oFile.cd(f'{comb}/stat')
+
+        hhCFGen = TH2D('hhCFGen', '', dCFData['sgn'].GetNbinsX(), 0, 3000, 2000, 0, 2)
+
         for iIter in range(args.bs + 1): #iter 0 is for the central
             if iIter == 0:
                 hCFSgn = dCFData['sgn'].Clone(f'hCFSgn{iIter}')
@@ -265,6 +270,11 @@ def ComputeGenCF(args):
             hCFGen.SetName(f'hCFGen{iIter}')
             hCFGen.Write()
 
+            # Add the CF to the hist2D
+            if iIter > 0:
+                for iBin in range(hCFGen.GetNbinsX()):
+                    hhCFGen.Fill(hCFGen.GetBinCenter(iBin+1), hCFGen.GetBinContent(iBin+1))
+
             # Compute the coulomb-only CF with Lednicky
             fitRange = fitRanges[0]
             fCoulomb = TF1("fCoulomb", WeightedCoulombLednicky, fitRange[0], fitRange[1], 8)
@@ -296,6 +306,8 @@ def ComputeGenCF(args):
             scattLen = fWeightedLL.GetParameter(3)
             scattLenUnc = fWeightedLL.GetParError(3)
 
+            tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, 0, weights1[0], radii1[0], radii2[0], fitRange[1], lamPar['flat'], lamPar['gen'])
+
             # Draw canvas
             cFit = TCanvas(f'cFit_{comb}{iIter}', '', 600, 600)
             cFit.DrawFrame(0, 0, 500, 2)
@@ -319,6 +331,17 @@ def ComputeGenCF(args):
             leg.AddEntry(fCoulomb, 'Coulomb LL')
             leg.Draw()
             cFit.Write()
+
+        oFile.cd(comb)
+        tTrials.Write()
+        hhCFGen.Write()
+        hCFGen.Reset()
+        hCFGen.SetName('hCFGen')
+        for iBin in range(hCFGen.GetNbinsX()):
+            hCFGenProj = hhCFGen.ProjectionY(f'hGenCF_bin{iBin}', iBin+1, iBin+1)
+            hCFGen.SetBinContent(iBin+1, hCFGenProj.GetMean())
+            hCFGen.SetBinError(iBin+1, hCFGenProj.GetStdDev())
+        hCFGen.Write()
 
     print(f'output saved in {oFileName}')
     oFile.Close()
