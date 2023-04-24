@@ -8,7 +8,7 @@ from ROOT import TFile, TCanvas, gInterpreter, gPad, TLatex
 gInterpreter.ProcessLine('#include "fempy/MassFitter.hxx"')
 from ROOT import MassFitter
 
-def ComputeIntegratedPurity(inFileName, suffix):
+def ComputeIntegratedPurity(inFileName, suffix, lowKStar):
     inFile = TFile.Open(inFileName)
 
     suffix = f'_{suffix}' if suffix != '' else suffix
@@ -22,7 +22,12 @@ def ComputeIntegratedPurity(inFileName, suffix):
         oFile.mkdir(comb)
         oFile.cd(comb)
 
-        hMass = inFile.Get(f'{comb}/SE/hCharmMassVsKStar0').ProjectionY()
+        if lowKStar:
+            hCharmMassVsKStar = inFile.Get(f'{comb}/SE/hCharmMassVsKStar0')
+            hMass = hCharmMassVsKStar.ProjectionY('hCharmMass_lowKstar', 1, hCharmMassVsKStar.GetXaxis().FindBin(200*0.9999))
+        else:
+            hMass = inFile.Get(f'{comb}/SE/hCharmMassVsKStar0').ProjectionY()
+            
         firstBin = hMass.GetXaxis().FindBin(fitRange[0]*1.0001)
         lastBin = hMass.GetXaxis().FindBin(fitRange[1]*0.9999)
 
@@ -69,8 +74,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('inFile')
     parser.add_argument('--suffix', default='')
+    parser.add_argument('--lowKStar', default=False, action='store_true')
     args = parser.parse_args()
     
-    ComputeIntegratedPurity(args.inFile, args.suffix)
+    ComputeIntegratedPurity(args.inFile, args.suffix, args.lowKStar)
 
 
