@@ -483,7 +483,6 @@ def ComputeGenCF(args):
         gCFGenStat = ApplyCenterOfGravity(hCFGenStat, gGravities)
         cFinalFit = TCanvas(f'cFinalFit_{comb}', '', 600, 600)
         cFinalFit.DrawFrame(0, 0, 500, 2, fempy.utils.format.TranslateToLatex(';__kStarMeV__;__C__'))
-        leg = TLegend(0.6, 0.75, .9, 0.9)
 
         if args.syst:
             oFile.mkdir(f'{comb}/tot')
@@ -544,10 +543,10 @@ def ComputeGenCF(args):
                 gCFGenTot.SetPointError(iBin, 0.5*gCFGenTot.GetErrorX(iBin), (shift**2 + sigma**2)**0.5)
 
             gCFGenTot.SetFillColor(38)
-
+            gCFGenStat.SetMarkerStyle(33)
+            gCFGenStat.SetMarkerSize(2)
         
-            leg.AddEntry(gCFGenTot, 'Data')
-            leg.Draw()
+            
             
             # plot lednicky curves
             nPoints = 500
@@ -573,6 +572,7 @@ def ComputeGenCF(args):
                 gLLStat.SetPoint(iPoint, float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0], np.average(cfVariationStat[iPoint]))
                 gLLStat.SetPointError(iPoint, 0, np.std(cfVariationStat[iPoint]))
             gLLStat.SetFillColor(46)
+            gLLStat.SetLineColor(46)
 
             # plot syst curve
             dfTrialsTot = pd.DataFrame(RDataFrame(tTrialsTot).AsNumpy())
@@ -617,8 +617,27 @@ def ComputeGenCF(args):
             tl.DrawLatex(0.2, 0.85, fempy.utils.format.TranslateToLatex(f'k{args.pair}_{comb}'))
             tl.DrawLatex(0.2, 0.85 - step, f'a_{{0}} = {scatPar:.3f} #pm {scatParStatUnc:.3f} (stat) #pm {scatParSystUnc:.3f} (syst)')
 
+
+            fCoulombLL = TF1(f"fCoulombLL", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
+            fCoulombLL.FixParameter(0, radii1[0])
+            fCoulombLL.FixParameter(1, radii2[0])
+            fCoulombLL.FixParameter(2, weights1[0])
+            fCoulombLL.FixParameter(3, 0)
+            fCoulombLL.FixParameter(4, 0.)
+            fCoulombLL.FixParameter(5, 0.)
+            fCoulombLL.FixParameter(6, 1 if comb == 'sc' else -1)
+            fCoulombLL.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
+            fCoulombLL.SetLineColor(kBlue)
+
+            leg = TLegend(0.6, 0.75, .9, 0.9)
+            leg.AddEntry(gCFGenTot, 'Data', 'pef')
+            leg.AddEntry(gLLStat, 'Fit LL', 'f')
+            leg.AddEntry(fCoulombLL, 'LL Coulomb', 'l')
+                
+            leg.Draw()
             gLLTot.Draw('same e3')
             gLLStat.Draw('same e3')
+            fCoulombLL.Draw('same')
             gCFGenTot.Draw('same pe2')
             gCFGenStat.Draw('same pe')
 
