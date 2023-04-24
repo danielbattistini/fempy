@@ -383,6 +383,19 @@ def ComputeGenCF(args):
 
     oFile = TFile(oFileName, 'recreate')
     for comb in ['sc', 'oc']:
+        if args.pair == 'DstarPi' and comb == 'sc':
+            realCoulombFile = TFile('/home/daniel/an/DPi/corrections/Dstar/Dstar_PiplusDplusOutput.root')
+        elif args.pair == 'DstarPi' and comb == 'oc':
+            realCoulombFile = TFile('/home/daniel/an/DPi/corrections/Dstar/Dstar_PiplusDminusOutput.root')
+        elif args.pair == 'DstarK' and comb == 'sc':
+            realCoulombFile = TFile('/home/daniel/an/DPi/corrections/Dstar/Dstar_KplusDplusOutput.root')
+        elif args.pair == 'DstarK' and comb == 'oc':
+            realCoulombFile = TFile('/home/daniel/an/DPi/corrections/Dstar/Dstar_KplusDminusOutput.root')
+        fRealCoulomb = realCoulombFile.Get('genuineCF')
+        fRealCoulomb.SetLineStyle(9)
+
+        realCoulombFile.Close()
+
         oFile.mkdir(comb)
         oFile.cd(comb)
 
@@ -650,11 +663,13 @@ def ComputeGenCF(args):
             leg.AddEntry(gCFGenSyst, 'Data', 'pef')
             leg.AddEntry(gLLStat, 'Fit LL', 'f')
             leg.AddEntry(fCoulombLL, 'LL Coulomb', 'l')
-                
+            leg.AddEntry(fRealCoulomb, 'Real Coulomb', 'l')
+
             leg.Draw()
             gLLTot.Draw('same e3')
             gLLStat.Draw('same e3')
             fCoulombLL.Draw('same')
+            fRealCoulomb.Draw('same')
             gCFGenSyst.Draw('same pe2')
             gCFGenStat.Draw('same pe')
 
