@@ -495,6 +495,7 @@ def ComputeGenCF(args):
                 if args.pair == 'DstarK':
                     hCFSgn = dCFData[iVar]['sgn'].Clone(f'hCFSgn{iIter}')
                     hCFSbr = dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}')
+                    purityVar = 0
                 elif args.pair == 'DstarPi':
                     purityVar = random.choice([0, +1, -1])
                     hSESgn = VaryHistogram(dSEPurity[iVar], purityVar) * dSEData[iVar]['sgn']
@@ -546,8 +547,6 @@ def ComputeGenCF(args):
             gCFGenStat.SetMarkerStyle(33)
             gCFGenStat.SetMarkerSize(2)
         
-            
-            
             # plot lednicky curves
             nPoints = 500
 
@@ -611,7 +610,8 @@ def ComputeGenCF(args):
             
             # Chi2 recalculation
             chi2=0
-            ndf = 9
+            nPoints = 9
+            ndf = nPoints -1
             for iPoint in range(ndf):
                 kStar = gCFGenStat.GetPointX(iPoint)
                 cfFit = gLLStat.Eval(kStar)
