@@ -1,10 +1,12 @@
 import sys
 import yaml
 import random
-
 import argparse
 
-from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend, gRandom, TNtuple, TH2D
+import pandas as pd
+import numpy as np
+
+from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend, gRandom, TNtuple, TH2D, RDataFrame, TH1D
 gInterpreter.ProcessLine('#include "fempy/utils/functions.h"')
 gInterpreter.ProcessLine('#include "fempy/MassFitter.hxx"')
 from ROOT import MassFitter, GeneralCoulombLednicky
@@ -377,12 +379,12 @@ def ComputeGenCF(args):
             hCFGenStat.SetBinError(iBin+1, hCFGenStatProj.GetStdDev())
         hCFGenStat.Write()
 
-        oFile.mkdir(f'{comb}/tot')
-        oFile.cd(f'{comb}/tot')
-        hhCFGenTot = TH2D('hhCFGenTot', '', dCFData[0]['sgn'].GetNbinsX(), 0, 3000, 2000, 0, 2)
-        tTrialsTot = TNtuple('tTrialsTot', 'trials', 'a0:a0unc:status:chi2ndf:iVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
-
         if args.syst:
+            oFile.mkdir(f'{comb}/tot')
+            oFile.cd(f'{comb}/tot')
+            hhCFGenTot = TH2D('hhCFGenTot', '', dCFData[0]['sgn'].GetNbinsX(), 0, 3000, 2000, 0, 2)
+            tTrialsTot = TNtuple('tTrialsTot', 'trials', 'a0:a0unc:status:chi2ndf:iVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
+
             for iIter in range(args.bs):
                 iVar = random.choice(range(0, nVar))
                 radius1, radius2, weight1 = random.choice(list(zip(radii1, radii2, weights1)))
@@ -410,13 +412,107 @@ def ComputeGenCF(args):
             tTrialsTot.Write()
             hhCFGenTot.Write()
 
-            hCFGenTot = hCFSgn.Clone('hCFGenStat')
+            hCFGenTot = hCFSgn.Clone('hCFGenTot')
             for iBin in range(hCFGenTot.GetNbinsX()):
                 hCFGenTotProj = hhCFGenTot.ProjectionY(f'hGenCF_bin{iBin}', iBin+1, iBin+1)
                 hCFGenTot.SetBinContent(iBin+1, hCFGenTotProj.GetMean())
                 hCFGenTot.SetBinError(iBin+1, hCFGenTotProj.GetStdDev())
             hCFGenTot.Write()
 
+
+        gCFGenStat = ApplyCenterOfGravity(hCFGenStat, gGravities)
+        gCFGenTot = ApplyCenterOfGravity(hCFGenTot, gGravities)
+        for iBin in range(60):
+            syst = gCFGenTot.GetErrorY(iBin)**2 - gCFGenStat.GetErrorY(iBin)**2
+            syst = 0 if syst < 0 else syst**0.5
+            print(syst)
+            gCFGenTot.SetPointError(iBin, 0.5*gCFGenTot.GetErrorX(iBin), syst)
+
+        cFinalFit = TCanvas(f'cFinalFit_{comb}', '', 600, 600)
+        cFinalFit.DrawFrame(0, 0, 500, 2, fempy.utils.format.TranslateToLatex(';__kStar_MeV__;__C__'))
+        gCFGenTot.SetFillColor(38)
+        gCFGenTot.Draw('same pe2')
+        gCFGenStat.Draw('same pe')
+
+        leg = TLegend(0.6, 0.75, .9, 0.9)
+        leg.AddEntry(gCFGenTot, 'Data')
+        leg.Draw()
+        
+        # plot lednicky curves
+        nPoints = 500
+
+        dfTrials = pd.DataFrame(RDataFrame(tTrialsStat).AsNumpy())
+        cfVariationStat = [[] for _ in range(nPoints)]
+        for iIter, scattLen in enumerate(dfTrials['a0']):
+            fWeightedLL = TF1(f"fWeightedLL_{iIter}", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
+            fWeightedLL.FixParameter(0, radii1[0])
+            fWeightedLL.FixParameter(1, radii2[0])
+            fWeightedLL.FixParameter(2, weights1[0])
+            fWeightedLL.FixParameter(3, scattLen)
+            fWeightedLL.FixParameter(4, 0.)
+            fWeightedLL.FixParameter(5, 0.)
+            fWeightedLL.FixParameter(6, 1 if comb == 'sc' else -1)
+            fWeightedLL.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
+            
+            for iPoint in range(nPoints):
+                cfVariationStat[iPoint].append(fWeightedLL.Eval(float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
+
+        gLLStat = TGraphErrors(1)
+        for iPoint in range(nPoints):
+            gLLStat.SetPoint(iPoint, float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0], np.average(cfVariationStat[iPoint]))
+            gLLStat.SetPointError(iPoint, 0, np.std(cfVariationStat[iPoint]))
+        gLLStat.SetFillColor(46)
+        gLLStat.Draw('same e3')
+
+        # plot syst curve
+        dfTrialsTot = pd.DataFrame(RDataFrame(tTrialsTot).AsNumpy())
+        cfVariationSyst = [[] for _ in range(nPoints)]
+        for iVar, (scattLen, iVar, r1, r2, w1) in enumerate(zip(dfTrialsTot['a0'], dfTrialsTot['iVar'], dfTrialsTot['r1'], dfTrialsTot['r2'], dfTrialsTot['w1'])):
+            fWeightedLL = TF1(f"fWeightedLL_{iVar}", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
+            fWeightedLL.FixParameter(0, r1)
+            fWeightedLL.FixParameter(1, r2)
+            fWeightedLL.FixParameter(2, w1)
+            fWeightedLL.FixParameter(3, scattLen)
+            fWeightedLL.FixParameter(4, 0.)
+            fWeightedLL.FixParameter(5, 0.)
+            fWeightedLL.FixParameter(6, 1 if comb == 'sc' else -1)
+            fWeightedLL.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
+            
+            for iPoint in range(nPoints):
+                cfVariationSyst[iPoint].append(fWeightedLL.Eval(float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
+
+        gLLSyst = TGraphErrors(1)
+        for iPoint in range(nPoints):
+            gLLSyst.SetPoint(iPoint, float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0], np.average(cfVariationSyst[iPoint]))
+            gLLSyst.SetPointError(iPoint, 0, np.std(cfVariationSyst[iPoint]))
+        gLLSyst.SetFillColor(42)
+        gLLSyst.Draw('same e3')
+
+        # Compute Scat param
+        hScatParStat = TH1D('hScatParStat', ';a_{0} (fm);Counts', 200, -1, 1)
+        tTrialsStat.Project('hScatParStat', 'a0')
+        scatPar = hScatParStat.GetMean()
+        scatParStatUnc = hScatParStat.GetStdDev()
+        
+        hScatParTot = TH1D('hScatParTot', ';a_{0} (fm);Counts', 200, -1, 1)
+        tTrialsTot.Project('hScatParTot', 'a0')
+        scatParSystUnc = (hScatParTot.GetStdDev()**2 - scatParStatUnc**2)**0.5
+        
+
+        step = 0.05
+        tl = TLatex()
+        tl.SetNDC()
+        tl.SetTextSize(0.035)
+        tl.SetTextFont(42)
+        tl.DrawLatex(0.2, 0.85, fempy.utils.format.TranslateToLatex(f'k{args.pair}_{comb}'))
+        tl.DrawLatex(0.2, 0.85 - step, f'a_{{0}} = {scatPar:.3f} #pm {scatParStatUnc:.3f} (stat) #pm {scatParSystUnc:.3f} (syst)')
+    
+
+
+        cFinalFit.Modified()
+        cFinalFit.Update()
+        cFinalFit.Write()
+        
     print(f'output saved in {oFileName}')
     oFile.Close()
 
