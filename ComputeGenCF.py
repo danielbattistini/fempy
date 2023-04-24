@@ -482,7 +482,7 @@ def ComputeGenCF(args):
 
         gCFGenStat = ApplyCenterOfGravity(hCFGenStat, gGravities)
         cFinalFit = TCanvas(f'cFinalFit_{comb}', '', 600, 600)
-        cFinalFit.DrawFrame(0, 0, 500, 2, fempy.utils.format.TranslateToLatex(';__kStar_MeV__;__C__'))
+        cFinalFit.DrawFrame(0, 0, 500, 2, fempy.utils.format.TranslateToLatex(';__kStarMeV__;__C__'))
         leg = TLegend(0.6, 0.75, .9, 0.9)
 
         if args.syst:
@@ -536,13 +536,15 @@ def ComputeGenCF(args):
 
             gCFGenTot = ApplyCenterOfGravity(hCFGenTot, gGravities)
             for iBin in range(60):
-                syst = gCFGenTot.GetErrorY(iBin)**2 - gCFGenStat.GetErrorY(iBin)**2
-                syst = 0 if syst < 0 else syst**0.5
-                gCFGenTot.SetPointError(iBin, 0.5*gCFGenTot.GetErrorX(iBin), syst)
+                sigma = gCFGenTot.GetErrorY(iBin)**2 - gCFGenStat.GetErrorY(iBin)**2
+                sigma = 0 if sigma < 0 else sigma**0.5
+                shift = gCFGenTot.GetPointY(iBin) - gCFGenStat.GetPointY(iBin)
+
+                gCFGenTot.SetPoint(iBin, gCFGenTot.GetPointX(iBin), gCFGenStat.GetPointY(iBin))
+                gCFGenTot.SetPointError(iBin, 0.5*gCFGenTot.GetErrorX(iBin), (shift**2 + sigma**2)**0.5)
 
             gCFGenTot.SetFillColor(38)
-            gCFGenTot.Draw('same pe2')
-            gCFGenStat.Draw('same pe')
+
         
             leg.AddEntry(gCFGenTot, 'Data')
             leg.Draw()
@@ -589,13 +591,13 @@ def ComputeGenCF(args):
                 for iPoint in range(nPoints):
                     cfVariationTot[iPoint].append(fWeightedLLTot.Eval(float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
 
-            gLLSyst = TGraphErrors(1)
+            gLLTot = TGraphErrors(1)
             for iPoint in range(nPoints):
-                gLLSyst.SetPoint(iPoint, float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0], np.average(cfVariationTot[iPoint]))
-                gLLSyst.SetPointError(iPoint, 0, np.std(cfVariationTot[iPoint]))
-            gLLSyst.SetFillColor(42)
-            gLLSyst.Draw('same e3')
-            gLLStat.Draw('same e3')
+                gLLTot.SetPoint(iPoint, float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0], np.average(cfVariationStat[iPoint]))
+                shift = np.average(cfVariationStat[iPoint]) - np.average(cfVariationTot[iPoint])
+                sigma = np.std(cfVariationTot[iPoint])
+                gLLTot.SetPointError(iPoint, 0, (shift**2 + sigma**2)**0.5)
+            gLLTot.SetFillColor(42)
 
             # Compute Scat param
             hScatParStat = TH1D('hScatParStat', ';a_{0} (fm);Counts', 200, -1, 1)
@@ -614,6 +616,11 @@ def ComputeGenCF(args):
             tl.SetTextFont(42)
             tl.DrawLatex(0.2, 0.85, fempy.utils.format.TranslateToLatex(f'k{args.pair}_{comb}'))
             tl.DrawLatex(0.2, 0.85 - step, f'a_{{0}} = {scatPar:.3f} #pm {scatParStatUnc:.3f} (stat) #pm {scatParSystUnc:.3f} (syst)')
+
+            gLLTot.Draw('same e3')
+            gLLStat.Draw('same e3')
+            gCFGenTot.Draw('same pe2')
+            gCFGenStat.Draw('same pe')
 
             cFinalFit.Modified()
             cFinalFit.Update()
