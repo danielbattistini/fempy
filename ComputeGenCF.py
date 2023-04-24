@@ -215,6 +215,7 @@ def ComputeScattPar(**kwargs):
     hhCFGen = kwargs['hhCFGen']
     iVar = kwargs['iVar']
     iIter = kwargs['iIter']
+    purityVar = kwargs['purityVar']
     bkgFitRange = kwargs['bkgFitRange']
 
     if hCFSbr == None:
@@ -324,7 +325,7 @@ def ComputeScattPar(**kwargs):
     if chi2ndf > 3 or abs(scattLen) > 0.99:
         tl.DrawLatex(0.2, 0.85 - 3 * step, 'BAD FIT')
     else:
-        tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, iVar, weight1, radius1, radius2, fitRange[1], bkgFitRange[0], bkgFitRange[1], lamPar['flat'], lamPar['gen'])
+        tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, iVar, purityVar, weight1, radius1, radius2, fitRange[1], bkgFitRange[0], bkgFitRange[1], lamPar['flat'], lamPar['gen'])
     cFit.Write()
 
 
@@ -430,7 +431,7 @@ def ComputeGenCF(args):
         gGravities = LoadGravities(hGravities, kStarBW)
         gGravities.Write()
 
-        tTrialsStat = TNtuple('tTrialsStat', 'trials', 'a0:a0unc:status:chi2ndf:iVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
+        tTrialsStat = TNtuple('tTrialsStat', 'trials', 'a0:a0unc:status:chi2ndf:iVar:purityVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
 
         oFile.mkdir(f'{comb}/stat')
         oFile.cd(f'{comb}/stat')
@@ -464,6 +465,7 @@ def ComputeGenCF(args):
                 hhCFGen=hhCFGenStat,
                 gGravities=gGravities,
                 tTrials=tTrialsStat,
+                purityVar=0,
             )
 
         oFile.cd(comb)
@@ -487,7 +489,7 @@ def ComputeGenCF(args):
             oFile.mkdir(f'{comb}/tot')
             oFile.cd(f'{comb}/tot')
             hhCFGenTot = TH2D('hhCFGenTot', '', dCFData[0]['sgn'].GetNbinsX(), 0, 3000, 2000, 0, 2)
-            tTrialsTot = TNtuple('tTrialsTot', 'trials', 'a0:a0unc:status:chi2ndf:iVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
+            tTrialsTot = TNtuple('tTrialsTot', 'trials', 'a0:a0unc:status:chi2ndf:iVar:purityVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
 
             for iIter in range(args.bs):
                 iVar = random.choice(range(0, nVar))
@@ -518,6 +520,7 @@ def ComputeGenCF(args):
                     gGravities=gGravities,
                     hhCFGen=hhCFGenTot,
                     tTrials=tTrialsTot,
+                    purityVar=purityVar,
                 )
             oFile.cd(comb)
 
