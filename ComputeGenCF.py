@@ -533,16 +533,16 @@ def ComputeGenCF(args):
                 hCFGenTot.SetBinError(iBin+1, hCFGenTotProj.GetStdDev())
             hCFGenTot.Write()
 
-            gCFGenTot = ApplyCenterOfGravity(hCFGenTot, gGravities)
+            gCFGenSyst = ApplyCenterOfGravity(hCFGenTot, gGravities)
             for iBin in range(60):
-                sigma = gCFGenTot.GetErrorY(iBin)**2 - gCFGenStat.GetErrorY(iBin)**2
+                sigma = gCFGenSyst.GetErrorY(iBin)**2 - gCFGenStat.GetErrorY(iBin)**2
                 sigma = 0 if sigma < 0 else sigma**0.5
-                shift = gCFGenTot.GetPointY(iBin) - gCFGenStat.GetPointY(iBin)
+                shift = gCFGenSyst.GetPointY(iBin) - gCFGenStat.GetPointY(iBin)
 
-                gCFGenTot.SetPoint(iBin, gCFGenTot.GetPointX(iBin), gCFGenStat.GetPointY(iBin))
-                gCFGenTot.SetPointError(iBin, 0.5*gCFGenTot.GetErrorX(iBin), (shift**2 + sigma**2)**0.5)
+                gCFGenSyst.SetPoint(iBin, gCFGenSyst.GetPointX(iBin), gCFGenStat.GetPointY(iBin))
+                gCFGenSyst.SetPointError(iBin, 0.5*gCFGenSyst.GetErrorX(iBin), (shift**2 + sigma**2)**0.5)
 
-            gCFGenTot.SetFillColor(38)
+            gCFGenSyst.SetFillColor(38)
             gCFGenStat.SetMarkerStyle(33)
             gCFGenStat.SetMarkerSize(2)
         
@@ -609,6 +609,21 @@ def ComputeGenCF(args):
             tTrialsTot.Project('hScatParTot', 'a0')
             scatParSystUnc = (hScatParTot.GetStdDev()**2 - scatParStatUnc**2)**0.5
             
+            # Chi2 recalculation
+            chi2=0
+            ndf = 9
+            for iPoint in range(ndf):
+                kStar = gCFGenStat.GetPointX(iPoint)
+                cfFit = gLLStat.Eval(kStar)
+
+                cfData = gCFGenStat.GetPointY(iPoint)
+                cfDataStatUnc = gCFGenStat.GetErrorY(iPoint)
+                cfDataSystUnc = gCFGenSyst.GetErrorY(iPoint)
+
+                cfDataTotUnc = (cfDataStatUnc**2 + cfDataSystUnc**2)**0.5
+                chi2 += ((cfData - cfFit)/cfDataTotUnc)**2
+                
+
             step = 0.05
             tl = TLatex()
             tl.SetNDC()
@@ -616,6 +631,7 @@ def ComputeGenCF(args):
             tl.SetTextFont(42)
             tl.DrawLatex(0.2, 0.85, fempy.utils.format.TranslateToLatex(f'k{args.pair}_{comb}'))
             tl.DrawLatex(0.2, 0.85 - step, f'a_{{0}} = {scatPar:.3f} #pm {scatParStatUnc:.3f} (stat) #pm {scatParSystUnc:.3f} (syst)')
+            tl.DrawLatex(0.2, 0.85 - 2 * step, f'#chi^{{2}}/ndf = {chi2:.0f} / {ndf:.0f}')
 
 
             fCoulombLL = TF1(f"fCoulombLL", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
@@ -629,8 +645,9 @@ def ComputeGenCF(args):
             fCoulombLL.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
             fCoulombLL.SetLineColor(kBlue)
 
+
             leg = TLegend(0.6, 0.75, .9, 0.9)
-            leg.AddEntry(gCFGenTot, 'Data', 'pef')
+            leg.AddEntry(gCFGenSyst, 'Data', 'pef')
             leg.AddEntry(gLLStat, 'Fit LL', 'f')
             leg.AddEntry(fCoulombLL, 'LL Coulomb', 'l')
                 
@@ -638,7 +655,7 @@ def ComputeGenCF(args):
             gLLTot.Draw('same e3')
             gLLStat.Draw('same e3')
             fCoulombLL.Draw('same')
-            gCFGenTot.Draw('same pe2')
+            gCFGenSyst.Draw('same pe2')
             gCFGenStat.Draw('same pe')
 
             cFinalFit.Modified()
