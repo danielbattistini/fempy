@@ -53,10 +53,17 @@ def SumLamPar(lam_par, treamtments):
     return lam_par_summed
 
 
-def LoadLambdaParam(cfgCentr, npFracVar=1.):
+def LoadLambdaParam(cfgCentr, npFracVar=1., heavyPurity=None):
     cfgVar = dict(cfgCentr)
     cfgVar['heavy'][1]['nonprompt']['frac'] *= npFracVar
     cfgVar['heavy'][0]['prompt']['frac'] = 1 - cfgVar['heavy'][1]['nonprompt']['frac']
+
+    if heavyPurity != None:
+        cfgVar['heavy'][0]['prompt']['purity'] = heavyPurity
+        cfgVar['heavy'][1]['nonprompt']['purity'] = heavyPurity
+        cfgVar['heavy'][2]['bkg']['purity'] = 1. - heavyPurity
+
+    
     lamParMatr = {}
     for heavyContrib in cfgVar['heavy']:
         heavyKey = list(heavyContrib.keys())[0]
@@ -199,6 +206,27 @@ def VaryHistogram(hist, method):
         fempy.error("not implemented")
 
 
+
+def ComputeIntegratedPurity(hMass, fitRange = [0.141, 0.154]):
+        firstBin = hMass.GetXaxis().FindBin(fitRange[0]*1.0001)
+        lastBin = hMass.GetXaxis().FindBin(fitRange[1]*0.9999)
+
+        particleYield = hMass.Integral(firstBin, lastBin)
+
+        fitter = MassFitter(hMass, 'gaus', 'powex', fitRange[0], fitRange[1])
+        fitter.Fit()
+
+        sgn = fitter.GetSignal(2, 'data_minus_bkg')
+        sgnUnc = fitter.GetSignalUnc(2, 'data_minus_bkg')
+        
+        bkg = fitter.GetBackground(2)
+
+        purity = sgn / (sgn + bkg)
+        purityUnc = purity * np.sqrt((sgnUnc/sgn)**2 + (1./np.sqrt(particleYield))**2)
+
+        return (purity, purityUnc)
+
+        
 def ComputeScattPar(**kwargs):
     hCFSgn = kwargs['sgn']
     hCFSbr = kwargs['sbr']
@@ -327,6 +355,7 @@ def ComputeScattPar(**kwargs):
     else:
         tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, iVar, purityVar, weight1, radius1, radius2, fitRange[1], bkgFitRange[0], bkgFitRange[1], lamPar['flat'], lamPar['gen'])
     cFit.Write()
+    return hCFGen
 
 
 def ComputeGenCF(args):
@@ -415,6 +444,7 @@ def ComputeGenCF(args):
         nVar = 20 if args.syst else 1
         dCFData = [{} for _ in range(nVar)]
         dSEData = [{} for _ in range(nVar)]
+        dhhSEData = [{} for _ in range(nVar)]
         dMEData = [{} for _ in range(nVar)]
         dSEPurity = [{} for _ in range(nVar)]
         dMEPurity = [{} for _ in range(nVar)]
@@ -436,6 +466,7 @@ def ComputeGenCF(args):
                 hCFData.SetName(f'hCF_{region}{iVar}')
                 dCFData[iVar][region] = hCFData
 
+            dhhSEData[iVar] = inFileData.Get(f'{comb}/SE/hCharmMassVsKStar{iVar}')
             dSEPurity[iVar] = ComputePurity(inFileData.Get(f'{comb}/SE/hCharmMassVsKStar{iVar}'), event='SE', kStarBW=kStarBW) if args.pair == 'DstarPi' else None
             dMEPurity[iVar] = ComputePurity(inFileData.Get(f'{comb}/ME/hCharmMassVsKStar{iVar}'), event='ME', kStarBW=kStarBW) if args.pair == 'DstarPi' else None
 
@@ -451,6 +482,12 @@ def ComputeGenCF(args):
 
         hhCFGenStat = TH2D('hhCFGenStat', '', dCFData[0]['sgn'].GetNbinsX(), 0, 3000, 2000, 0, 2)
 
+        if args.pair == 'DstarK':
+            lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
+            purity, _ = ComputeIntegratedPurity(dhhSEData[0].ProjectionY(f"Purity_{0}", 1, lastBin))
+            lamParCentr = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
+            lamPar = lamParCentr
+
         for iIter in range(args.bs + 1):  # iter 0 is for the central
             if args.pair == 'DstarK':
                 hCFSgn = dCFData[0]['sgn'].Clone(f'hCFSgn{iIter}')
@@ -461,7 +498,7 @@ def ComputeGenCF(args):
                 hCFSgn = hSESgn/hMESgn
             hCFMJ = hCFMC.Clone(f'hCFMC{iIter}')
 
-            ComputeScattPar(
+            hCFGen = ComputeScattPar(
                 sgn=hCFSgn if iIter == 0 else Bootstrap(hCFSgn),
                 sbr=None if args.pair=='DstarPi' else hCFSbr if iIter == 0 else Bootstrap(hCFSbr),
                 mj=hCFMJ if iIter == 0 else Bootstrap(hCFMJ),
@@ -493,10 +530,13 @@ def ComputeGenCF(args):
             hCFGenStat.SetBinError(iBin+1, hCFGenStatProj.GetStdDev())
         hCFGenStat.Write()
 
-        gCFGenStat = ApplyCenterOfGravity(hCFGenStat, gGravities)
-        cFinalFit = TCanvas(f'cFinalFit_{comb}', '', 600, 600)
-        cFinalFit.DrawFrame(0, 0, 500, 2, fempy.utils.format.TranslateToLatex(';__kStarMeV__;__C__'))
-
+        if args.bs > 0:
+            gCFGenStat = ApplyCenterOfGravity(hCFGenStat, gGravities)
+        else:
+            gCFGenStat = ApplyCenterOfGravity(hCFGen, gGravities)
+        
+        nLednickyPoints = 500
+            
         if args.syst:
             oFile.mkdir(f'{comb}/tot')
             oFile.cd(f'{comb}/tot')
@@ -505,7 +545,14 @@ def ComputeGenCF(args):
 
             for iIter in range(args.bs):
                 iVar = random.choice(range(0, nVar))
+
                 if args.pair == 'DstarK':
+                    lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
+                    purity, _ = ComputeIntegratedPurity(dhhSEData[iVar].ProjectionY(f"Purity_{0}", 1, lastBin))
+                    lamParCentr = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
+                    lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1, purity), cfg['treatment'])
+                    lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9, purity), cfg['treatment'])
+
                     hCFSgn = dCFData[iVar]['sgn'].Clone(f'hCFSgn{iIter}')
                     hCFSbr = dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}')
                     purityVar = 0
@@ -555,40 +602,11 @@ def ComputeGenCF(args):
 
                 gCFGenSyst.SetPoint(iBin, gCFGenSyst.GetPointX(iBin), gCFGenStat.GetPointY(iBin))
                 gCFGenSyst.SetPointError(iBin, 0.5*gCFGenSyst.GetErrorX(iBin), (shift**2 + sigma**2)**0.5)
-
             gCFGenSyst.SetFillColor(38)
-            gCFGenStat.SetMarkerStyle(33)
-            gCFGenStat.SetMarkerSize(2)
-        
-            # plot lednicky curves
-            nPoints = 500
-
-            dfTrials = pd.DataFrame(RDataFrame(tTrialsStat).AsNumpy())
-            cfVariationStat = [[] for _ in range(nPoints)]
-            for iIter, scattLen in enumerate(dfTrials['a0']):
-                fWeightedLLStat = TF1(f"fWeightedLLStat{iIter}", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
-                fWeightedLLStat.FixParameter(0, radii1[0])
-                fWeightedLLStat.FixParameter(1, radii2[0])
-                fWeightedLLStat.FixParameter(2, weights1[0])
-                fWeightedLLStat.FixParameter(3, scattLen)
-                fWeightedLLStat.FixParameter(4, 0.)
-                fWeightedLLStat.FixParameter(5, 0.)
-                fWeightedLLStat.FixParameter(6, 1 if comb == 'sc' else -1)
-                fWeightedLLStat.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
-                
-                for iPoint in range(nPoints):
-                    cfVariationStat[iPoint].append(fWeightedLLStat.Eval(float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
-
-            gLLStat = TGraphErrors(1)
-            for iPoint in range(nPoints):
-                gLLStat.SetPoint(iPoint, float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0], np.average(cfVariationStat[iPoint]))
-                gLLStat.SetPointError(iPoint, 0, np.std(cfVariationStat[iPoint]))
-            gLLStat.SetFillColor(46)
-            gLLStat.SetLineColor(46)
 
             # plot syst curve
             dfTrialsTot = pd.DataFrame(RDataFrame(tTrialsTot).AsNumpy())
-            cfVariationTot = [[] for _ in range(nPoints)]
+            cfVariationTot = [[] for _ in range(nLednickyPoints)]
             for iVar, (scattLen, iVar, r1, r2, w1) in enumerate(zip(dfTrialsTot['a0'], dfTrialsTot['iVar'], dfTrialsTot['r1'], dfTrialsTot['r2'], dfTrialsTot['w1'])):
                 fWeightedLLTot = TF1(f"fWeightedLLTot{iVar}", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
                 fWeightedLLTot.FixParameter(0, r1)
@@ -600,29 +618,62 @@ def ComputeGenCF(args):
                 fWeightedLLTot.FixParameter(6, 1 if comb == 'sc' else -1)
                 fWeightedLLTot.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
                 
-                for iPoint in range(nPoints):
-                    cfVariationTot[iPoint].append(fWeightedLLTot.Eval(float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
+                for iPoint in range(nLednickyPoints):
+                    cfVariationTot[iPoint].append(fWeightedLLTot.Eval(float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
+                    
+        
+        cFinalFit = TCanvas(f'cFinalFit_{comb}', '', 600, 600)
+        cFinalFit.DrawFrame(0, 0, 500, 2, fempy.utils.format.TranslateToLatex(';__kStarMeV__;__C__'))
+        gCFGenStat.SetMarkerStyle(33)
+        gCFGenStat.SetMarkerSize(2)
+    
+        # plot lednicky curves
+        dfTrials = pd.DataFrame(RDataFrame(tTrialsStat).AsNumpy())
+        cfVariationStat = [[] for _ in range(nLednickyPoints)]
+        for iIter, scattLen in enumerate(dfTrials['a0']):
+            fWeightedLLStat = TF1(f"fWeightedLLStat{iIter}", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
+            fWeightedLLStat.FixParameter(0, radii1[0])
+            fWeightedLLStat.FixParameter(1, radii2[0])
+            fWeightedLLStat.FixParameter(2, weights1[0])
+            fWeightedLLStat.FixParameter(3, scattLen)
+            fWeightedLLStat.FixParameter(4, 0.)
+            fWeightedLLStat.FixParameter(5, 0.)
+            fWeightedLLStat.FixParameter(6, 1 if comb == 'sc' else -1)
+            fWeightedLLStat.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
+            
+            for iPoint in range(nLednickyPoints):
+                cfVariationStat[iPoint].append(fWeightedLLStat.Eval(float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
 
+        # Compute Scat param
+        hScatParStat = TH1D('hScatParStat', ';a_{0} (fm);Counts', 200, -1, 1)
+        tTrialsStat.Project('hScatParStat', 'a0')
+        scatPar = hScatParStat.GetMean()
+        scatParStatUnc = hScatParStat.GetStdDev()
+        if args.syst:
             gLLTot = TGraphErrors(1)
-            for iPoint in range(nPoints):
-                gLLTot.SetPoint(iPoint, float(iPoint)/nPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0], np.average(cfVariationStat[iPoint]))
+            for iPoint in range(nLednickyPoints):
+                gLLTot.SetPoint(iPoint, float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0], np.average(cfVariationStat[iPoint]))
                 shift = np.average(cfVariationStat[iPoint]) - np.average(cfVariationTot[iPoint])
                 sigma = np.std(cfVariationTot[iPoint])
                 gLLTot.SetPointError(iPoint, 0, (shift**2 + sigma**2)**0.5)
             gLLTot.SetFillColor(42)
 
-            # Compute Scat param
-            hScatParStat = TH1D('hScatParStat', ';a_{0} (fm);Counts', 200, -1, 1)
-            tTrialsStat.Project('hScatParStat', 'a0')
-            scatPar = hScatParStat.GetMean()
-            scatParStatUnc = hScatParStat.GetStdDev()
-            
             hScatParTot = TH1D('hScatParTot', ';a_{0} (fm);Counts', 200, -1, 1)
             tTrialsTot.Project('hScatParTot', 'a0')
             scatParSystUnc = (hScatParTot.GetStdDev()**2 - scatParStatUnc**2)**0.5
-            
-            # Chi2 recalculation
+
+        gLLStat = TGraphErrors(1)
+        for iPoint in range(nLednickyPoints):
+            gLLStat.SetPoint(iPoint, float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0], np.average(cfVariationStat[iPoint]))
+            gLLStat.SetPointError(iPoint, 0, np.std(cfVariationStat[iPoint]))
+        gLLStat.SetFillColor(46)
+        gLLStat.SetLineColor(46)
+
+        
+        
+        if args.bs > 0 and args.syst:
             chi2=0
+            # Chi2 recalculation
             nPoints = 9
             ndf = nPoints -1
             for iPoint in range(ndf):
@@ -631,51 +682,59 @@ def ComputeGenCF(args):
 
                 cfData = gCFGenStat.GetPointY(iPoint)
                 cfDataStatUnc = gCFGenStat.GetErrorY(iPoint)
-                cfDataSystUnc = gCFGenSyst.GetErrorY(iPoint)
+                cfDataSystUnc = gCFGenSyst.GetErrorY(iPoint) if args.syst else 0
 
                 cfDataTotUnc = (cfDataStatUnc**2 + cfDataSystUnc**2)**0.5
                 chi2 += ((cfData - cfFit)/cfDataTotUnc)**2
-                
-
-            step = 0.05
-            tl = TLatex()
-            tl.SetNDC()
-            tl.SetTextSize(0.035)
-            tl.SetTextFont(42)
-            tl.DrawLatex(0.2, 0.85, fempy.utils.format.TranslateToLatex(f'k{args.pair}_{comb}'))
-            tl.DrawLatex(0.2, 0.85 - step, f'a_{{0}} = {scatPar:.3f} #pm {scatParStatUnc:.3f} (stat) #pm {scatParSystUnc:.3f} (syst)')
+            
+        step = 0.05
+        tl = TLatex()
+        tl.SetNDC()
+        tl.SetTextSize(0.035)
+        tl.SetTextFont(42)
+        tl.DrawLatex(0.2, 0.85, fempy.utils.format.TranslateToLatex(f'k{args.pair}_{comb}'))
+        tl.DrawLatex(0.2, 0.85 - step, f'a_{{0}} = {scatPar:.3f} #pm {scatParStatUnc:.3f} (stat){f" #pm {scatParSystUnc:.3f} (syst)" if args.syst else ""}')
+        if args.bs > 0 and args.syst:
             tl.DrawLatex(0.2, 0.85 - 2 * step, f'#chi^{{2}}/ndf = {chi2:.0f} / {ndf:.0f}')
 
 
-            fCoulombLL = TF1(f"fCoulombLL", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
-            fCoulombLL.FixParameter(0, radii1[0])
-            fCoulombLL.FixParameter(1, radii2[0])
-            fCoulombLL.FixParameter(2, weights1[0])
-            fCoulombLL.FixParameter(3, 0)
-            fCoulombLL.FixParameter(4, 0.)
-            fCoulombLL.FixParameter(5, 0.)
-            fCoulombLL.FixParameter(6, 1 if comb == 'sc' else -1)
-            fCoulombLL.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
-            fCoulombLL.SetLineColor(kBlue)
+        fCoulombLL = TF1(f"fCoulombLL", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
+        fCoulombLL.FixParameter(0, radii1[0])
+        fCoulombLL.FixParameter(1, radii2[0])
+        fCoulombLL.FixParameter(2, weights1[0])
+        fCoulombLL.FixParameter(3, 0)
+        fCoulombLL.FixParameter(4, 0.)
+        fCoulombLL.FixParameter(5, 0.)
+        fCoulombLL.FixParameter(6, 1 if comb == 'sc' else -1)
+        fCoulombLL.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
+        fCoulombLL.SetLineColor(kBlue)
 
 
-            leg = TLegend(0.6, 0.75, .9, 0.9)
+        leg = TLegend(0.6, 0.75, .9, 0.9)
+        if args.syst:
             leg.AddEntry(gCFGenSyst, 'Data', 'pef')
-            leg.AddEntry(gLLStat, 'Fit LL', 'f')
-            leg.AddEntry(fCoulombLL, 'LL Coulomb', 'l')
-            leg.AddEntry(fRealCoulomb, 'Real Coulomb', 'l')
+        else:
+            leg.AddEntry(gCFGenStat, 'Data', 'pef')
+        leg.AddEntry(gLLStat, 'Fit LL', 'f')
+        leg.AddEntry(fCoulombLL, 'LL Coulomb', 'l')
+        leg.AddEntry(fRealCoulomb, 'Real Coulomb', 'l')
 
-            leg.Draw()
+        leg.Draw()
+        if args.syst:
             gLLTot.Draw('same e3')
-            gLLStat.Draw('same e3')
-            fCoulombLL.Draw('same')
-            fRealCoulomb.Draw('same')
+        gLLStat.Draw('same e3')
+        fCoulombLL.Draw('same')
+        fRealCoulomb.Draw('same')
+        if args.syst:
             gCFGenSyst.Draw('same pe2')
+        else:
             gCFGenStat.Draw('same pe')
 
-            cFinalFit.Modified()
-            cFinalFit.Update()
-            cFinalFit.Write()
+        gCFGenStat.Draw('same pe')
+
+        cFinalFit.Modified()
+        cFinalFit.Update()
+        cFinalFit.Write()
     print(f'output saved in {oFileName}')
     oFile.Close()
 
