@@ -54,6 +54,14 @@ def SumLamPar(lam_par, treamtments):
     return lam_par_summed
 
 
+def IsLamParMatValid(lam_par):
+    total = 0
+    for _, h_lam in lam_par.items():
+        for _, l_lam in h_lam.items():
+            total += l_lam
+    return abs(total - 1) < 1e-6
+
+
 def LoadLambdaParam(cfgCentr, npFracVar=1., heavyPurity=None):
     cfgVar = copy.deepcopy(cfgCentr)
     cfgVar['heavy'][1]['nonprompt']['frac'] *= npFracVar
@@ -554,6 +562,13 @@ def ComputeGenCF(args):
                     lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1, purity), cfg['treatment'])
                     lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9, purity), cfg['treatment'])
 
+                    if not IsLamParMatValid(LoadLambdaParam(cfg, 1, purity)):
+                        fempy.error("lambda parameters don't sum to 1!!")
+                    if not IsLamParMatValid(LoadLambdaParam(cfg, 1.1, purity)):
+                        fempy.error("lambda parameters don't sum to 1!!")
+                    if not IsLamParMatValid(LoadLambdaParam(cfg, 0.9, purity)):
+                        fempy.error("lambda parameters don't sum to 1!!")
+                        
                     hCFSgn = dCFData[iVar]['sgn'].Clone(f'hCFSgn{iIter}')
                     hCFSbr = dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}')
                     purityVar = 0
