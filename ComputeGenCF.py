@@ -364,7 +364,7 @@ def ComputeScattPar(**kwargs):
     else:
         tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, iVar, purityVar, weight1, radius1, radius2, fitRange[1], bkgFitRange[0], bkgFitRange[1], lamPar['flat'], lamPar['gen'])
     cFit.Write()
-    return hCFGen
+    return scattLen, scattLenUnc, chi2ndf, hCFGen
 
 
 def ComputeGenCF(args):
@@ -508,7 +508,7 @@ def ComputeGenCF(args):
                 hCFSgn = hSESgn/hMESgn
             hCFMJ = hCFMC.Clone(f'hCFMC{iIter}')
 
-            hCFGen = ComputeScattPar(
+            scattLen, _, _, hCFGen = ComputeScattPar(
                 sgn=hCFSgn if iIter == 0 else Bootstrap(hCFSgn),
                 sbr=None if args.pair=='DstarPi' else hCFSbr if iIter == 0 else Bootstrap(hCFSbr),
                 mj=hCFMJ if iIter == 0 else Bootstrap(hCFMJ),
