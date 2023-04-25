@@ -165,7 +165,7 @@ def Bootstrap(hist):
         mu = hist.GetBinContent(iBin)
         sigma = hist.GetBinError(iBin)
 
-        hBootstrapped.SetBinContent(iBin, gRandom.Gaus(mu, sigma))
+        hBootstrapped.SetBinContent(iBin, np.random.normal(mu, sigma))
         hBootstrapped.SetBinError(iBin, sigma)
     return hBootstrapped
 
@@ -421,6 +421,7 @@ def ComputeGenCF(args):
 
     oFile = TFile(oFileName, 'recreate')
     for comb in ['sc', 'oc']:
+        np.random.seed(42)
         if args.pair == 'DstarPi' and comb == 'sc':
             realCoulombFile = TFile('/home/daniel/an/DPi/corrections/Dstar/Dstar_PiplusDplusOutput.root')
         elif args.pair == 'DstarPi' and comb == 'oc':
@@ -553,7 +554,7 @@ def ComputeGenCF(args):
             tTrialsTot = TNtuple('tTrialsTot', 'trials', 'a0:a0unc:status:chi2ndf:iVar:purityVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
 
             for iIter in range(args.bs):
-                iVar = random.choice(range(0, nVar))
+                iVar = np.random.randint(nVar)
 
                 if args.pair == 'DstarK':
                     lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
@@ -573,11 +574,12 @@ def ComputeGenCF(args):
                     hCFSbr = dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}')
                     purityVar = 0
                 elif args.pair == 'DstarPi':
-                    purityVar = random.choice([0, +1, -1])
+                    purityVar = np.random.randint(-1, 1)
                     hSESgn = VaryHistogram(dSEPurity[iVar], purityVar) * dSEData[iVar]['sgn']
                     hMESgn = VaryHistogram(dMEPurity[iVar], purityVar) * dMEData[iVar]['sgn']
                     hCFSgn = hSESgn/hMESgn
-                radius1, radius2, weight1 = random.choice(list(zip(radii1, radii2, weights1)))
+
+                radius1, radius2, weight1 = list(zip(radii1, radii2, weights1))[np.random.randint(3)]
 
                 ComputeScattPar(
                     sgn=Bootstrap(hCFSgn.Clone(f'hCFSgn{iIter}')),
@@ -586,9 +588,9 @@ def ComputeGenCF(args):
                     comb=comb,
                     iVar=iVar,
                     iIter=iIter,
-                    lamPar=random.choice([lamParCentr, lamParFlat, lamParSharp]),
-                    fitRange=random.choice(fitRanges),
-                    bkgFitRange=random.choice(bkgFitRanges),
+                    lamPar=[lamParCentr, lamParFlat, lamParSharp][np.random.randint(3)],
+                    fitRange=fitRanges[np.random.randint(3)],
+                    bkgFitRange=bkgFitRanges[np.random.randint(3)],
                     redMass=RedMass(heavyMass, lightMass) * 1000,
                     radius1=radius1,
                     radius2=radius2,
