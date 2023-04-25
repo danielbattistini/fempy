@@ -495,8 +495,9 @@ def ComputeGenCF(args):
         if args.pair == 'DstarK':
             lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
             purity, _ = ComputeIntegratedPurity(dhhSEData[0].ProjectionY(f"Purity_{0}", 1, lastBin))
-            lamParCentr = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
-            lamPar = lamParCentr
+            lamPar = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
+        else:
+            lamPar = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
 
         for iIter in range(args.bs + 1):  # iter 0 is for the central
             if args.pair == 'DstarK':
@@ -558,7 +559,7 @@ def ComputeGenCF(args):
 
                 if args.pair == 'DstarK':
                     lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
-                    purity, _ = ComputeIntegratedPurity(dhhSEData[iVar].ProjectionY(f"Purity_{0}", 1, lastBin))
+                    purity, _ = ComputeIntegratedPurity(dhhSEData[iVar].ProjectionY(f"hPurity_{0}", 1, lastBin))
                     lamParCentr = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
                     lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1, purity), cfg['treatment'])
                     lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9, purity), cfg['treatment'])
@@ -578,6 +579,10 @@ def ComputeGenCF(args):
                     hSESgn = VaryHistogram(dSEPurity[iVar], purityVar) * dSEData[iVar]['sgn']
                     hMESgn = VaryHistogram(dMEPurity[iVar], purityVar) * dMEData[iVar]['sgn']
                     hCFSgn = hSESgn/hMESgn
+
+                    lamParCentr = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
+                    lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1), cfg['treatment'])
+                    lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9), cfg['treatment'])
 
                 radius1, radius2, weight1 = list(zip(radii1, radii2, weights1))[np.random.randint(3)]
 
