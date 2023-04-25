@@ -2,6 +2,7 @@ import sys
 import yaml
 import random
 import argparse
+import copy
 
 import pandas as pd
 import numpy as np
@@ -54,7 +55,7 @@ def SumLamPar(lam_par, treamtments):
 
 
 def LoadLambdaParam(cfgCentr, npFracVar=1., heavyPurity=None):
-    cfgVar = dict(cfgCentr)
+    cfgVar = copy.deepcopy(cfgCentr)
     cfgVar['heavy'][1]['nonprompt']['frac'] *= npFracVar
     cfgVar['heavy'][0]['prompt']['frac'] = 1 - cfgVar['heavy'][1]['nonprompt']['frac']
 
