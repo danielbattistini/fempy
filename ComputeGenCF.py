@@ -317,7 +317,7 @@ def ComputeScattPar(**kwargs):
     fWeightedLL.FixParameter(0, radius1)
     fWeightedLL.FixParameter(1, radius2)
     fWeightedLL.FixParameter(2, weight1)
-    fWeightedLL.SetParameter(3, 0.1)
+    fWeightedLL.SetParameter(3, 0.)
     fWeightedLL.SetParLimits(3, -1, 1)
     fWeightedLL.FixParameter(4, 0.)
     fWeightedLL.FixParameter(5, 0.)
