@@ -48,7 +48,7 @@ void Align(TClonesArray* particles) {
 }
 
 
-void RemoveMJ(int nEvents=1000, triggers trigger=kMB, tunes tune=kCRMode2, processes process=kSoftQCD,
+void MakeMomentumList(int nEvents=1000, triggers trigger=kMB, tunes tune=kCRMode2, processes process=kSoftQCD,
                      int hPdg=3122, int lPdg=-3122, int seed = 42, std::string outDir="") {
     //__________________________________________________________
     // create and configure pythia generator
@@ -180,5 +180,13 @@ void RemoveMJ(int nEvents=1000, triggers trigger=kMB, tunes tune=kCRMode2, proce
         if (std::abs(particle->Eta()) < 0.8 && IsDetectable(std::abs(particle->GetPdgCode())))
             printf("%f, ", particle->Pz());
     }
+    printf("\n");
+    
+    for (auto iPart = 2; iPart < particles->GetEntriesFast(); ++iPart) {
+        TParticle* particle = dynamic_cast<TParticle*>(particles->At(iPart));
+        if (std::abs(particle->Eta()) < 0.8 && IsDetectable(std::abs(particle->GetPdgCode())))
+            printf("%d, ", 1 ? particle->GetPdgCode()>0 : -1);
+    }
+    printf("\n");
 
 }
