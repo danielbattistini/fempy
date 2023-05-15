@@ -256,6 +256,12 @@ void MakeDistr(
 
                     auto dfSel = dfMass.Filter(selections[iSelection].data());
 
+                    auto hCharmPtVsKStar = dfSel.Histo2D<float, float>({"hCharmPtVsKStar0",
+                                                        ";#it{k}*;#it{p}_{T} (GeV/#it{c});Counts",
+                                                        3000u, 0., 3000., 1000u, 0, 10},
+                                                        "kStarMeV", "heavy_pt");
+                    hCharmPtVsKStar->Write();
+
                     if (doKStarSlices) {
                         auto hCharmMassVsKStar =
                             dfSel.Histo2D<float, float>({Form("hCharmMassVsKStar%lu", iSelection),
