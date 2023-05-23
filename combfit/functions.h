@@ -1,3 +1,5 @@
+#include <gsl/gsl_sf_dawson.h>
+
 const double Pi(3.141592653589793);
 const double AlphaFS(0.0072973525664);
 const double RevSqrt2(0.7071067811865475);
