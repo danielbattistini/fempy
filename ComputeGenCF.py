@@ -354,6 +354,8 @@ def ComputeScattPar(**kwargs):
         tl.DrawLatex(0.2, 0.85 - 3 * step, 'BAD FIT')
     else:
         tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, iVar, purityVar, weight1, radius1, radius2, fitRange[1], bkgFitRange[0], bkgFitRange[1], lamPar['flat'], lamPar['gen'])
+    gCFGen.SetName(f'gCFGen{iIter}')
+    gCFGen.Write()
     cFit.Write()
     return hCFGen
 
