@@ -361,7 +361,6 @@ def ComputeScattPar(**kwargs):
 
 
 def ComputeGenCF(args):
-    random.seed(42)
     gStyle.SetOptStat(0)
 
     kStarBW = 50  # MeV/c
@@ -414,6 +413,7 @@ def ComputeGenCF(args):
 
     oFile = TFile(oFileName, 'recreate')
     for comb in ['sc', 'oc']:
+        random.seed(42)
         if args.pair == 'DstarPi' and comb == 'sc':
             realCoulombFile = TFile('/home/daniel/an/DPi/corrections/Dstar/Dstar_PiplusDplusOutput.root')
         elif args.pair == 'DstarPi' and comb == 'oc':
