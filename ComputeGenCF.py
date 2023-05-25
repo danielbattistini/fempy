@@ -330,7 +330,7 @@ def ComputeScattPar(**kwargs):
     scattLenUnc = fWeightedLL.GetParError(3)
 
     # Draw canvas
-    cFit = TCanvas(f'cFit_{comb}{iIter}', '', 600, 600)
+    cFit = TCanvas(f'cFit_{iIter}', '', 600, 600)
     cFit.DrawFrame(0, 0, 500, 2)
     hCFGen.Draw('pe')
     fWeightedLL.Draw('same')
