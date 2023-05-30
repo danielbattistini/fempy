@@ -736,7 +736,7 @@ void fitSimultaneousLLDpi(const char * inFileName, const char * oFileName, int n
       double a0tripletUnc = parErrors[5];
 
       double chi2ndf =  result.Chi2()/result.Ndf();
-      if (std::abs(a0singlet)< 1 && std::abs(a0triplet) < 1 && chi2ndf < 3)
+      if (std::abs(a0singlet)< 1 && std::abs(a0triplet) < 1 && chi2ndf < 10)
         tResults->Fill(a0singlet, a0triplet, chi2ndf);
 
       // Draw
