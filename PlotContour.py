@@ -7,7 +7,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
-
 from ROOT import TFile, RDataFrame
 
 
@@ -80,74 +79,83 @@ if __name__ == '__main__':
     parser.add_argument('oFile')
     parser.add_argument('--debug', action='store_true', default=False)
     args = parser.parse_args()
-    
+
     inFile = TFile(args.inFile)
 
-    tResults = inFile.Get("tot/tResults")
-    points = np.array(list(RDataFrame(tResults).AsNumpy(['a0sin', 'a0tri']).values()))
-    x, y = points
-    a0sin = x.mean()
-    a0tri = y.mean()
-    a0sinUncTot = x.std()
-    a0triUncTot = y.std()
+    tResultsTot = inFile.Get("tot/tResults")
+    pointsTot = np.array(list(RDataFrame(tResultsTot).AsNumpy(['a0sin', 'a0tri']).values()))
+    xTot, yTot = pointsTot
+    a0sinTot = xTot.mean()
+    a0triTot = yTot.mean()
+    a0sinUncTot = xTot.std()
+    a0triUncTot = yTot.std()
 
-    points = np.array(list(RDataFrame(tResults).AsNumpy(['a0sin', 'a0tri']).values()))
-    x, y = points
 
+    # Load stat bootstrap
+    tResultsStat = inFile.Get("stat/tResults")
+    pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['a0sin', 'a0tri']).values()))
+    xStat, yStat = pointsStat
+    a0sinStat = xStat.mean()
+    a0triStat = yStat.mean()
+    a0sinUncStat = xStat.std()
+    a0triUncStat = yStat.std()
+
+    # Make figure
     fig, ax = plt.subplots()
     ax.tick_params(axis='both', which='major', labelsize=15)
     fig.set_figheight(6)
     fig.set_figwidth(6)
     xlim = [-0.07, 0.3]
-    ylim = [-0.4, 0.4]
+    ylim = [-0.3, 0.4]
     plt.xlim(xlim)
     plt.ylim(ylim)
 
-    step = 0.07
     plt.text(0.23, 0.9, 'ALICE', fontsize=22, transform=ax.transAxes)
-    plt.text(0.23, 0.9-step, 'pp $\sqrt{s}$ = 13 TeV, High-mult. (0-0.17%)', fontsize=13, transform=ax.transAxes)
+    plt.text(0.23, 0.9-0.07, 'pp $\sqrt{s}$ = 13 TeV, High-mult. (0-0.17%)', fontsize=13, transform=ax.transAxes)
     plt.plot([0, 0], ylim, '--', color='gray')
     plt.plot(xlim, [0,0], '--', color='gray')
 
     # Plot a transparent 3 standard deviation covariance ellipse
-    ellip3 = plot_point_cov(points.T, nstd=3, color='#ffdd88', label='95% CL')
-    ellip1 = plot_point_cov(points.T, nstd=1, color='orange', label='68% CL')
-    plt.legend(handles=[ellip1, ellip3], loc='upper left', bbox_to_anchor=(0.6,0.8), fontsize=13, frameon=False)
-    plt.errorbar([a0sin], [a0tri], xerr=a0sinUncTot, yerr=a0triUncTot, color='black', marker='o',  markeredgecolor="black", markerfacecolor="black")
+    ellip2 = plot_point_cov(pointsTot.T, nstd=2, color='#ffdd88', label='95% CL')
+    ellip1 = plot_point_cov(pointsTot.T, nstd=1, color='orange', label='68% CL')
+    plt.legend(handles=[ellip1, ellip2], loc='upper left', bbox_to_anchor=(0.6,0.8), fontsize=13, frameon=False)
+    plt.errorbar([a0sinTot], [a0triTot], xerr=a0sinUncTot, yerr=a0triUncTot, color='black', marker='o')
 
-
-    # stat unc
-    tResultsStat = inFile.Get("stat/tResults")
-    points = np.array(list(RDataFrame(tResultsStat).AsNumpy(['a0sin', 'a0tri']).values()))
-    x, y = points
-    a0sinStat = x.mean()
-    a0triStat = y.mean()
-    a0sinUncStat = x.std()
-    a0triUncStat = y.std()
 
     a0sinUncSyst = (a0sinUncTot**2 - a0sinUncStat**2)**0.5
     a0triUncSyst = (a0triUncTot**2 - a0triUncStat**2)**0.5
 
-    print(f'a0(3/2) = {a0sin:.2f} +/- {a0sinUncStat:.2f} (stat) +/- {a0sinUncSyst:.2f} (syst) fm')
-    print(f'a0(1/2) = {a0tri:.2f} +/- {a0triUncStat:.2f} (stat) +/- {a0triUncSyst:.2f} (syst) fm')
-    
+    print(f'a0(3/2) = {a0sinTot:.2f} +/- {a0sinUncStat:.2f} (stat) +/- {a0sinUncSyst:.2f} (syst) fm')
+    print(f'a0(1/2) = {a0triTot:.2f} +/- {a0triUncStat:.2f} (stat) +/- {a0triUncSyst:.2f} (syst) fm')
+
     plt.xlabel('$a_0~(I=3/2)$', fontsize=18)
     plt.ylabel('$a_0~(I=1/2)$', fontsize=18)
     fig.tight_layout()
 
     if args.debug:
-
         pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['a0sin', 'a0tri']).values()))
-        plt.errorbar([a0sinStat], [a0triStat], xerr=a0sinUncStat, yerr=a0triUncStat, color='blue', facecolors=None, marker='o',  markeredgecolor="blue", markerfacecolor="blue")
-        ellip3Stat = plot_point_cov(pointsStat.T, nstd=3, fill=False, edgecolor='blue',linestyle='--', label='95% CL stat')
-        ellip1Stat = plot_point_cov(pointsStat.T, nstd=1, fill=False, edgecolor='blue',linestyle='--', label='68% CL stat')
-        plt.legend(handles=[ellip1, ellip3, ellip1Stat, ellip3Stat], loc='upper left', bbox_to_anchor=(0.6,0.8), fontsize=13, frameon=False)
+        plt.errorbar([a0sinStat], [a0triStat], xerr=a0sinUncStat, yerr=a0triUncStat, color='blue', marker='o')
+        ellip2Stat = plot_point_cov(
+            pointsStat.T,
+            nstd=2,
+            fill=False,
+            edgecolor='blue',
+            linestyle='--',
+            label='95% CL stat')
+        ellip1Stat = plot_point_cov(
+            pointsStat.T,
+            nstd=1,
+            fill=False,
+            edgecolor='blue',
+            linestyle='--',
+            label='68% CL stat')
+        plt.legend(
+            handles=[ellip1, ellip2, ellip1Stat, ellip2Stat],
+            loc='upper left',
+            bbox_to_anchor=(0.6,0.8),
+            fontsize=13,
+            frameon=False)
     
-
     plt.show()
     plt.savefig(f'{path.splitext(args.oFile)[0]}_debug{path.splitext(args.oFile)[1]}'if args.debug else args.oFile)
-    
-    
-    
-    
-    
+ 
