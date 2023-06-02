@@ -238,7 +238,10 @@ if __name__ == '__main__':
     lv.SetLineStyle(9)
     lv.SetLineColor(kGray+2)
     
-    leg = TLegend(0.65, 0.57, 0.95, 0.78)
+    if args.debug:
+        leg = TLegend(0.34, 0.57, 0.95, 0.78)
+    else:
+        leg = TLegend(0.65, 0.57, 0.95, 0.78)
     leg.AddEntry(gScattPar, 'Data', 'lpe')
     leg.AddEntry(gCountour1, '68% CL', 'f')
     leg.AddEntry(gCountour2, '95% CL', 'f')
