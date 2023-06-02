@@ -99,21 +99,69 @@ double GeneralCoulombLednickySecond(const double &Momentum,
                                        EffRangeTri, QS, RedMass, Q1Q2);
 }
 
+/*
+x[0]:  Momentum (double)
+
+par[0]: GaussR (double)
+par[1]: ScattLenSin (double)
+par[2]: EffRangeSin (double)
+par[3]: QS (bool)
+par[4]: RedMass (double)
+par[5]: Q1Q2 (double)
+*/
 double GeneralCoulombLednicky(double *x, double *pars) {
   return GeneralCoulombLednicky(x[0], pars[0], pars[1], pars[2], bool(pars[3]),
                                 pars[4], pars[5]);
 }
 
+
+/*
+x[0]:   Momentum (double)
+
+par[0]: GaussR (double)
+par[1]: ScattLenSin (double)
+par[2]: EffRangeSin (double)
+par[3]: ScattLenTri (double)
+par[4]: EffRangeTri (double)
+par[5]: QS (bool)
+par[6]: RedMass (double)
+par[7]: Q1Q (double)
+*/
 double GeneralCoulombLednickySecond(double *x, double *pars) {
   return GeneralCoulombLednickySecond(x[0], pars[0], pars[1], pars[2], pars[3],
                                       pars[4], bool(pars[5]), pars[6], pars[7]);
 }
 
+/*
+x[0]:   Momentum (double)
+par[0]: r1 (double)
+par[1]: r2 (double)
+par[2]: w1 (double)
+par[3]: ScattLen (double)
+par[4]: EffRange (double)
+par[5]: QS (bool)
+par[6]: RedMass (double)
+par[7]: Q1Q (double)
+*/
 double GeneralCoulombLednickyTwoRadii(double *x, double *pars) {
   return pars[2] * GeneralCoulombLednicky(x[0], pars[0], pars[3], pars[4], bool(pars[5]), pars[6], pars[7]) 
          + (1 - pars[2]) * GeneralCoulombLednicky(x[0], pars[1], pars[3], pars[4], bool(pars[5]), pars[6], pars[7]);
 }
 
+/*
+x[0]:   Momentum (double)
+
+par[0]: r1 (double)
+par[1]: r2 (double)
+par[2]: w1 (double)
+par[3]: ScattLenSin (double)
+par[4]: EffRangeSin (double)
+par[5]: ScattLenTri (double)
+par[6]: EffRangeTri (double)
+par[7]: QS (bool)
+par[8]: RedMass (double)
+par[9]: Q1Q (double)
+*/
 double GeneralCoulombLednickySecondTwoRadii(double *x, double *pars) {
   return pars[2] * GeneralCoulombLednickySecond(x[0], pars[0], pars[3], pars[4], pars[5], pars[6], bool(pars[7]), pars[8], pars[9])
          + (1 - pars[2]) * GeneralCoulombLednickySecond(x[0], pars[1], pars[3], pars[4], pars[5], pars[6], bool(pars[7]), pars[8], pars[9]);

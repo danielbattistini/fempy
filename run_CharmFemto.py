@@ -1911,9 +1911,7 @@ if __name__ == '__main__':
                     ("/data/DPi/12_mix150_nosepsb/data/merge_4720/Stage_1/039/AnalysisResults.root", "4720_039"),
                     ("/data/DPi/12_mix150_nosepsb/data/merge_4720/Stage_1/077/AnalysisResults.root", "4720_077"),
                     ("/data/DPi/12_mix150_nosepsb/data/merge_4720/Stage_1/060/AnalysisResults.root", "4720_060"),
-                    ("/data/DPi/12_mix150_nosepsb/data/merge_4720/Stage_1/038ld([
-        #     DPiClosureTask(data_version='12_mix150_nosepsb', cleaner='nopc'),
-        # ], work/AnalysisResults.root", "4720_038"),
+                    ("/data/DPi/12_mix150_nosepsb/data/merge_4720/Stage_1/038/AnalysisResults.root", "4720_038"),
                     ("/data/DPi/12_mix150_nosepsb/data/merge_4720/Stage_1/020/AnalysisResults.root", "4720_020"),
                     ("/data/DPi/12_mix150_nosepsb/data/merge_4720/Stage_1/061/AnalysisResults.root", "4720_061"),
                     ("/data/DPi/12_mix150_nosepsb/data/merge_4720/Stage_1/013/AnalysisResults.root", "4720_013"),

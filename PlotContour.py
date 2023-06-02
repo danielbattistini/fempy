@@ -103,6 +103,7 @@ if __name__ == '__main__':
     parser.add_argument('inFile')
     parser.add_argument('oFile')
     parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--central', choices=('statbs', 'totbs'))
     args = parser.parse_args()
 
     inFile = TFile(args.inFile)
@@ -131,9 +132,10 @@ if __name__ == '__main__':
     ylim = [-0.2999, 0.3999]
 
     # Plot a transparent 3 standard deviation covariance ellipse
-    ellip2 = plot_point_cov(pointsTot.T, nstd=2, color=albumen, label='95% CL')
-    ellip1 = plot_point_cov(pointsTot.T, nstd=1, color=yoke, label='68% CL')
-
+    ellip2Tot = plot_point_cov(pointsTot.T, nstd=2, color=albumen, label='95% CL')
+    ellip1Tot = plot_point_cov(pointsTot.T, nstd=1, color=yoke, label='68% CL')
+    ellip2Stat = plot_point_cov(pointsStat.T, nstd=2, color=albumen, label='95% CL')
+    ellip1Stat = plot_point_cov(pointsStat.T, nstd=1, color=yoke, label='68% CL')
 
     a0sinUncSyst = (a0sinUncTot**2 - a0sinUncStat**2)**0.5
     a0triUncSyst = (a0triUncTot**2 - a0triUncStat**2)**0.5
@@ -141,23 +143,8 @@ if __name__ == '__main__':
     print(f'a0(3/2) = {a0sinTot:.2f} +/- {a0sinUncStat:.2f} (stat) +/- {a0sinUncSyst:.2f} (syst) fm')
     print(f'a0(1/2) = {a0triTot:.2f} +/- {a0triUncStat:.2f} (stat) +/- {a0triUncSyst:.2f} (syst) fm')
 
-
     if args.debug:
         pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['a0sin', 'a0tri']).values()))
-        ellip2Stat = plot_point_cov(
-            pointsStat.T,
-            nstd=2,
-            fill=False,
-            edgecolor='blue',
-            linestyle='--',
-            label='95% CL stat')
-        ellip1Stat = plot_point_cov(
-            pointsStat.T,
-            nstd=1,
-            fill=False,
-            edgecolor='blue',
-            linestyle='--',
-            label='68% CL stat')
 
     cCountour = TCanvas('cCountour', '', 600, 600)
     cCountour.SetRightMargin(0.03)
@@ -182,26 +169,25 @@ if __name__ == '__main__':
     tl.SetTextSize(0.039)
     tl.DrawLatexNDC(0.36, 0.89-0.05, 'pp #sqrt{s} = 13 TeV, High-mult. (0-0.17%)')
 
-    gScattPar = TGraphErrors(1)
+    gScattParTot = TGraphErrors(1)
+    gScattParTot.SetPoint(0, a0sinTot, a0triTot)
+    gScattParTot.SetPointError(0, a0sinUncTot, a0triUncTot)
+    gScattParTot.SetMarkerStyle(20)
+    gScattParTot.SetMarkerSize(1)
+    gScattParTot.SetMarkerColor(1)
+    gScattParTot.SetLineWidth(2)
 
-    gScattPar.SetPoint(0, a0sinTot, a0triTot)
-    gScattPar.SetPointError(0, a0sinUncTot, a0triUncTot)
-    gScattPar.SetMarkerStyle(20)
-    gScattPar.SetMarkerSize(1)
-    gScattPar.SetMarkerColor(1)
-    gScattPar.SetLineWidth(2)
-
-    gCountour2 = EllipseToGraph(ellip2)
+    gCountour2Tot = EllipseToGraph(ellip2Tot)
     ciAlbumen = TColor.GetFreeColorIndex()
     albumenRGB = rgb(albumen)
     albumenRoot = TColor(ciAlbumen, albumenRGB[0], albumenRGB[1], albumenRGB[2], '')
-    gCountour2.SetFillColor(ciAlbumen)
+    gCountour2Tot.SetFillColor(ciAlbumen)
 
-    gCountour1 = EllipseToGraph(ellip1)
+    gCountour1Tot = EllipseToGraph(ellip1Tot)
     yokeRGB = rgb(yoke)
     ciYoke = TColor.GetFreeColorIndex()
     yokeRoot = TColor(ciYoke, yokeRGB[0], yokeRGB[1], yokeRGB[2], '')
-    gCountour1.SetFillColorAlpha(ciYoke, 1)
+    gCountour1Tot.SetFillColorAlpha(ciYoke, 1)
 
     lh = TLine(0, ylim[0], 0, ylim[1])
     lh.SetLineStyle(9)
@@ -215,15 +201,20 @@ if __name__ == '__main__':
         leg = TLegend(0.34, 0.57, 0.95, 0.78)
     else:
         leg = TLegend(0.65, 0.57, 0.95, 0.78)
-    leg.AddEntry(gScattPar, 'Data', 'lpe')
-    leg.AddEntry(gCountour1, '68% CL', 'f')
-    leg.AddEntry(gCountour2, '95% CL', 'f')
+    leg.AddEntry(gScattParTot, 'Data', 'lpe')
+    leg.AddEntry(gCountour1Tot, '68% CL tot bs', 'f')
+    leg.AddEntry(gCountour2Tot, '95% CL tot bs', 'f')
     leg.SetBorderSize(0)
     leg.Draw()
 
-    gCountour2.Draw('same fce3')
-    gCountour1.Draw('same fce3')
+    gCountour2Tot.Draw('same fce3')
+    gCountour1Tot.Draw('same fce3')
     lv.Draw()
     lh.Draw()
-    gScattPar.Draw('same pe')
-    cCountour.SaveAs(f'{path.splitext(args.oFile)[0]}_root_debug{path.splitext(args.oFile)[1]}'if args.debug else f'{path.splitext(args.oFile)[0]}_root{path.splitext(args.oFile)[1]}')
+    gScattParTot.Draw('same pe')
+    for ext in ['png', 'pdf', 'eps', 'root']:
+        if args.debug:
+            name = f'{path.splitext(args.oFile)[0]}_root_debug.{ext}'
+        else:
+            name = f'{path.splitext(args.oFile)[0]}_root.{ext}'
+        cCountour.SaveAs(name)

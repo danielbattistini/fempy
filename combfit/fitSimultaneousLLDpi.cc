@@ -702,7 +702,7 @@ void fitSimultaneousLLDpi(const char * inFileName, const char * oFileName, int n
   for (auto uncType : {"tot", "stat"}) {
     oFile->mkdir(Form("%s/iters", uncType));
     oFile->cd(Form("%s/iters", uncType));
-    TNtuple *tResults = new TNtuple("tResults", "", "a0sin:a0tri:chi2ndf");
+    TNtuple *tResults = new TNtuple("tResults", "", "a0sin:a0tri:chi2ndf:r1:r2:w1");
     
     TCanvas *cCombFit = new TCanvas("cCombFit", "", 1200, 600);
     cCombFit->Divide(3, 1);
@@ -737,7 +737,7 @@ void fitSimultaneousLLDpi(const char * inFileName, const char * oFileName, int n
 
       double chi2ndf =  result.Chi2()/result.Ndf();
       if (std::abs(a0singlet)< 1 && std::abs(a0triplet) < 1 && chi2ndf < 10)
-        tResults->Fill(a0singlet, a0triplet, chi2ndf);
+        tResults->Fill(a0singlet, a0triplet, chi2ndf, radii1[iRadius], radii2[iRadius], weights1[iRadius]);
 
       // Draw
       TVirtualPad *pad1 = cCombFit->cd(1);

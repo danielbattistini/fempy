@@ -377,7 +377,8 @@ def ComputeGenCF(args):
         radii2 = [2.03, 2.22, 1.91]
     elif args.pair == 'DstarPi':
         fitRanges = [[10, 800], [10, 600], [10, 1000]]
-        inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
+        # inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
+        inFileData = TFile('/data/DstarPi/20_luuksel/distr/bk/Distr_data_nopc_kStarBW50MeV.root')
         inFileMC = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_mcgp_nopc_kStarBW50MeV_true.root')
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}.root'
         config = '/home/daniel/an/DstarPi/cfg_gencf_DstarPi_50MeV.yml'

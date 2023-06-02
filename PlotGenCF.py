@@ -29,8 +29,8 @@ def LoadObjects(pair, suffix):
         objs['oc']['a0stat'] = 0.181
         objs['oc']['a0syst'] = 0.062
         config = {
-            'pltRangeX': [0, 300],
-            'pltRangeY': [-0.2, 3.5],
+            'pltRangeX': [0, 299.9999],
+            'pltRangeY': [-0.2, 3.4999],
         }
         file.Close()
     elif pair == 'DstarPi':
@@ -45,12 +45,25 @@ def LoadObjects(pair, suffix):
                 'coulomb' : file.Get(f'{comb}/gCoulomb'),
             }
             objs[comb]['hstat'].SetDirectory(0)
+
+        # old values obtained from non simul fit
         objs['sc']['a0'] = 0.112
         objs['sc']['a0stat'] = 0.035
         objs['sc']['a0syst'] = 0.026
         objs['oc']['a0'] = -0.047
         objs['oc']['a0stat'] = 0.033
         objs['oc']['a0syst'] = 0.019
+
+        # from simul fit
+        objs['3/2'] = {}
+        objs['3/2']['a0'] = 0.12
+        objs['3/2']['a0stat'] = 0.04
+        objs['3/2']['a0syst'] = 0.02
+        objs['1/2'] = {}
+        objs['1/2']['a0'] = -0.12
+        objs['1/2']['a0stat'] = 0.06
+        objs['1/2']['a0syst'] = 0.03
+
         config = {
             'pltRangeX': [0, 300],
             'pltRangeY': [0.7, 1.9],
@@ -124,6 +137,7 @@ def ComputeBinBrackets(hist):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pair', choices=('DstarK', 'DstarPi'))
+    parser.add_argument('--simfit', default=False, action='store_true')
     args = parser.parse_args()
 
     if args.pair == 'DstarPi':
@@ -131,7 +145,6 @@ if __name__ == '__main__':
     else:
         suffix = 'nopc_kStarBW50MeV_fromq_bs5000syst'
 
-    # init style
     Setstyle()
 
     objects, cfg = LoadObjects(args.pair, suffix)
@@ -139,20 +152,25 @@ if __name__ == '__main__':
     cCF = TCanvas('cCF', '', 1000, 500)
 
     cCF.Divide(2, 1)
-    for iPad, (comb, objs) in enumerate(objects.items()):
+    for iPad, comb in enumerate(['sc', 'oc']):
+        objs = objects[comb]
         pad = cCF.cd(iPad+1)
+        pad.SetRightMargin(0.03)
+        pad.SetTopMargin(0.03)
         pad.SetFrameLineWidth(1)
         pad.DrawFrame(cfg['pltRangeX'][0], cfg['pltRangeY'][0], cfg['pltRangeX'][1], cfg['pltRangeY'][1], TranslateToLatex(';__kStarMeV__;__C__'))
         
-        objs['lltot'].SetFillColorAlpha(kBlue+1, 0.5)
+        objs['lltot'].SetFillColorAlpha(kBlue+1, 0.7)
+        objs['lltot'].SetLineColorAlpha(0, 0)
         objs['lltot'].Draw('same e3')
 
-        objs['llstat'].SetFillColorAlpha(kBlue+1, 0.5)
-        objs['llstat'].SetLineColorAlpha(0, 0)
-        objs['llstat'].Draw('same e3')
+        # objs['llstat'].SetFillColorAlpha(kBlue+1, 0.7)
+        # objs['llstat'].SetLineColorAlpha(0, 0)
+        # objs['llstat'].Draw('same e3')
 
         objs['coulomb'].SetLineColor(kOrange+7)
         objs['coulomb'].SetLineStyle(1)
+        objs['coulomb'].SetLineWidth(2)
         objs['coulomb'].Draw('same l')
 
         objs['syst'].SetFillColorAlpha(kGray+2, 0.65)
@@ -161,7 +179,6 @@ if __name__ == '__main__':
         objs['stat'].SetMarkerSize(1)
         objs['stat'].SetMarkerStyle(24)
         objs['stat'].Draw('same pez')
-        
 
         gBrackets = ComputeBinBrackets(objs['hstat'])
         SetHistStyle(gBrackets)
@@ -173,34 +190,36 @@ if __name__ == '__main__':
         tl.SetTextSize(0.04)
         tl.SetNDC(True)
         if iPad == 0:
-            tl.DrawLatex(0.20, 0.82, 'ALICE pp #sqrt{#it{s}} = 13 TeV')
-            tl.DrawLatex(0.20, 0.76, 'High-mult. (0 #minus 0.17% INEL > 0)')
-            tl.DrawLatex(0.20, 0.70, TranslateToLatex(f'k{args.pair}_{comb}'))
+            tl.DrawLatex(0.22, 0.88, 'ALICE pp #sqrt{#it{s}} = 13 TeV')
+            tl.DrawLatex(0.22, 0.82, 'High-mult. (0 #minus 0.17% INEL > 0)')
+            tl.DrawLatex(0.22, 0.76, TranslateToLatex(f'k{args.pair}_{comb}'))
             
-            leg = TLegend(0.175, 0.5, 0.9, 0.65)
+            leg = TLegend(0.2, 0.55, 0.9, 0.7)
             leg.SetTextSizePixels(12)
             leg.SetTextSize(0.035)
             leg.SetLineColorAlpha(0, 0)
             leg.SetFillStyle(0)
             leg.AddEntry(objs['stat'], 'Genuine CF', 'pel')
             leg.AddEntry(objs['coulomb'], 'Coulomb only', 'l')
-            leg.AddEntry(objs['llstat'], 'Lednick#acute{y}-Lyuboshits model', 'f')
+            leg.AddEntry(objs['lltot'], 'Lednick#acute{y}-Lyuboshits model', 'f')
             leg.Draw()
 
-            tl.DrawLatex(0.20, 0.2, f'a_{{0}} = {objs["a0"]:.2f} #pm {objs["a0stat"]:.2f} (stat) #pm {objs["a0syst"]:.2f} (syst) fm')
+            if not args.simfit:
+                tl.DrawLatex(0.20, 0.2, f'a_{{0}} = {objs["a0"]:.2f} #pm {objs["a0stat"]:.2f} (stat) #pm {objs["a0syst"]:.2f} (syst) fm')
         else:
-            tl.DrawLatex(0.20, 0.8, TranslateToLatex(f'k{args.pair}_{comb}'))
-            tl.DrawLatex(0.20, 0.2, f'a_{{0}} = {objs["a0"]:.2f} #pm {objs["a0stat"]:.2f} (stat) #pm {objs["a0syst"]:.2f} (syst) fm')
-
-
-
-
+            tl.DrawLatex(0.20, 0.88, TranslateToLatex(f'k{args.pair}_{comb}'))
+            
+            if args.simfit:
+                tl.DrawLatex(0.20, 0.25, f'a_{{0}}(I=3/2) = {objects["3/2"]["a0"]:.2f} #pm {objects["3/2"]["a0stat"]:.2f} (stat) #pm {objects["3/2"]["a0syst"]:.2f} (syst) fm')
+                tl.DrawLatex(0.20, 0.25-0.05, f'a_{{0}}(I=1/2) = {objects["1/2"]["a0"]:.2f} #pm {objects["1/2"]["a0stat"]:.2f} (stat) #pm {objects["1/2"]["a0syst"]:.2f} (syst) fm')
+            else:
+                tl.DrawLatex(0.20, 0.2, f'a_{{0}} = {objs["a0"]:.2f} #pm {objs["a0stat"]:.2f} (stat) #pm {objs["a0syst"]:.2f} (syst) fm')
 
         
     for ext in ['pdf', 'png', 'eps', 'root']:
         if args.pair == 'DstarK':
             cCF.SaveAs(f'/home/daniel/an/DstarK/2_luuksel/GenCFCorrPlot_{suffix}.{ext}')
         else:
-            cCF.SaveAs(f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorrPlot_{suffix}.{ext}')
+            cCF.SaveAs(f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorrPlot_{suffix}{"_simfit" if args.simfit else ""}.{ext}')
     
 
