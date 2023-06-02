@@ -13,7 +13,7 @@ def rgb(color):
     return tuple(int(color.lstrip('#')[i:i+2], 16)/255 for i in (0, 2, 4))
 
 
-def plot_point_cov(points, nstd=2, ax=None, **kwargs):
+def plot_point_cov(points, nstd=2, ax=None, enlarge=None, **kwargs):
     """
     Plots an `nstd` sigma ellipse based on the mean and covariance of a point
     "cloud" (points, an Nx2 array).
@@ -33,10 +33,10 @@ def plot_point_cov(points, nstd=2, ax=None, **kwargs):
     """
     pos = points.mean(axis=0)
     cov = np.cov(points, rowvar=False)
-    return plot_cov_ellipse(cov, pos, nstd, ax, **kwargs)
+    return plot_cov_ellipse(cov, pos, nstd, ax, enlarge, **kwargs)
 
 
-def plot_cov_ellipse(cov, pos, nstd=2, ax=None, **kwargs):
+def plot_cov_ellipse(cov, pos, nstd=2, ax=None, enlarge=None, **kwargs):
     """
     Plots an `nstd` sigma error ellipse based on the specified covariance
     matrix (`cov`). Additional keyword arguments are passed on to the 
@@ -70,6 +70,10 @@ def plot_cov_ellipse(cov, pos, nstd=2, ax=None, **kwargs):
 
     # Width and height are "full" widths, not radius
     width, height = 2 * nstd * np.sqrt(vals)
+    if enlarge is not None:
+        shiftx, shifty = enlarge
+        width = np.sqrt(width**2 + 4 * shiftx**2)
+        height = np.sqrt(height**2 + 4 * shifty**2)
     ellip = Ellipse(xy=pos, width=width, height=height, angle=theta, **kwargs)
 
     ax.add_artist(ellip)
