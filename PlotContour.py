@@ -127,25 +127,12 @@ if __name__ == '__main__':
     a0triUncStat = yStat.std()
 
     # Make figure
-    fig, ax = plt.subplots()
-    ax.tick_params(axis='both', which='major', labelsize=15)
-    fig.set_figheight(6)
-    fig.set_figwidth(6)
     xlim = [-0.07, 0.2999]
     ylim = [-0.2999, 0.3999]
-    plt.xlim(xlim)
-    plt.ylim(ylim)
-
-    plt.text(0.23, 0.9, 'ALICE', fontsize=22, transform=ax.transAxes)
-    plt.text(0.23, 0.9-0.07, 'pp $\sqrt{s}$ = 13 TeV, High-mult. (0-0.17%)', fontsize=13, transform=ax.transAxes)
-    plt.plot([0, 0], ylim, '--', color='gray')
-    plt.plot(xlim, [0,0], '--', color='gray')
 
     # Plot a transparent 3 standard deviation covariance ellipse
     ellip2 = plot_point_cov(pointsTot.T, nstd=2, color=albumen, label='95% CL')
     ellip1 = plot_point_cov(pointsTot.T, nstd=1, color=yoke, label='68% CL')
-    plt.legend(handles=[ellip1, ellip2], loc='upper left', bbox_to_anchor=(0.6,0.8), fontsize=13, frameon=False)
-    plt.errorbar([a0sinTot], [a0triTot], xerr=a0sinUncTot, yerr=a0triUncTot, color='black', marker='o')
 
 
     a0sinUncSyst = (a0sinUncTot**2 - a0sinUncStat**2)**0.5
@@ -154,13 +141,9 @@ if __name__ == '__main__':
     print(f'a0(3/2) = {a0sinTot:.2f} +/- {a0sinUncStat:.2f} (stat) +/- {a0sinUncSyst:.2f} (syst) fm')
     print(f'a0(1/2) = {a0triTot:.2f} +/- {a0triUncStat:.2f} (stat) +/- {a0triUncSyst:.2f} (syst) fm')
 
-    plt.xlabel('$a_{0}~(I=3/2)$', fontsize=18)
-    plt.ylabel('$a_{0}~(I=1/2)$', fontsize=18)
-    fig.tight_layout()
 
     if args.debug:
         pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['a0sin', 'a0tri']).values()))
-        plt.errorbar([a0sinStat], [a0triStat], xerr=a0sinUncStat, yerr=a0triUncStat, color='blue', marker='o')
         ellip2Stat = plot_point_cov(
             pointsStat.T,
             nstd=2,
@@ -175,17 +158,7 @@ if __name__ == '__main__':
             edgecolor='blue',
             linestyle='--',
             label='68% CL stat')
-        plt.legend(
-            handles=[ellip1, ellip2, ellip1Stat, ellip2Stat],
-            loc='upper left',
-            bbox_to_anchor=(0.6,0.8),
-            fontsize=13,
-            frameon=False)
-    
-    plt.show()
 
-    plt.savefig(f'{path.splitext(args.oFile)[0]}_py_debug{path.splitext(args.oFile)[1]}' if args.debug else f'{path.splitext(args.oFile)[0]}_py{path.splitext(args.oFile)[1]}')
- 
     cCountour = TCanvas('cCountour', '', 600, 600)
     cCountour.SetRightMargin(0.03)
     cCountour.SetTopMargin(0.03)
