@@ -1,0 +1,21 @@
+Dpi_HMpp13TeV:
+    true:
+        true: [0.403, "gen"]
+        secondaries: [0.0023, "flat"]
+        strong: [0.0550, "flat"]
+        misidentified: [0.0047, "flat"]
+    nonprompt:
+        true: [0.0443, "flat"]
+        secondaries: [0.0003, "flat"]
+        strong: [0.0060, "flat"]
+        misidentified: [0.0005, "flat"]
+    Dstar:
+        true: [0.1680, "coulomb"]
+        secondaries: [0.0010, "flat"]
+        strong: [0.0229, "flat"]
+        misidentified: [0.0019, "flat"]
+    combbkg:
+        true: [0.2514, "sideband"]
+        secondaries: [0.0014, "sideband"]
+        strong: [0.0343, "sideband"]
+        misidentified: [0.0029, "sideband"]

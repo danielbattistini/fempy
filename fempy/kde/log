@@ -1,0 +1,41 @@
+{'pp': 'Particle0_Particle2', 'mm': 'Particle1_Particle3'}
+{'SE_pp_sgn_centr': <cppyy.gbl.TF1 object at 0x9965690>, 'SE_pp_sgn_upper': <cppyy.gbl.TF1 object at 0xad0a920>, 'SE_pp_sgn_lower': <cppyy.gbl.TF1 object at 0x9acda70>, 'SE_pp_sbl_centr': <cppyy.gbl.TF1 object at 0xb1d2010>, 'SE_pp_sbl_upper': <cppyy.gbl.TF1 object at 0x98eb660>, 'SE_pp_sbl_lower': <cppyy.gbl.TF1 object at 0xb328ba0>, 'SE_pp_sbr_centr': <cppyy.gbl.TF1 object at 0x98c5b30>, 'SE_pp_sbr_upper': <cppyy.gbl.TF1 object at 0xb1a4a80>, 'SE_pp_sbr_lower': <cppyy.gbl.TF1 object at 0xb2f9490>, 'SE_mm_sgn_centr': <cppyy.gbl.TF1 object at 0xb3e27a0>, 'SE_mm_sgn_upper': <cppyy.gbl.TF1 object at 0x9749050>, 'SE_mm_sgn_lower': <cppyy.gbl.TF1 object at 0xb3fccb0>, 'SE_mm_sbl_centr': <cppyy.gbl.TF1 object at 0xb3f7f00>, 'SE_mm_sbl_upper': <cppyy.gbl.TF1 object at 0xadcd3c0>, 'SE_mm_sbl_lower': <cppyy.gbl.TF1 object at 0xb3ef3f0>, 'SE_mm_sbr_centr': <cppyy.gbl.TF1 object at 0xb3f3bc0>, 'SE_mm_sbr_upper': <cppyy.gbl.TF1 object at 0xb3dcd30>, 'SE_mm_sbr_lower': <cppyy.gbl.TF1 object at 0xb3e4180>}
+SE_pp_sgn_centr True False
+SE_pp_sgn_upper True False
+SE_pp_sgn_lower True False
+SE_pp_sbl_centr True False
+SE_pp_sbl_upper True False
+SE_pp_sbl_lower True False
+SE_pp_sbr_centr True False
+SE_pp_sbr_upper True False
+SE_pp_sbr_lower True False
+SE_mm_sgn_centr True False
+SE_mm_sgn_upper True False
+SE_mm_sgn_lower True False
+SE_mm_sbl_centr True False
+SE_mm_sbl_upper True False
+SE_mm_sbl_lower True False
+SE_mm_sbr_centr True False
+SE_mm_sbr_upper True False
+SE_mm_sbr_lower True False
+
+
+
+failed SE_pp_sgn_centr
+SE_pp_sgn_upper True False True 0.12237289919283893
+SE_pp_sgn_lower True False True 0.08193691955803162
+SE_pp_sbl_centr True False True 0.09998359208477298
+SE_pp_sbl_upper True False True 0.14718051193954862
+SE_pp_sbl_lower True False True 0.1042618526108402
+failed SE_pp_sbr_centr
+SE_pp_sbr_upper True False True 0.1200665290017731
+SE_pp_sbr_lower True False True 0.09705565777513303
+SE_mm_sgn_centr True False True 0.09998359208477298
+SE_mm_sgn_upper True False True 0.13105000826313015
+SE_mm_sgn_lower True False True 0.09829052569955514
+failed SE_mm_sbl_centr
+SE_mm_sbl_upper True False True 0.13387997628829437
+SE_mm_sbl_lower True False True 0.10029789537573572
+SE_mm_sbr_centr True False True 0.09998359208477298
+SE_mm_sbr_upper True False True 0.11731368203588832
+SE_mm_sbr_lower True False True 0.08273001860509185
