@@ -1,7 +1,9 @@
+import fempy
+from ROOT import MassFitter, GeneralCoulombLednicky
 import sys
 import yaml
-import random
 import argparse
+import copy
 
 import pandas as pd
 import numpy as np
@@ -9,9 +11,6 @@ import numpy as np
 from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend, gRandom, TNtuple, TH2D, RDataFrame, TH1D
 gInterpreter.ProcessLine('#include "fempy/utils/functions.h"')
 gInterpreter.ProcessLine('#include "fempy/MassFitter.hxx"')
-from ROOT import MassFitter, GeneralCoulombLednicky
-
-import fempy
 
 
 def Average(hist, xmin, xmax):
@@ -53,8 +52,16 @@ def SumLamPar(lam_par, treamtments):
     return lam_par_summed
 
 
+def IsLamParMatValid(lam_par):
+    total = 0
+    for _, h_lam in lam_par.items():
+        for _, l_lam in h_lam.items():
+            total += l_lam
+    return abs(total - 1) < 1e-6
+
+
 def LoadLambdaParam(cfgCentr, npFracVar=1., heavyPurity=None):
-    cfgVar = dict(cfgCentr)
+    cfgVar = copy.deepcopy(cfgCentr)
     cfgVar['heavy'][1]['nonprompt']['frac'] *= npFracVar
     cfgVar['heavy'][0]['prompt']['frac'] = 1 - cfgVar['heavy'][1]['nonprompt']['frac']
 
@@ -63,7 +70,6 @@ def LoadLambdaParam(cfgCentr, npFracVar=1., heavyPurity=None):
         cfgVar['heavy'][1]['nonprompt']['purity'] = heavyPurity
         cfgVar['heavy'][2]['bkg']['purity'] = 1. - heavyPurity
 
-    
     lamParMatr = {}
     for heavyContrib in cfgVar['heavy']:
         heavyKey = list(heavyContrib.keys())[0]
@@ -156,7 +162,7 @@ def Bootstrap(hist):
         mu = hist.GetBinContent(iBin)
         sigma = hist.GetBinError(iBin)
 
-        hBootstrapped.SetBinContent(iBin, gRandom.Gaus(mu, sigma))
+        hBootstrapped.SetBinContent(iBin, np.random.normal(mu, sigma))
         hBootstrapped.SetBinError(iBin, sigma)
     return hBootstrapped
 
@@ -175,7 +181,7 @@ def ComputePurity(hist, kStarBW, event, variation=""):
         nSigma = 2
         sgn = fitter.GetSignal(nSigma, 'data_minus_bkg')
         sgnUnc = fitter.GetSignalUnc(nSigma, 'data_minus_bkg')
-        
+
         bkg = fitter.GetBackground(nSigma)
         bkgUnc = fitter.GetBackgroundUnc(nSigma)
 
@@ -206,27 +212,26 @@ def VaryHistogram(hist, method):
         fempy.error("not implemented")
 
 
+def ComputeIntegratedPurity(hMass, fitRange=[0.141, 0.154]):
+    firstBin = hMass.GetXaxis().FindBin(fitRange[0]*1.0001)
+    lastBin = hMass.GetXaxis().FindBin(fitRange[1]*0.9999)
 
-def ComputeIntegratedPurity(hMass, fitRange = [0.141, 0.154]):
-        firstBin = hMass.GetXaxis().FindBin(fitRange[0]*1.0001)
-        lastBin = hMass.GetXaxis().FindBin(fitRange[1]*0.9999)
+    particleYield = hMass.Integral(firstBin, lastBin)
 
-        particleYield = hMass.Integral(firstBin, lastBin)
+    fitter = MassFitter(hMass, 'gaus', 'powex', fitRange[0], fitRange[1])
+    fitter.Fit()
 
-        fitter = MassFitter(hMass, 'gaus', 'powex', fitRange[0], fitRange[1])
-        fitter.Fit()
+    sgn = fitter.GetSignal(2, 'data_minus_bkg')
+    sgnUnc = fitter.GetSignalUnc(2, 'data_minus_bkg')
 
-        sgn = fitter.GetSignal(2, 'data_minus_bkg')
-        sgnUnc = fitter.GetSignalUnc(2, 'data_minus_bkg')
-        
-        bkg = fitter.GetBackground(2)
+    bkg = fitter.GetBackground(2)
 
-        purity = sgn / (sgn + bkg)
-        purityUnc = purity * np.sqrt((sgnUnc/sgn)**2 + (1./np.sqrt(particleYield))**2)
+    purity = sgn / (sgn + bkg)
+    purityUnc = purity * np.sqrt((sgnUnc/sgn)**2 + (1./np.sqrt(particleYield))**2)
 
-        return (purity, purityUnc)
+    return (purity, purityUnc)
 
-        
+
 def ComputeScattPar(**kwargs):
     hCFSgn = kwargs['sgn']
     hCFSbr = kwargs['sbr']
@@ -268,7 +273,7 @@ def ComputeScattPar(**kwargs):
         hCFGen.Scale(1./lamPar['gen'])
         hCFGen.SetName(f'hCFGen{iIter}')
         hCFGen.Write()
-        
+
     else:
         # Compute the normalization of the MJ
         hCFNorm = (hCFSgn - lamPar['sb'] * hCFSbr) / (hCFMJ * (lamPar['gen'] + lamPar['flat']))
@@ -291,8 +296,6 @@ def ComputeScattPar(**kwargs):
         hCFGen.Scale(1./lamPar['gen'])
         hCFGen.SetName(f'hCFGen{iIter}')
         hCFGen.Write()
-
-        
 
     # Add the CF to the hist2D
     if iIter > 0:
@@ -317,7 +320,7 @@ def ComputeScattPar(**kwargs):
     fWeightedLL.FixParameter(0, radius1)
     fWeightedLL.FixParameter(1, radius2)
     fWeightedLL.FixParameter(2, weight1)
-    fWeightedLL.SetParameter(3, 0.1)
+    fWeightedLL.SetParameter(3, 0.)
     fWeightedLL.SetParLimits(3, -1, 1)
     fWeightedLL.FixParameter(4, 0.)
     fWeightedLL.FixParameter(5, 0.)
@@ -357,7 +360,7 @@ def ComputeScattPar(**kwargs):
     gCFGen.SetName(f'gCFGen{iIter}')
     gCFGen.Write()
     cFit.Write()
-    return hCFGen
+    return scattLen, scattLenUnc, chi2ndf, hCFGen
 
 
 def ComputeGenCF(args):
@@ -376,15 +379,13 @@ def ComputeGenCF(args):
         radii1 = [0.86, 0.95, 0.79]
         radii2 = [2.03, 2.22, 1.91]
     elif args.pair == 'DstarPi':
-        fitRanges = [[10, 800], [10, 600], [10, 1000]]
-        # inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
-        inFileData = TFile('/data/DstarPi/20_luuksel/distr/bk/Distr_data_nopc_kStarBW50MeV.root')
+        inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
         inFileMC = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_mcgp_nopc_kStarBW50MeV_true.root')
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}.root'
         config = '/home/daniel/an/DstarPi/cfg_gencf_DstarPi_50MeV.yml'
 
         lightMass = TDatabasePDG.Instance().GetParticle(211).Mass()
-        
+
         weights1 = [0.66, 0.69, 0.64]
         radii1 = [0.97, 1.06, 0.89]
         radii2 = [2.52, 2.88, 2.32]
@@ -405,16 +406,9 @@ def ComputeGenCF(args):
             print(exc)
             sys.exit()
 
-    # Variations on lambda parameters
-    lamParCentr = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
-    lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1), cfg['treatment'])
-    lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9), cfg['treatment'])
-
-    lamPar = lamParCentr
-
     oFile = TFile(oFileName, 'recreate')
     for comb in ['sc', 'oc']:
-        random.seed(42)
+        np.random.seed(42)
         if args.pair == 'DstarPi' and comb == 'sc':
             realCoulombFile = TFile('/home/daniel/an/DPi/corrections/Dstar/Dstar_PiplusDplusOutput.root')
         elif args.pair == 'DstarPi' and comb == 'oc':
@@ -456,7 +450,7 @@ def ComputeGenCF(args):
                 hhSEData = inFileData.Get(f'{comb}/SE/{region}/hCharmMassVsKStar{iVar}')
                 hSEData = hhSEData.ProjectionX(f'hSE_{region}{iVar}')
                 dSEData[iVar][region] = hSEData
-                
+
                 hhMEData = inFileData.Get(f'{comb}/ME/{region}/hCharmMassVsKStar{iVar}')
                 hMEData = hhMEData.ProjectionX(f'hME_{region}{iVar}')
                 dMEData[iVar][region] = hMEData
@@ -488,8 +482,9 @@ def ComputeGenCF(args):
         if args.pair == 'DstarK':
             lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
             purity, _ = ComputeIntegratedPurity(dhhSEData[0].ProjectionY(f"Purity_{0}", 1, lastBin))
-            lamParCentr = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
-            lamPar = lamParCentr
+            lamPar = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
+        else:
+            lamPar = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
 
         for iIter in range(args.bs + 1):  # iter 0 is for the central
             if args.pair == 'DstarK':
@@ -501,9 +496,9 @@ def ComputeGenCF(args):
                 hCFSgn = hSESgn/hMESgn
             hCFMJ = hCFMC.Clone(f'hCFMC{iIter}')
 
-            hCFGen = ComputeScattPar(
+            scattLen, _, _, hCFGen = ComputeScattPar(
                 sgn=hCFSgn if iIter == 0 else Bootstrap(hCFSgn),
-                sbr=None if args.pair=='DstarPi' else hCFSbr if iIter == 0 else Bootstrap(hCFSbr),
+                sbr=None if args.pair == 'DstarPi' else hCFSbr if iIter == 0 else Bootstrap(hCFSbr),
                 mj=hCFMJ if iIter == 0 else Bootstrap(hCFMJ),
                 iVar=0,
                 iIter=iIter,
@@ -539,7 +534,7 @@ def ComputeGenCF(args):
             gCFGenStat = ApplyCenterOfGravity(hCFGen, gGravities)
         
         nLednickyPoints = 500
-            
+
         if args.syst:
             oFile.mkdir(f'{comb}/tot')
             oFile.cd(f'{comb}/tot')
@@ -547,35 +542,47 @@ def ComputeGenCF(args):
             tTrialsTot = TNtuple('tTrialsTot', 'trials', 'a0:a0unc:status:chi2ndf:iVar:purityVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
 
             for iIter in range(args.bs):
-                iVar = random.choice(range(0, nVar))
+                iVar = np.random.randint(nVar)
 
                 if args.pair == 'DstarK':
                     lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
-                    purity, _ = ComputeIntegratedPurity(dhhSEData[iVar].ProjectionY(f"Purity_{0}", 1, lastBin))
+                    purity, _ = ComputeIntegratedPurity(dhhSEData[iVar].ProjectionY(f"hPurity_{0}", 1, lastBin))
                     lamParCentr = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
                     lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1, purity), cfg['treatment'])
                     lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9, purity), cfg['treatment'])
+
+                    if not IsLamParMatValid(LoadLambdaParam(cfg, 1, purity)):
+                        fempy.error("lambda parameters don't sum to 1!!")
+                    if not IsLamParMatValid(LoadLambdaParam(cfg, 1.1, purity)):
+                        fempy.error("lambda parameters don't sum to 1!!")
+                    if not IsLamParMatValid(LoadLambdaParam(cfg, 0.9, purity)):
+                        fempy.error("lambda parameters don't sum to 1!!")
 
                     hCFSgn = dCFData[iVar]['sgn'].Clone(f'hCFSgn{iIter}')
                     hCFSbr = dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}')
                     purityVar = 0
                 elif args.pair == 'DstarPi':
-                    purityVar = random.choice([0, +1, -1])
+                    purityVar = np.random.randint(-1, 1)
                     hSESgn = VaryHistogram(dSEPurity[iVar], purityVar) * dSEData[iVar]['sgn']
                     hMESgn = VaryHistogram(dMEPurity[iVar], purityVar) * dMEData[iVar]['sgn']
                     hCFSgn = hSESgn/hMESgn
-                radius1, radius2, weight1 = random.choice(list(zip(radii1, radii2, weights1)))
+
+                    lamParCentr = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
+                    lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1), cfg['treatment'])
+                    lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9), cfg['treatment'])
+
+                radius1, radius2, weight1 = list(zip(radii1, radii2, weights1))[np.random.randint(3)]
 
                 ComputeScattPar(
                     sgn=Bootstrap(hCFSgn.Clone(f'hCFSgn{iIter}')),
-                    sbr=None if args.pair=='DstarPi' else Bootstrap(dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}')),
+                    sbr=None if args.pair == 'DstarPi' else Bootstrap(dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}')),
                     mj=Bootstrap(hCFMC.Clone(f'hCFMC{iIter}')),
                     comb=comb,
                     iVar=iVar,
                     iIter=iIter,
-                    lamPar=random.choice([lamParCentr, lamParFlat, lamParSharp]),
-                    fitRange=random.choice(fitRanges),
-                    bkgFitRange=random.choice(bkgFitRanges),
+                    lamPar=[lamParCentr, lamParFlat, lamParSharp][np.random.randint(3)],
+                    fitRange=fitRanges[np.random.randint(3)],
+                    bkgFitRange=bkgFitRanges[np.random.randint(3)],
                     redMass=RedMass(heavyMass, lightMass) * 1000,
                     radius1=radius1,
                     radius2=radius2,
@@ -620,16 +627,15 @@ def ComputeGenCF(args):
                 fWeightedLLTot.FixParameter(5, 0.)
                 fWeightedLLTot.FixParameter(6, 1 if comb == 'sc' else -1)
                 fWeightedLLTot.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
-                
+
                 for iPoint in range(nLednickyPoints):
                     cfVariationTot[iPoint].append(fWeightedLLTot.Eval(float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
-                    
-        
+
         cFinalFit = TCanvas(f'cFinalFit_{comb}', '', 600, 600)
         cFinalFit.DrawFrame(0, 0, 500, 2, fempy.utils.format.TranslateToLatex(';__kStarMeV__;__C__'))
         gCFGenStat.SetMarkerStyle(33)
         gCFGenStat.SetMarkerSize(2)
-    
+
         # plot lednicky curves
         dfTrials = pd.DataFrame(RDataFrame(tTrialsStat).AsNumpy())
         cfVariationStat = [[] for _ in range(nLednickyPoints)]
@@ -643,7 +649,7 @@ def ComputeGenCF(args):
             fWeightedLLStat.FixParameter(5, 0.)
             fWeightedLLStat.FixParameter(6, 1 if comb == 'sc' else -1)
             fWeightedLLStat.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
-            
+
             for iPoint in range(nLednickyPoints):
                 cfVariationStat[iPoint].append(fWeightedLLStat.Eval(float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
 
@@ -672,13 +678,11 @@ def ComputeGenCF(args):
         gLLStat.SetFillColor(46)
         gLLStat.SetLineColor(46)
 
-        
-        
         if args.bs > 0 and args.syst:
-            chi2=0
+            chi2 = 0
             # Chi2 recalculation
             nPoints = 9
-            ndf = nPoints -1
+            ndf = nPoints - 1
             for iPoint in range(ndf):
                 kStar = gCFGenStat.GetPointX(iPoint)
                 cfFit = gLLStat.Eval(kStar)
@@ -689,7 +693,7 @@ def ComputeGenCF(args):
 
                 cfDataTotUnc = (cfDataStatUnc**2 + cfDataSystUnc**2)**0.5
                 chi2 += ((cfData - cfFit)/cfDataTotUnc)**2
-            
+
         step = 0.05
         tl = TLatex()
         tl.SetNDC()
@@ -699,7 +703,6 @@ def ComputeGenCF(args):
         tl.DrawLatex(0.2, 0.85 - step, f'a_{{0}} = {scatPar:.3f} #pm {scatParStatUnc:.3f} (stat){f" #pm {scatParSystUnc:.3f} (syst)" if args.syst else ""}')
         if args.bs > 0 and args.syst:
             tl.DrawLatex(0.2, 0.85 - 2 * step, f'#chi^{{2}}/ndf = {chi2:.0f} / {ndf:.0f}')
-
 
         fCoulombLL = TF1(f"fCoulombLL", WeightedCoulombLednicky, fitRanges[0][0], fitRanges[0][1], 8)
         fCoulombLL.FixParameter(0, radii1[0])
@@ -711,7 +714,6 @@ def ComputeGenCF(args):
         fCoulombLL.FixParameter(6, 1 if comb == 'sc' else -1)
         fCoulombLL.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
         fCoulombLL.SetLineColor(kBlue)
-
 
         leg = TLegend(0.6, 0.75, .9, 0.9)
         if args.syst:
