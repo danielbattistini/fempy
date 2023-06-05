@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
-from ROOT import TFile, RDataFrame, TCanvas, TLegend, TColor, TLatex, TGraph, TGraphErrors, TLine, kGray
+from ROOT import TFile, RDataFrame, TCanvas, TLegend, TColor, TLatex, TGraph, TGraphErrors, TLine, kGray, EColor, TGraphAsymmErrors
 
 def rgb(color):
     return tuple(int(color.lstrip('#')[i:i+2], 16)/255 for i in (0, 2, 4))
@@ -104,13 +104,18 @@ if __name__ == '__main__':
     parser.add_argument('oFile')
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--shift', action='store_true', default=False)
+    parser.add_argument('--emma', action='store_true', default=False)
     parser.add_argument('--central', choices=('statbs', 'totbs'))
+    parser.add_argument('--pair', choices=('DstarPi', 'DPi'), required=True)
     args = parser.parse_args()
 
     inFile = TFile(args.inFile)
 
     tResultsTot = inFile.Get("tot/tResults")
-    pointsTot = np.array(list(RDataFrame(tResultsTot).AsNumpy(['a0sin', 'a0tri']).values()))
+    if args.emma:
+        pointsTot = np.array(list(RDataFrame(tResultsTot).AsNumpy(['a0tri', 'a0sin']).values()))
+    else:
+        pointsTot = np.array(list(RDataFrame(tResultsTot).AsNumpy(['a0sin', 'a0tri']).values()))
     xTot, yTot = pointsTot
     a0sinTot = xTot.mean()
     a0triTot = yTot.mean()
@@ -121,7 +126,10 @@ if __name__ == '__main__':
 
     # Load stat bootstrap
     tResultsStat = inFile.Get("stat/tResults")
-    pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['a0sin', 'a0tri']).values()))
+    if args.emma:
+        pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['a0tri', 'a0sin']).values()))
+    else:
+        pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['a0sin', 'a0tri']).values()))
     xStat, yStat = pointsStat
     a0sinStat = xStat.mean()
     a0triStat = yStat.mean()
@@ -129,8 +137,8 @@ if __name__ == '__main__':
     a0triUncStat = yStat.std()
 
     # Make figure
-    xlim = [-0.07, 0.2999]
-    ylim = [-0.2999, 0.3999]
+    xlim = [-0.18, 0.28]
+    ylim = [-0.34, 1.099]
 
     # Plot a transparent 3 standard deviation covariance ellipse
     ellip2Tot = plot_point_cov(pointsTot.T, nstd=2, color=albumen, label='95% CL')
@@ -162,25 +170,22 @@ if __name__ == '__main__':
     cCountour.SetTopMargin(0.03)
     cCountour.SetLeftMargin(0.18)
     cCountour.SetBottomMargin(0.12)
-    hFrame = cCountour.DrawFrame(xlim[0], ylim[0], xlim[1], ylim[1], ';a_{0} (#it{I} = 3/2);a_{0} (#it{I} = 1/2)')
+    pairLatex = 'D#pi' if args.pair == 'DPi' else 'D*#pi'
+    hFrame = cCountour.DrawFrame(xlim[0], ylim[0], xlim[1], ylim[1], f';a_{{{pairLatex}}} (#it{{I}} = 3/2);a_{{{pairLatex}}} (#it{{I}} = 1/2)')
     hFrame.GetXaxis().SetTitleSize(0.05)
     hFrame.GetYaxis().SetTitleSize(0.05)
     hFrame.GetXaxis().SetLabelSize(0.05)
     hFrame.GetYaxis().SetLabelSize(0.05)
-    hFrame.GetXaxis().SetNdivisions(504)
-    hFrame.GetYaxis().SetNdivisions(504)
+    hFrame.GetXaxis().SetNdivisions(505)
+    hFrame.GetYaxis().SetNdivisions(505)
 
     tlALICE = TLatex()
     tlALICE.SetTextFont(42)
     tlALICE.SetTextSize(0.06)
-    if not args.debug:
-        tlALICE.DrawLatexNDC(0.36, 0.89, 'ALICE')
 
     tl = TLatex()
     tl.SetTextFont(42)
     tl.SetTextSize(0.039)
-    if not args.debug:
-        tl.DrawLatexNDC(0.36, 0.89-0.05, 'pp #sqrt{s} = 13 TeV, High-mult. (0-0.17%)')
 
     gScattParTot = TGraphErrors(1)
     gScattParTot.SetPoint(0, a0sinTot, a0triTot)
@@ -205,7 +210,6 @@ if __name__ == '__main__':
     a0sinUncSystPlusShift = np.sqrt(a0sinUncTotPlusShift**2 - a0sinUncStat**2)
     a0triUncSystPlusShift = np.sqrt(a0triUncTotPlusShift**2 - a0triUncStat**2)
     gScattParStatCentrTotPlusShift.SetPointError(0, a0sinUncTotPlusShift, a0triUncTotPlusShift)
-
 
     print('\ncentr total')
     print(f'a0(3/2) = {a0sinTot:.2f} +/- {a0sinUncStat:.2f} (stat) +/- {a0sinUncSyst:.2f} (syst) fm')
@@ -279,15 +283,22 @@ if __name__ == '__main__':
     gContourToDash2.SetLineWidth(2)
     gContourToDash2.SetLineColor(4)
 
-    lh = TLine(0, ylim[0], 0, ylim[1])
-    lh.SetLineStyle(9)
-    lh.SetLineColor(kGray+2)
+    lv = TLine(0, ylim[0], 0, ylim[1]*0.7)
 
-    lv = TLine(xlim[0], 0, xlim[1], 0)
     lv.SetLineStyle(9)
     lv.SetLineColor(kGray+2)
+
+    lh = TLine(xlim[0], 0, xlim[1], 0)
+    lh.SetLineStyle(9)
+    lh.SetLineColor(kGray+2)
     
-    leg = TLegend(0.56, 0.57, 0.95, 0.78)
+    if args.pair == 'DstarPi':
+        legPosX = [0.56, 0.95]
+        legPosY = [0.64, 0.78]
+    elif args.pair == 'DPi':
+        legPosX = [0.56, 0.95]
+        legPosY = [0.4, 0.78]
+    leg = TLegend(legPosX[0], legPosY[0], legPosX[1], legPosY[1])
     if args.debug:
         leg = TLegend(0.34, 0.55, 0.95, 0.95)
         leg.AddEntry(gScattParTot, 'Data tot bs', 'lpe')
@@ -370,8 +381,59 @@ if __name__ == '__main__':
     lh.Draw()
     leg.Draw()
 
+    if not args.debug:
+        tlALICE.DrawLatexNDC(0.36, 0.89, 'ALICE')
+        tl.DrawLatexNDC(0.36, 0.89-0.05, 'pp #sqrt{s} = 13 TeV, High-mult. (0-0.17%)')
+
     if args.debug:
         gScattParStat.Draw('same pe')
+
+    if args.pair == 'DPi':
+        lliu = TGraphAsymmErrors(1)
+        lliu.SetPoint(0, -0.10, 0.37)
+        lliu.SetPointError(0, 0.001, 0.001, 0.01, 0.01)
+        lliu.SetMarkerColor(EColor.kTeal - 6)
+        lliu.SetMarkerStyle(8)
+        lliu.SetLineColor(EColor.kTeal - 6)
+
+        xyguo = TGraphErrors(1)
+        xyguo.SetPoint(0, -0.11, 0.33)
+        xyguo.SetPointError(0, 0, 0)
+        xyguo.SetMarkerColor(EColor.kBlue)
+        xyguo.SetMarkerStyle(8)
+        xyguo.SetLineColor(EColor.kBlue)
+
+        zhguo1 = TGraphAsymmErrors(1)
+        zhguo1.SetPoint(0, -0.101, 0.31)
+        zhguo1.SetPointError(0, 0.005, 0.003, 0.01, 0.01)
+        zhguo1.SetMarkerColor(EColor.kAzure + 10)
+        zhguo1.SetMarkerStyle(8)
+        zhguo1.SetLineColor(EColor.kAzure + 10)
+
+        zhguo2 = TGraphAsymmErrors(1)
+        zhguo2.SetPoint(0, -0.099, 0.34)
+        zhguo2.SetPointError(0, 0.003, 0.004, 0.00, 0.03)
+        zhguo2.SetMarkerColor(EColor.kViolet + 1)
+        zhguo2.SetMarkerStyle(8)
+        zhguo2.SetLineColor(EColor.kViolet + 1)
+
+        blhuang = TGraphErrors(1)
+        blhuang.SetPoint(0, -0.06, 0.61)
+        blhuang.SetPointError(0, 0.02, 0.11)
+        blhuang.SetMarkerColor(EColor.kGreen + 1)
+        blhuang.SetMarkerStyle(8)
+        blhuang.SetLineColor(EColor.kGreen + 1)
+
+        lliu.Draw('same pe')
+        xyguo.Draw('same pe')
+        zhguo1.Draw('same pe')
+        zhguo2.Draw('same pe')
+        blhuang.Draw('same pe')
+        leg.AddEntry(xyguo, "X.Y.Guo", "p")
+        leg.AddEntry(zhguo1, "Z.H.Guo-1", "p")
+        leg.AddEntry(zhguo2, "Z.H.Guo-2", "p")
+        leg.AddEntry(blhuang, "B.L.Huang Fit-u2", "p")
+        leg.AddEntry(lliu, "L.Liu", "p")
 
     for ext in ['png', 'pdf', 'eps', 'root']:
         if args.debug:
