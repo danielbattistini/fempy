@@ -330,7 +330,7 @@ def ComputeScattPar(**kwargs):
     scattLenUnc = fWeightedLL.GetParError(3)
 
     # Draw canvas
-    cFit = TCanvas(f'cFit_{comb}{iIter}', '', 600, 600)
+    cFit = TCanvas(f'cFit_{iIter}', '', 600, 600)
     cFit.DrawFrame(0, 0, 500, 2)
     hCFGen.Draw('pe')
     fWeightedLL.Draw('same')
@@ -354,12 +354,13 @@ def ComputeScattPar(**kwargs):
         tl.DrawLatex(0.2, 0.85 - 3 * step, 'BAD FIT')
     else:
         tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, iVar, purityVar, weight1, radius1, radius2, fitRange[1], bkgFitRange[0], bkgFitRange[1], lamPar['flat'], lamPar['gen'])
+    gCFGen.SetName(f'gCFGen{iIter}')
+    gCFGen.Write()
     cFit.Write()
     return hCFGen
 
 
 def ComputeGenCF(args):
-    random.seed(42)
     gStyle.SetOptStat(0)
 
     kStarBW = 50  # MeV/c
@@ -376,7 +377,8 @@ def ComputeGenCF(args):
         radii2 = [2.03, 2.22, 1.91]
     elif args.pair == 'DstarPi':
         fitRanges = [[10, 800], [10, 600], [10, 1000]]
-        inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
+        # inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
+        inFileData = TFile('/data/DstarPi/20_luuksel/distr/bk/Distr_data_nopc_kStarBW50MeV.root')
         inFileMC = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_mcgp_nopc_kStarBW50MeV_true.root')
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}.root'
         config = '/home/daniel/an/DstarPi/cfg_gencf_DstarPi_50MeV.yml'
@@ -412,6 +414,7 @@ def ComputeGenCF(args):
 
     oFile = TFile(oFileName, 'recreate')
     for comb in ['sc', 'oc']:
+        random.seed(42)
         if args.pair == 'DstarPi' and comb == 'sc':
             realCoulombFile = TFile('/home/daniel/an/DPi/corrections/Dstar/Dstar_PiplusDplusOutput.root')
         elif args.pair == 'DstarPi' and comb == 'oc':

@@ -71,7 +71,7 @@ double GeneralCoulombLednicky(const double &Momentum, const double &GaussR, cons
 
     return A_c * (CkValue + 1.);
 }
-
+lalala break 
 double GeneralCoulombLednickySecond(const double &Momentum, const double &GaussR, const double &ScattLenSin,
                                     const double &EffRangeSin, const double &ScattLenTri, const double &EffRangeTri,
                                     const bool &QS, const double &RedMass, const double &Q1Q2) {
@@ -79,14 +79,14 @@ double GeneralCoulombLednickySecond(const double &Momentum, const double &GaussR
            0.75 * GeneralCoulombLednicky(Momentum, GaussR, ScattLenTri, EffRangeTri, QS, RedMass, Q1Q2);
 }
 
-// double GeneralCoulombLednicky(double *x, double *pars) {
-//     return GeneralCoulombLednicky(x[0], pars[0], pars[1], pars[2], bool(pars[3]), pars[4], pars[5]);
-// }
+double GeneralCoulombLednicky(double *x, double *pars) {
+    return GeneralCoulombLednicky(x[0], pars[0], pars[1], pars[2], bool(pars[3]), pars[4], pars[5]);
+}
 
-// double GeneralCoulombLednickySecond(double *x, double *pars) {
-//     return GeneralCoulombLednickySecond(x[0], pars[0], pars[1], pars[2], pars[3], pars[4], bool(pars[5]), pars[6],
-//                                         pars[7]);
-// }
+double GeneralCoulombLednickySecond(double *x, double *pars) {
+    return GeneralCoulombLednickySecond(x[0], pars[0], pars[1], pars[2], pars[3], pars[4], bool(pars[5]), pars[6],
+                                        pars[7]);
+}
 
 // void TidyCats::GetCatsPionDstar(CATS *cats, int momBins, double kMin, double kMax, TidyCats::lightDmesonPot pot,
 //                                 TidyCats::Sources source, int chargecombi) {
