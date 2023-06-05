@@ -218,8 +218,8 @@ if __name__ == '__main__':
         
     for ext in ['pdf', 'png', 'eps', 'root']:
         if args.pair == 'DstarK':
-            cCF.SaveAs(f'/home/daniel/an/DstarK/2_luuksel/GenCFCorrPlot_{suffix}.{ext}')
+            cCF.SaveAs(f'/home/daniel/an/DstarK/2_luuksel/GenCFCorrPlot_{args.pair}_{suffix}.{ext}')
         else:
-            cCF.SaveAs(f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorrPlot_{suffix}{"_simfit" if args.simfit else ""}.{ext}')
+            cCF.SaveAs(f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorrPlot_{args.pair}_{suffix}{"_simfit" if args.simfit else ""}.{ext}')
     
 
