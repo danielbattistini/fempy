@@ -30,15 +30,9 @@
 std::array<int, 2> lightPDG{211, 321}; // pions, kaons, protons
 std::array<int, 2> charmPDG{411, 413}; // D+, D0, Ds, D*, Lc
 
-
 //__________________________________________________________________________________________________
-void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir);
-
-//__________________________________________________________________________________________________
-void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
+void MakeSEMEDistr(std::string inFileName, std::string oFileName, bool selDauKinem, bool align)
 {
-
-
     //__________________________________________________________
     // define outputs
     std::map<std::tuple<int, int, std::string, std::string>, TH2F*> hPairSE, hPairME; // all combinations of charm, light hadrons and particle/antiparticle
@@ -58,6 +52,7 @@ void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
 
     std::vector<ROOT::Math::PxPyPzMVector> partLF{};
     std::map<std::string, std::vector<ROOT::Math::PxPyPzMVector>> partCharm{{"prompt", {}}, {"nonprompt", {}}};
+    std::map<std::string, std::vector<ROOT::Math::PxPyPzMVector>> partCharmOriginal{{"prompt", {}}, {"nonprompt", {}}};
     std::deque<std::vector<ROOT::Math::PxPyPzMVector>> partBufferLF{};
     std::map<std::string, std::deque<std::vector<ROOT::Math::PxPyPzMVector>>> partBufferCharm{{"prompt", {}}, {"nonprompt", {}}};
     std::map<std::string, std::vector<int>> idxCharm{{"prompt", {}}, {"nonprompt", {}}};
@@ -227,6 +222,17 @@ void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
             nextparticle:
             continue;
         }
+        if (align) {
+            // Copy the original particles otherwise the calculation of the pt(D) is wrong
+            partCharmOriginal["prompt"] = partCharm["prompt"];
+            partCharmOriginal["nonprompt"] = partCharm["nonprompt"];
+
+            // Perform alignment of the events
+            std::array<std::array<double, 3>, 3> rot = GetRotationSpheri3DFull(particles);
+            partLF = Rotate(rot, partLF);
+            partCharm["prompt"] = Rotate(rot, partCharm["prompt"]);
+            partCharm["nonprompt"] = Rotate(rot, partCharm["nonprompt"]);
+        }
 
         partBufferLF.push_back(partLF);
         partBufferCharm["prompt"].push_back(partCharm["prompt"]);
@@ -248,6 +254,7 @@ void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
         {
             for(size_t iCharm=0; iCharm<partCharm[origin].size(); iCharm++)
             {
+                float ptDmeson = align ? partCharmOriginal[origin][iCharm].Pt() : partCharm[origin][iCharm].Pt();
                 for(size_t iLF=0; iLF<partLF.size(); iLF++)
                 {
                     if(std::find(motherLF[iLF].begin(), motherLF[iLF].end(), idxCharm[origin][iCharm]) != motherLF[iLF].end()){
@@ -255,7 +262,6 @@ void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
                     }
 
                     double kStar = ComputeKstar(partCharm[origin][iCharm], partLF[iLF]);
-                    float ptDmeson = partCharm[origin][iCharm].Pt();
 
                     if(pdgCharm[origin][iCharm] * pdgLF[iLF] > 0)
                         hPairSE[{std::abs(pdgCharm[origin][iCharm]), std::abs(pdgLF[iLF]), "part", origin}]->Fill(kStar, ptDmeson);
@@ -292,7 +298,7 @@ void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
     }
 
     // save root output file
-    TFile outFile(Form("%s/AnalysisResults.root", oDir.data()), "recreate");
+    TFile outFile(oFileName.data(), "create");
     for(auto &pdgC: charmPDG)
     {
         for(auto &pdgL: lightPDG)
