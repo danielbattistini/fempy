@@ -178,6 +178,8 @@ void MakeDistr(
         }
         treeDirName = treeDirNames[0];
     }
+    // remove the HM_CharmFemto_ (14 characters) and the suffix _TreesX
+    static std::string pairName = treeDirName.substr(14, treeDirName.find("_Trees")-14);
     
     static std::string name, title;
     using namespace ROOT::RDF;
@@ -367,7 +369,7 @@ void MakeDistr(
     // save output in FD format
     for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++){
         for (std::string region : regions) {
-            std::string dirNameFD = Form("HM_CharmFemto_DplusPion_%sResults%lu", regionToFD[region].data(), iSelection);
+            std::string dirNameFD = Form("HM_CharmFemto_%s_%sResults%lu", pairName.data(), regionToFD[region].data(), iSelection);
             oFile->mkdir(dirNameFD.data());
             oFile->cd(dirNameFD.data());
 
