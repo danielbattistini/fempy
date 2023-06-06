@@ -1,6 +1,5 @@
 #include <cmath>
-
-int sgn(double value) { return (value > 0) - (value < 0); }
+#include "functions.hxx"
 
 double *prod(double mat[2][2], double vec[2]) {
     static double ans[2];

@@ -25,42 +25,14 @@
 #include <TClonesArray.h>
 #include <TParticle.h>
 
-
-bool IsDetectable(int absPdg) {
-    if(
-        absPdg == 11 || // electrons
-        absPdg == 13 || // muons
-        absPdg == 211 || // pions
-        absPdg == 321  || // kaons
-        absPdg == 2212 // protons
-    )
-        return true;
-
-    return false;
-}
-
-inline bool isInAcc(TParticle *p) {
-    return p->Pt() > 0.3 && std::abs(p->Eta()) < 0.8;
-}
+#include "functions.hxx"
 
 std::array<int, 2> lightPDG{211, 321}; // pions, kaons, protons
 std::array<int, 2> charmPDG{411, 413}; // D+, D0, Ds, D*, Lc
 
-std::map<int, std::multiset<int>> decayChannels = {
-    // D
-    {+411, {-321, +211, +211}},
-    {-411, {+321, -211, -211}},
-    // Dzero
-    {+421, {-321, +211}},
-    {-421, {+321, -211}},
-    // Dstar
-    {+413, {+421, +211}},
-    {-413, {-421, -211}},
-};
 
 //__________________________________________________________________________________________________
 void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir);
-float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2);
 
 //__________________________________________________________________________________________________
 void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
@@ -152,7 +124,7 @@ void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
                             TParticle* dau = dynamic_cast<TParticle*>(particles->At(iDau));
 
                             // kinem selections
-                            if (!isInAcc(dau)) { // same selections as in data
+                            if (!isInTPC(dau)) { // same selections as in data
                                 goto nextparticle;
                             }
                             
@@ -183,7 +155,7 @@ void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
                                 std::multiset<int>D0dauPdgs = {};
                                 for (int iD0Dau = dau->GetFirstDaughter(); iD0Dau <= dau->GetLastDaughter(); iD0Dau++){
                                     TParticle* D0dau = dynamic_cast<TParticle*>(particles->At(iD0Dau));
-                                    if (!isInAcc(D0dau)) {
+                                    if (!isInTPC(D0dau)) {
                                         goto nextparticle;
                                     }
                                     dauPdgs.insert(D0dau->GetPdgCode());
@@ -194,7 +166,7 @@ void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
                                     goto nextparticle;
                                 }
                             } else if (std::abs(dauPdg) == 211) {
-                                if (!isInAcc(dau)) { // same selections as in data
+                                if (!isInTPC(dau)) { // same selections as in data
                                     goto nextparticle;
                                 }
                             } else { // neither pion nor D0: skip 
@@ -335,17 +307,4 @@ void MakeSEMEDistr(std::string inFileName, bool selDauKinem, std::string oDir)
         }
     }
     outFile.Close();
-}
-
-//__________________________________________________________________________________________________
-float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2)
-{
-    ROOT::Math::PxPyPzMVector trackSum = part1 + part2;
-    ROOT::Math::Boost boostv12{trackSum.BoostToCM()};
-    ROOT::Math::PxPyPzMVector part1CM = boostv12(part1);
-    ROOT::Math::PxPyPzMVector part2CM = boostv12(part2);
-
-    ROOT::Math::PxPyPzMVector trackRelK = part1CM - part2CM;
-    float kStar = 0.5 * trackRelK.P();
-    return kStar;
 }

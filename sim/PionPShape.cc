@@ -24,58 +24,12 @@
 #include "Math/Vector3D.h"
 #include "Math/Vector4D.h"
 
-inline bool isInAcc(TParticle *p) { return p->Pt() > 0.3 && std::abs(p->Eta()) < 0.8; }
+#include "functions.hxx"
 
 //__________________________________________________________________________________________________
 void PionPShape(std::string inFileName, bool selDauKinem, std::string oDir);
 float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2);
 
-std::map<int, std::multiset<int>> decayChannels = {
-    // D
-    {+411, {-321, +211, +211}},
-    {-411, {+321, -211, -211}},
-    // Dzero
-    {+421, {-321, +211}},
-    {-421, {+321, -211}},
-    // Dstar
-    {+413, {+421, +211}},
-    {-413, {-421, -211}},
-};
-
-
-bool ThereIsD(TClonesArray *particles) {
-    for (int iPart = 2; iPart < particles->GetEntriesFast(); iPart++) {
-        TParticle *particle = dynamic_cast<TParticle *>(particles->At(iPart));
-        int pdg = particle->GetPdgCode();
-        // if (std::abs(particle->GetPdgCode()) == 411) return true;
-
-        if (std::abs(pdg) == 413) { // select decay kinem of Dplus
-            return true;
-            std::multiset<int>dauPdgs = {};
-            for (int iDau = particle->GetFirstDaughter(); iDau <= particle->GetLastDaughter(); iDau++){
-                TParticle* dau = dynamic_cast<TParticle*>(particles->At(iDau));
-
-                // kinem selections
-                if (!isInAcc(dau)) { // same selections as in data
-                    goto nextparticle;
-                }
-                
-                // prepare BR selection
-                dauPdgs.insert(dau->GetPdgCode());
-            }
-            // BR selection
-            if (dauPdgs != decayChannels[pdg]) { // select the interesting decay channel
-                goto nextparticle;
-            }
-            return true;
-        }
-        
-
-        nextparticle:
-        continue;
-    }
-    return false;
-}
 
 //__________________________________________________________________________________________________
 void PionPShape(std::string inFileName, std::string oDir) {
