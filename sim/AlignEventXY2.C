@@ -1,9 +1,5 @@
 #include <cmath>
-
-int sgn(double value) {
-    return (value > 0) - (value < 0);
-}
-
+#include "functions.hxx"
 
 void AlignEventXY() {
     std::vector<float> p[2] = {

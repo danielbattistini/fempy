@@ -6,57 +6,16 @@
 #include <vector>
 
 #include "AliPythia8.h"
+#include "functions.hxx"
 
 using namespace Pythia8;
 
 namespace {
-enum tunes { kMonash = 0, kCRMode0, kCRMode2, kCRMode3 };
 enum processes { kSoftQCD = 0, kHardQCD };
 enum triggers { kMB = 0, kHighMultV0 };
 enum kinem { kAny = 0, kDauInEta08 };
 }  // namespace
 
-std::map<int, std::multiset<int>> decayChannels = {
-    // D
-    {+411, {-321, +211, +211}},
-    {-411, {+321, -211, -211}},
-    // Dzero
-    {+421, {-321, +211}},
-    {-421, {+321, -211}},
-    // Dstar
-    {+413, {+421, +211}},
-    {-413, {-421, -211}},
-};
-
-bool IsDetectable(const int &absPdg) {
-    if (absPdg == 11 ||   // electrons
-        absPdg == 13 ||   // muons
-        absPdg == 211 ||  // pions
-        absPdg == 321 ||  // kaons
-        absPdg == 2212    // protons
-    )
-        return true;
-
-    return false;
-}
-
-int GetV0Mult(const TClonesArray* particles) {
-    int nCh = 0;
-    for (auto iPart = 2; iPart < particles->GetEntriesFast(); ++iPart) {
-        TParticle* particle = dynamic_cast<TParticle*>(particles->At(iPart));
-        int pdg = std::abs(particle->GetPdgCode());
-        int status = std::abs(particle->GetStatusCode());
-        float eta = particle->Eta();
-
-        // V0A and V0C acceptance
-        if (IsDetectable(pdg) && ((-3.7 < eta && eta < -1.7) || (2.8 < eta && eta < 5.1)) && status == 1) {
-            nCh++;
-        }
-    }
-    return nCh;
-}
-
-inline bool isInAcc(TParticle* p) { return p->Pt() > 0.3 && std::abs(p->Eta()) < 0.8; }
 
 bool isParticleInEvent(const TClonesArray* particles, const int &absPdg, const bool &requireAllDauInAcc = false) {
     for (auto iPart = 2; iPart < particles->GetEntriesFast(); ++iPart) {
@@ -73,7 +32,7 @@ bool isParticleInEvent(const TClonesArray* particles, const int &absPdg, const b
                     TParticle* dau = dynamic_cast<TParticle*>(particles->At(iDau));
 
                     // kinem selections
-                    if (!isInAcc(dau)) goto nextparticle;
+                    if (!isInTPC(dau)) goto nextparticle;
 
                     // prepare BR selection
                     dauPdgs.insert(dau->GetPdgCode());
@@ -91,7 +50,7 @@ bool isParticleInEvent(const TClonesArray* particles, const int &absPdg, const b
                     int dauPdg = dau->GetPdgCode();
 
                     // if (std::abs(dauPdg) != 211 && std::abs(dauPdg) != 421) goto nextparticle;
-                    if (std::abs(dauPdg) == 211 && !isInAcc(dau)) goto nextparticle;
+                    if (std::abs(dauPdg) == 211 && !isInTPC(dau)) goto nextparticle;
                     
                     // kinem selections on D0 daus
                     if (std::abs(dauPdg) == 421) {
@@ -104,7 +63,7 @@ bool isParticleInEvent(const TClonesArray* particles, const int &absPdg, const b
                         std::multiset<int>D0dauPdgs = {};
                         for (int iD0Dau = dau->GetFirstDaughter(); iD0Dau <= dau->GetLastDaughter(); iD0Dau++){
                             TParticle* D0dau = dynamic_cast<TParticle*>(particles->At(iD0Dau));
-                            if (!isInAcc(D0dau)) goto nextparticle;
+                            if (!isInTPC(D0dau)) goto nextparticle;
 
                             dauPdgs.insert(D0dau->GetPdgCode());
                         }
@@ -114,7 +73,7 @@ bool isParticleInEvent(const TClonesArray* particles, const int &absPdg, const b
                             goto nextparticle;
                         }
                     } else if (std::abs(dauPdg) == 211) {
-                        if (!isInAcc(dau)) { // same selections as in data
+                        if (!isInTPC(dau)) { // same selections as in data
                             goto nextparticle;
                         }
                     } else { // neither pion nor D0: skip 
@@ -251,7 +210,7 @@ void CreateHFDataset(int nEvents, double maxRunTime, int energy, triggers trigge
 
 
         // trigger selection
-        if (trigger == kHighMultV0 && GetV0Mult(particles) < fwMultThr) continue;
+        if (trigger == kHighMultV0 && GetMultV0(particles) < fwMultThr) continue;
 
         // particle (and kinem) selection
         if (!isParticleInEvent(particles, hfPdg, kinemSel == kDauInEta08)) continue;

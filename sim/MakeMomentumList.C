@@ -7,6 +7,8 @@
 
 #include "AliPythia8.h"
 
+#include "functions.hxx"
+
 using namespace Pythia8;
 
 namespace {
@@ -14,39 +16,6 @@ enum tunes { kMonash = 0, kCRMode0, kCRMode2, kCRMode3 };
 enum processes { kSoftQCD = 0, kHardQCD };
 enum triggers { kMB = 0, kHighMultV0 };
 }  // namespace
-
-bool IsDetectable(const int &absPdg) {
-    if (absPdg == 11 ||   // electrons
-        absPdg == 13 ||   // muons
-        absPdg == 211 ||  // pions
-        absPdg == 321 ||  // kaons
-        absPdg == 2212    // protons
-    )
-        return true;
-
-    return false;
-}
-
-int GetV0Mult(const TClonesArray* particles) {
-    int nCh = 0;
-    for (auto iPart = 2; iPart < particles->GetEntriesFast(); ++iPart) {
-        TParticle* particle = dynamic_cast<TParticle*>(particles->At(iPart));
-        int pdg = std::abs(particle->GetPdgCode());
-        int status = std::abs(particle->GetStatusCode());
-        float eta = particle->Eta();
-
-        // V0A and V0C acceptance
-        if (IsDetectable(pdg) && ((-3.7 < eta && eta < -1.7) || (2.8 < eta && eta < 5.1)) && status == 1) {
-            nCh++;
-        }
-    }
-    return nCh;
-}
-
-void Align(TClonesArray* particles) {
-
-}
-
 
 void MakeMomentumList(int nEvents=100000, triggers trigger=kMB, tunes tune=kCRMode2, processes process=kSoftQCD,
                      int hPdg=3122, int lPdg=-3122, int seed = 42, std::string outDir="") {
@@ -155,7 +124,7 @@ void MakeMomentumList(int nEvents=100000, triggers trigger=kMB, tunes tune=kCRMo
 
         for (auto iPart = 2; iPart < particles->GetEntriesFast(); ++iPart) {
             TParticle* particle = dynamic_cast<TParticle*>(particles->At(iPart));
-            if (GetV0Mult(particles) > 130) {
+            if (GetMultV0(particles) > 130) {
                 goto print;
             }
         }
