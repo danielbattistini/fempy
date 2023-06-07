@@ -22,6 +22,13 @@ std::map<int, std::multiset<int>> decayChannels = {
     {-413, {-421, -211}},
 };
 
+
+struct FemtoParticle {
+    ROOT::Math::PxPyPzMVector p;
+    int pdg;
+};
+
+
 using v3 = std::array<double, 3>;
 using m3 = std::array<std::array<double, 3>, 3>;
 
@@ -167,6 +174,21 @@ std::vector<ROOT::Math::PxPyPzMVector> Rotate(m3 rot, std::vector<ROOT::Math::Px
     }
     return rotated;
 }
+
+// Apply rotation to a list of lorentz vector in 3 spatial dimensions
+std::vector<FemtoParticle> Rotate(m3 rot, std::vector<FemtoParticle> particles) {
+    std::vector<FemtoParticle> rotated = {};
+    for (const auto &particle : particles) {
+        ROOT::Math::PxPyPzMVector pRot(
+            rot[0][0] * particle.p.Px() + rot[0][1] * particle.p.Py() + rot[0][2] * particle.p.Pz(),
+            rot[1][0] * particle.p.Px() + rot[1][1] * particle.p.Py() + rot[1][2] * particle.p.Pz(),
+            rot[2][0] * particle.p.Px() + rot[2][1] * particle.p.Py() + rot[2][2] * particle.p.Pz(), particle.p.M());
+        rotated.push_back({pRot, particle.pdg});
+    }
+    return rotated;
+}
+
+
 
 // #############################################################################
 // Physics #####################################################################
@@ -734,4 +756,8 @@ void SetProcess(AliPythia8 &pythia, processes process) {
         pythia.ReadString("HardQCD:hardccbar = on");
         pythia.ReadString("HardQCD:hardbbbar = on");
     }
+}
+
+inline double ProductionRadius(TParticle * p) {
+    return std::sqrt(p->Vx() * p->Vx() + p->Vy() * p->Vy() + p->Vz() * p->Vz());
 }
