@@ -34,6 +34,23 @@ struct FemtoParticle {
 using v3 = std::array<double, 3>;
 using m3 = std::array<std::array<double, 3>, 3>;
 
+void print(m3 mat) {
+    for (int i = 0; i<3; i++) {
+        for (int j = 0; j<3; j++) {
+            printf("%.3f  ", mat[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+void print(v3 vec) {
+    for (int i = 0; i<3; i++) {
+        printf("%.3f  ", vec[i]);
+    }
+    printf("\n");
+}
+
+
 // #############################################################################
 // Math ########################################################################
 // #############################################################################
@@ -771,4 +788,14 @@ bool IsPairClean(FemtoParticle charm, FemtoParticle light) {
         if (iPart == light.idx) return false;
     }
     return true;
+}
+
+std::vector<ROOT::Math::PxPyPzMVector> GetLorentzVectors(TClonesArray *particles) {
+    std::vector<ROOT::Math::PxPyPzMVector> part{};
+
+    for (int iPart = 0; iPart < particles->GetEntriesFast(); iPart++){
+        TParticle* particle = dynamic_cast<TParticle*>(particles->At(iPart));
+        part.push_back(ROOT::Math::PxPyPzMVector(particle->Px(), particle->Py(), particle->Pz(), particle->GetMass()));
+    }
+    return part;
 }
