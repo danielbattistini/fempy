@@ -28,7 +28,7 @@
 
 void MakeDistr(std::string inFileName = "/home/ktas/ge86rim/phsw/fempy/sim/AnalysisResults_merged.root",
                std::string oFileName = "test.root", const int cpdg = 411, const int lpdg = 211,
-               bool selDauKinem = false, bool align = false) {
+               bool selDauKinem = false, bool align = false, bool cleanPairs=true) {
     int md = 15;
 
     std::map<std::string, TH1D *> hSE = {
@@ -77,11 +77,11 @@ void MakeDistr(std::string inFileName = "/home/ktas/ge86rim/phsw/fempy/sim/Analy
             if (absPdg == cpdg) {
                 ROOT::Math::PxPyPzMVector part(particle->Px(), particle->Py(), particle->Pz(),
                                                TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
-                partCharm.push_back({part, pdg});
+                partCharm.push_back({part, pdg, iPart, {particle->GetFirstDaughter(), particle->GetLastDaughter()}});
             } else if (absPdg == lpdg) {
                 ROOT::Math::PxPyPzMVector part(particle->Px(), particle->Py(), particle->Pz(),
                                                TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
-                partLight.push_back({part, pdg});
+                partLight.push_back({part, pdg, iPart, {0,0}});
             }
         }
 
@@ -95,6 +95,7 @@ void MakeDistr(std::string inFileName = "/home/ktas/ge86rim/phsw/fempy/sim/Analy
         // same event
         for (const auto &charm : partCharm) {
             for (const auto &light : partLight) {
+                if (cleanPairs && !IsPairClean(charm, light)) continue;
                 double kStar = ComputeKstar(charm.p, light.p);
                 std::string pair = charm.pdg * light.pdg > 0 ? "sc" : "oc";
                 hSE[pair]->Fill(kStar);

@@ -26,6 +26,8 @@ std::map<int, std::multiset<int>> decayChannels = {
 struct FemtoParticle {
     ROOT::Math::PxPyPzMVector p;
     int pdg;
+    int idx;
+    std::pair<int, int> daus;
 };
 
 
@@ -183,7 +185,9 @@ std::vector<FemtoParticle> Rotate(m3 rot, std::vector<FemtoParticle> particles) 
             rot[0][0] * particle.p.Px() + rot[0][1] * particle.p.Py() + rot[0][2] * particle.p.Pz(),
             rot[1][0] * particle.p.Px() + rot[1][1] * particle.p.Py() + rot[1][2] * particle.p.Pz(),
             rot[2][0] * particle.p.Px() + rot[2][1] * particle.p.Py() + rot[2][2] * particle.p.Pz(), particle.p.M());
-        rotated.push_back({pRot, particle.pdg});
+        FemtoParticle particleRot = particle;
+        particleRot.p = pRot;
+        rotated.push_back(particleRot);
     }
     return rotated;
 }
@@ -760,4 +764,11 @@ void SetProcess(AliPythia8 &pythia, processes process) {
 
 inline double ProductionRadius(TParticle * p) {
     return std::sqrt(p->Vx() * p->Vx() + p->Vy() * p->Vy() + p->Vz() * p->Vz());
+}
+
+bool IsPairClean(FemtoParticle charm, FemtoParticle light) {
+    for (int iPart = charm.daus.first; iPart <= charm.daus.second; iPart++) {
+        if (iPart == light.idx) return false;
+    }
+    return true;
 }
