@@ -74,14 +74,26 @@ void MakeDistr(std::string inFileName = "/home/ktas/ge86rim/phsw/fempy/sim/Analy
             int pdg = particle->GetPdgCode();
             int absPdg = std::abs(pdg);
 
-            if (absPdg == cpdg) {
-                ROOT::Math::PxPyPzMVector part(particle->Px(), particle->Py(), particle->Pz(),
-                                               TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
-                partCharm.push_back({part, pdg, iPart, {particle->GetFirstDaughter(), particle->GetLastDaughter()}});
-            } else if (absPdg == lpdg) {
-                ROOT::Math::PxPyPzMVector part(particle->Px(), particle->Py(), particle->Pz(),
-                                               TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
-                partLight.push_back({part, pdg, iPart, {0,0}});
+            if (std::abs(cpdg) != std::abs(lpdg)) { // different-particle femtoscopy
+                if (absPdg == cpdg) {
+                    ROOT::Math::PxPyPzMVector part(particle->Px(), particle->Py(), particle->Pz(),
+                                                TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    partCharm.push_back({part, pdg, iPart, {particle->GetFirstDaughter(), particle->GetLastDaughter()}});
+                } else if (absPdg == lpdg) {
+                    ROOT::Math::PxPyPzMVector part(particle->Px(), particle->Py(), particle->Pz(),
+                                                TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    partLight.push_back({part, pdg, iPart, {particle->GetFirstDaughter(), particle->GetLastDaughter()}});
+                }
+            } else if (cpdg == -lpdg) { // particle-antiparticle femtoscopy
+                if (pdg == cpdg) {
+                    ROOT::Math::PxPyPzMVector part(particle->Px(), particle->Py(), particle->Pz(),
+                                                TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    partCharm.push_back({part, pdg, iPart, {particle->GetFirstDaughter(), particle->GetLastDaughter()}});
+                } else if (pdg == lpdg) {
+                    ROOT::Math::PxPyPzMVector part(particle->Px(), particle->Py(), particle->Pz(),
+                                                TDatabasePDG::Instance()->GetParticle(absPdg)->Mass());
+                    partLight.push_back({part, pdg, iPart, {particle->GetFirstDaughter(), particle->GetLastDaughter()}});
+                }
             }
         }
 
