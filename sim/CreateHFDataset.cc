@@ -11,7 +11,6 @@
 using namespace Pythia8;
 
 namespace {
-enum processes { kSoftQCD = 0, kHardQCD };
 enum triggers { kMB = 0, kHighMultV0 };
 enum kinem { kAny = 0, kDauInEta08 };
 }  // namespace
@@ -179,12 +178,12 @@ void CreateHFDataset(int nEvents, double maxRunTime, int energy, triggers trigge
 
 
     int fwMultThr = 0;
-    if (trigger == kHighMultV0 && process == kSoftQCD && tune == Monash)
+    if (trigger == kHighMultV0 && process == kSoftQCD && tune == kMonash)
         fwMultThr = 130;
-    else if (trigger == kHighMultV0 && process == kHardQCD && tune == Monash)
+    else if (trigger == kHighMultV0 && process == kHardQCD && tune == kMonash)
         fwMultThr = 133;
     else
-        print("error. mult thr not implemented")
+        printf("error. mult thr not implemented");
 
     //__________________________________________________________
     // define outputs
