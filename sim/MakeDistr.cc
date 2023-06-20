@@ -25,10 +25,15 @@
 #include "Math/Vector4D.h"
 #include "functions.hxx"
 
+enum AlignMode {
+    kNo = 0,
+    kShpheriFull,
+    kLeading,
+};
 
 void MakeDistr(std::string inFileName = "/home/ktas/ge86rim/phsw/fempy/sim/AnalysisResults_merged.root",
                std::string oFileName = "test.root", const int cpdg = 411, const int lpdg = 211,
-               bool selDauKinem = false, bool align = false, bool cleanPairs=true) {
+               bool selDauKinem = false, AlignMode align = kNo, bool cleanPairs=true) {
     int md = 15;
 
     std::map<std::string, TH1D *> hSE = {
@@ -97,9 +102,39 @@ void MakeDistr(std::string inFileName = "/home/ktas/ge86rim/phsw/fempy/sim/Analy
             }
         }
 
-        if (align) {
+        if (align==kShpheriFull) {
             // Perform alignment of the events
             std::array<std::array<double, 3>, 3> rot = GetRotationSpheri3DFull(particles);
+            partLight = Rotate(rot, partLight);
+            partCharm = Rotate(rot, partCharm);
+        } else if (align == kLeading) {
+            // find leading particle
+            TParticle pLeading(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            for (int iPart = 2; iPart < particles->GetEntriesFast(); iPart++) {
+                TParticle *p = dynamic_cast<TParticle *>(particles->At(iPart));
+                if (p->P() > pLeading.P() && isInTPC(p) && IsDetectable(std::abs(p->GetPdgCode()))) {
+                    pLeading = *p;
+                }
+            }
+            double phiLeading = atan(pLeading.Py()/pLeading.Px());
+
+            if(pLeading.Px() < 0) phiLeading += TMath::Pi();
+
+            std::array<std::array<double, 3>, 3> rot;
+            rot[0] = {  cos(phiLeading),  sin(phiLeading), 0};
+            rot[1] = { -sin(phiLeading),  cos(phiLeading), 0};
+            rot[2] = {      0         ,        0         , 1};
+
+            partLight = Rotate(rot, partLight);
+            partCharm = Rotate(rot, partCharm);
+
+            double thetaLeading = atan(pLeading.Pt()/pLeading.Pz());
+            if(pLeading.Pz() < 0) thetaLeading += TMath::Pi();
+
+            rot[0] = { cos(thetaLeading),    0, -sin(thetaLeading) };
+            rot[1] = {         0        ,    1,           0        };
+            rot[2] = { sin(thetaLeading),    0,  cos(thetaLeading) };
+
             partLight = Rotate(rot, partLight);
             partCharm = Rotate(rot, partCharm);
         }
