@@ -33,3 +33,4 @@ jobs:
         uses: super-linter/super-linter@v5.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_CPP: true
