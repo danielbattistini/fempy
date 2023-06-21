@@ -1,0 +1,15 @@
+# script to lint the code of the repository.
+#
+# requires:
+#   - docker
+#
+# run:
+#   ./lint
+
+docker run -e RUN_LOCAL=true \
+    -e LOG_LEVEL=WARN \
+    -e BASH_SEVERITY=WARNING \
+    -e VALIDATE_CPP=true \
+    -e VALIDATE_PYTHON=true \
+    -v $PWD:/tmp/lint \
+    github/super-linter

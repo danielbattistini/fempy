@@ -28,5 +28,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BRANCH: "main"
           VALIDATE_CPP: true
+          VALIDATE_PYTHON: true
           LOG_LEVEL: WARN
-          BASH_SEVERITY: WARNING
