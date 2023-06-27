@@ -5,3 +5,7 @@
 *.d
 *_ACLiC_*
 *.so
+
+luigi-server*.log*
+luigi-server*.out
+luigi-server*.err
