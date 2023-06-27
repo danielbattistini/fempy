@@ -31,7 +31,9 @@ struct FemtoParticle {
 };
 
 
+using v2 = std::array<double, 2>;
 using v3 = std::array<double, 3>;
+using m2 = std::array<std::array<double, 2>, 2>;
 using m3 = std::array<std::array<double, 3>, 3>;
 
 void print(m3 mat) {
@@ -58,12 +60,28 @@ void print(v3 vec) {
 // signum function: return the signum of value, for value = 0 returns 0
 int sgn(double value) { return (value > 0) - (value < 0); }
 
+
+// 
+template <typename Pair, typename Value>
+bool In(Pair selection, Value value) {
+    return selection.first <= value && value < selection.second;
+}
 // #############################################################################
 // Linear algebra ##############################################################
 // #############################################################################
 
 // Returns a 3d array of zeros
 v3 Zero() { return {0, 0, 0}; }
+
+
+m3 One() {
+    return m3({
+        v3({1, 0, 0}),
+        v3({0, 1, 0}),
+        v3({0, 0, 1})
+    });
+}
+
 
 // Returns the generator of the rotations along the X axis
 m3 RotX(double angle) {
@@ -169,6 +187,32 @@ v3 ComputeEigenValues(m3 mat) {
     return eivals;
 }
 
+double Determinant(m2 mat) {
+    return mat[0][0] * mat[1][1] - mat[1][0] * mat[0][1];
+}
+
+double Determinant(m3 mat) {
+    m2 smi = m2({v2({mat[1][1], mat[1][2]}),
+                 v2({mat[2][1], mat[2][2]})});
+    
+    m2 smj = m2({v2({mat[1][0], mat[1][2]}),
+                 v2({mat[2][0], mat[2][2]})});
+    
+    m2 smk = m2({v2({mat[1][0], mat[1][1]}),
+                 v2({mat[2][0], mat[2][1]})});
+    
+    return mat[0][0] * Determinant(smi) - mat[0][1] * Determinant(smj) + mat[0][2] * Determinant(smk);
+}
+
+
+template <typename T>
+bool IsZero(T mat) {
+    for (const auto & row : mat)
+        for (const auto & val : row)
+            if (val != 0) return false;
+    return true;
+}
+
 // Apply rotation to a list of lorentz vector in 2 spatial dimensions
 std::vector<ROOT::Math::PxPyPzMVector> RotateXY(std::array<std::array<double, 2>, 2> rot,
                                                 std::vector<ROOT::Math::PxPyPzMVector> particles) {
@@ -209,6 +253,29 @@ std::vector<FemtoParticle> Rotate(m3 rot, std::vector<FemtoParticle> particles) 
     return rotated;
 }
 
+
+// Rotate the momentum vector of particle
+FemtoParticle Rotate(m3 rot, const FemtoParticle &particle) {
+    ROOT::Math::PxPyPzMVector pRot(
+        rot[0][0] * particle.p.Px() + rot[0][1] * particle.p.Py() + rot[0][2] * particle.p.Pz(),
+        rot[1][0] * particle.p.Px() + rot[1][1] * particle.p.Py() + rot[1][2] * particle.p.Pz(),
+        rot[2][0] * particle.p.Px() + rot[2][1] * particle.p.Py() + rot[2][2] * particle.p.Pz(),
+        particle.p.M());
+    FemtoParticle particleRot = particle;
+    particleRot.p = pRot;
+    return particleRot;
+}
+
+
+// Rotate the momentum vector of particle
+ROOT::Math::PxPyPzMVector Rotate(m3 rot, const ROOT::Math::PxPyPzMVector &particle) {
+    ROOT::Math::PxPyPzMVector pRot(
+        rot[0][0] * particle.Px() + rot[0][1] * particle.Py() + rot[0][2] * particle.Pz(),
+        rot[1][0] * particle.Px() + rot[1][1] * particle.Py() + rot[1][2] * particle.Pz(),
+        rot[2][0] * particle.Px() + rot[2][1] * particle.Py() + rot[2][2] * particle.Pz(),
+        particle.M());
+    return pRot;
+}
 
 
 // #############################################################################
@@ -460,7 +527,7 @@ m3 GetRotationSpheri3DFull(TClonesArray *particles) {
 
     for (int iPart = 2; iPart < particles->GetEntriesFast(); iPart++) {
         TParticle *particle = dynamic_cast<TParticle *>(particles->At(iPart));
-        if (isInTPC(particle)) {
+        if (isInTPC(particle) && IsDetectable(std::abs(particle->GetPdgCode()))) {
             sphi[0][0] += particle->Px() * particle->Px();
             sphi[0][1] += particle->Px() * particle->Py();
             sphi[0][2] += particle->Px() * particle->Pz();
@@ -536,6 +603,50 @@ m3 GetRotationSpheri3DFull(TClonesArray *particles) {
 
     return Mul(rotSecondaryAxis, rot);
 }
+
+
+// Compute the rotation matrix for the event based on the sphericity (with minor axis included)
+m3 GetRotationSpheri3DFull(m3 sphi) {
+    double b = sphi[0][0] + sphi[1][1] + sphi[2][2];
+    double c = sphi[0][0] * sphi[1][1] + sphi[0][0] * sphi[2][2] + sphi[1][1] * sphi[2][2] - sphi[0][1] * sphi[0][1] -
+               sphi[0][2] * sphi[0][2] - sphi[1][2] * sphi[1][2];
+    double d = sphi[0][0] * sphi[1][2] * sphi[1][2] + sphi[1][1] * sphi[0][2] * sphi[0][2] +
+               sphi[2][2] * sphi[0][1] * sphi[0][1] - sphi[0][0] * sphi[1][1] * sphi[2][2] -
+               2 * sphi[0][1] * sphi[0][2] * sphi[1][2];
+    double p = b * b - 3 * c;
+    double q = 2 * b * b * b - 9 * b * c - 27 * d;
+    double delta = acos(q / 2 / pow(p, 1.5));
+
+    // Compute the eigenvalues
+    double l1 = 1. / 3 * (b + 2 * pow(p, 0.5) * cos(delta / 3));
+    double l2 = 1. / 3 * (b + 2 * pow(p, 0.5) * cos((delta + 2 * TMath::Pi()) / 3));
+    double l3 = 1. / 3 * (b + 2 * pow(p, 0.5) * cos((delta - 2 * TMath::Pi()) / 3));
+
+    // Sort the eigenvalues
+    std::vector<double> eigenvalues = {l1, l2, l3};
+    std::sort(eigenvalues.begin(), eigenvalues.end());
+    double lMed = eigenvalues[1];
+    double lMax = eigenvalues[2];
+
+    double evecMax[3];
+    evecMax[0] = 1;
+    evecMax[1] = (sphi[1][0] + (sphi[1][2] * (lMax - sphi[0][0])) / (sphi[0][2])) /
+                 (lMax + (sphi[1][2] * sphi[0][1]) / (sphi[0][2]) - sphi[1][1]);
+    evecMax[2] = (lMax - sphi[0][0] - sphi[0][1] * evecMax[1]) / (sphi[0][2]);
+
+    float phi = atan(evecMax[1]);
+    float theta = atan(pow(evecMax[0] * evecMax[0] + evecMax[1] * evecMax[1], 0.5) / evecMax[2]);
+
+    m3 rot = Mul(RotY(-theta), RotZ(-phi));
+    v3 evecMed = ComputeEigenVector(sphi, lMed);
+    v3 evecMedRot = Mul(rot, evecMed);
+
+    double phiSecondaryAxis = atan(evecMedRot[1] / evecMedRot[0]);
+    m3 rotSecondaryAxis = RotZ(-phiSecondaryAxis);
+
+    return Mul(rotSecondaryAxis, rot);
+}
+
 
 // Get the rotation 2x2 matrix in the trasnverse plane using the siagonalized trasnverse sphericity
 std::array<std::array<double, 2>, 2> GetRotationTransverseSpheri(TClonesArray *particles) {
