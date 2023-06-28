@@ -23,18 +23,11 @@
 #include "Math/Vector3D.h"
 #include "Math/Vector4D.h"
 
-using namespace Pythia8;
-
-namespace {
 enum tunes { kMonash = 0, kCRMode0, kCRMode2, kCRMode3 };
-
 enum processes { kSoftQCD = 0, kHardQCD };
-
-}  // namespace
 
 void StudyMultiplicity(int nEvents, float maxRunTime, tunes tune, processes process, int seed, std::string oDir);
 bool IsDetectable(int absPdg);
-
 
 bool IsDetectable(int absPdg) {
     if (absPdg == 11 ||   // electrons
@@ -56,8 +49,7 @@ void StudyMultiplicity(int nEvents, float maxRunTime, tunes tune, processes proc
     int collidingParticle1Pdg = 2212;
     int collidingParticle2Pdg = 2212;
 
-    //__________________________________________________________
-    // create and configure pythia generator
+    // Create and configure pythia generator
     gSystem->Load("liblhapdf.so");
     gSystem->Load("libpythia8.so");
     gSystem->Load("libAliPythia8.so");
@@ -153,23 +145,25 @@ void StudyMultiplicity(int nEvents, float maxRunTime, tunes tune, processes proc
     }
 
     oFileName += ".root";
-    //__________________________________________________________
     // define outputs
-    TH2I *hMult = new TH2I("hMult", "hMult;particles in V0A or V0C;Partices in |#eta|<0.8;Entries", 201, -0.5, 200.5, 201, -0.5, 200.5);
-    TH2I *hEtaMultForward = new TH2I("hEtahEtaMultForward", "hEtaMultForward;#eta;Particles in V0A or V0C;Entries", 100, -4, 6, 201, -0.5, 200.5);
-    TH2I *hEtaMultMid = new TH2I("hEtahEtaMultMid", "hEtaMultMid;#eta;Particles in V0A or V0C;Entries", 100, -1, 1, 201, -0.5, 200.5);
+    TH2I *hMult = new TH2I("hMult", "hMult;particles in V0A or V0C;Partices in |#eta|<0.8;Entries", 201, -0.5, 200.5,
+                           201, -0.5, 200.5);
+    TH2I *hEtaMultForward = new TH2I("hEtahEtaMultForward", "hEtaMultForward;#eta;Particles in V0A or V0C;Entries", 100,
+                                     -4, 6, 201, -0.5, 200.5);
+    TH2I *hEtaMultMid =
+        new TH2I("hEtahEtaMultMid", "hEtaMultMid;#eta;Particles in V0A or V0C;Entries", 100, -1, 1, 201, -0.5, 200.5);
 
-    TClonesArray* particles = new TClonesArray("TParticle", 1000);
+    TClonesArray *particles = new TClonesArray("TParticle", 1000);
 
     std::vector<float> etasForward;
     std::vector<float> etasMid;
 
     for (int iEvent = 0; iEvent < nEvents; iEvent++) {
-        printf("%f, %f\n", timer.RealTime(), maxRunTime*3600);
-        if (timer.RealTime() > maxRunTime*3600){
-            int time = int(timer.RealTime()); // in seconds
-            int nHours = int(time/3600);
-            int nMins = int((time%3600)/60);
+        printf("%f, %f\n", timer.RealTime(), maxRunTime * 3600);
+        if (timer.RealTime() > maxRunTime * 3600) {
+            int time = static_cast<int>(timer.RealTime());  // in seconds
+            int nHours = static_cast<int>(time / 3600);
+            int nMins = static_cast<int>((time % 3600) / 60);
 
             printf("Reached max run time: %d:%d\n", nHours, nMins);
             break;
@@ -179,7 +173,7 @@ void StudyMultiplicity(int nEvents, float maxRunTime, tunes tune, processes proc
 
         etasForward.clear();
         etasMid.clear();
-        
+
         pythia.GenerateEvent();
         pythia.ImportParticles(particles, "All");
 
@@ -187,7 +181,7 @@ void StudyMultiplicity(int nEvents, float maxRunTime, tunes tune, processes proc
         int nChForward = 0;
         int nChMid = 0;
         for (auto iPart = 2; iPart < particles->GetEntriesFast(); ++iPart) {
-            TParticle* particle = dynamic_cast<TParticle*>(particles->At(iPart));
+            TParticle *particle = dynamic_cast<TParticle *>(particles->At(iPart));
             int pdg = std::abs(particle->GetPdgCode());
             int status = std::abs(particle->GetStatusCode());
             float eta = particle->Eta();
@@ -195,7 +189,8 @@ void StudyMultiplicity(int nEvents, float maxRunTime, tunes tune, processes proc
             if (IsDetectable(pdg) && std::abs(eta) < 0.8 && status == 1) {
                 etasMid.push_back(eta);
                 nChMid++;
-            } else if (IsDetectable(pdg) && ((-3.7 < eta && eta < -1.7) || (2.8 < eta && eta < 5.1))  && status == 1) { // V0A and V0C acceptance
+            } else if (IsDetectable(pdg) && ((-3.7 < eta && eta < -1.7) || (2.8 < eta && eta < 5.1)) &&
+                       status == 1) {  // V0A and V0C acceptance
                 etasForward.push_back(eta);
                 nChForward++;
             }

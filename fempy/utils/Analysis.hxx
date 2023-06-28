@@ -1,15 +1,16 @@
-#ifndef ANALYSIS_H
-#define ANALYSIS_H
+#ifndef FEMPY_UTILS_ANALYSIS_HXX_
+#define FEMPY_UTILS_ANALYSIS_HXX_
 
-#include <vector>
-#include <string>
 #include <stdio.h>
+
 #include <map>
+#include <string>
+#include <vector>
 
 #include "yaml-cpp/yaml.h"
 
 class Analysis {
-    public:
+ public:
     Analysis(std::string analysisName, std::string ver) {
         name = analysisName;
         version = ver;
@@ -17,7 +18,7 @@ class Analysis {
             YAML::Node config = YAML::LoadFile("/home/daniel/phsw/fempy/fempy/cfg_DstarPi_HMpp13TeV2022.yml");
             selections = config[version.data()]["selections"].as<std::map<std::string, std::string>>();
             aliases = config[version.data()]["aliases"].as<std::map<std::string, std::string>>();
-            
+
             double max_kstar;
             binwidths = config["binwidths"].as<std::vector<int>>();
             mass_regions = config["mass_regions"].as<std::vector<std::string>>();
@@ -25,7 +26,6 @@ class Analysis {
             lpdg = config["lpdg"].as<int>();
             norm_range = config["norm_range"].as<std::array<double, 2>>();
             heavy_mass_label = config["heavy_mass_label"].as<std::string>();
-
         }
     }
 
@@ -33,15 +33,12 @@ class Analysis {
         std::cout << "name: " << name << "version: " << version << std::endl;
 
         std::cout << "aliases: " << std::endl;
-        for (auto alias : aliases)
-            std::cout << alias.first <<"\t  --->  " << alias.second << std::endl;
+        for (auto alias : aliases) std::cout << alias.first << "\t  --->  " << alias.second << std::endl;
         std::cout << std::endl;
-            
+
         std::cout << "selections: " << std::endl;
-        for (auto sel : selections)
-            std::cout << sel.first << "  :  " << sel.second << std::endl;
+        for (auto sel : selections) std::cout << sel.first << "  :  " << sel.second << std::endl;
         std::cout << std::endl;
-        
     }
 
     std::string name;
@@ -55,9 +52,6 @@ class Analysis {
     int lpdg;
     std::array<double, 2> norm_range;
     std::string heavy_mass_label;
-
-
-
 };
 
-#endif
+#endif  // FEMPY_UTILS_ANALYSIS_HXX_

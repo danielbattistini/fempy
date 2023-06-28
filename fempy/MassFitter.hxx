@@ -1,5 +1,12 @@
+#ifndef FEMPY_MASSFITTER_HXX_
+#define FEMPY_MASSFITTER_HXX_
+
+#include <map>
+#include <string>
+
 #include "TLatex.h"
 #include "TObject.h"
+
 
 double Gaus(double *x, double *par) {
     double norm = 1. / TMath::Sqrt((2. * TMath::Pi())) / par[2];
@@ -31,8 +38,8 @@ double PowEx(double *x, double *par) {
     if (x[0] < mpi) return 0;
     return par[0] * TMath::Sqrt(x[0] - mpi) * TMath::Exp(-1. * par[1] * (x[0] - mpi));
 }
-double Pol1(double *x, double *par) { return par[0] + par[1] * x[0]; };
 
+double Pol1(double *x, double *par) { return par[0] + par[1] * x[0]; }
 
 double Exp(double *x, double *par) {
     // p0: total yield
@@ -41,15 +48,12 @@ double Exp(double *x, double *par) {
 }
 
 class MassFitter {
-   public:
-    std::map<std::string, int> nPars = {
-        {"ngaus", 3}, {"gaus", 3}, {"hat", 5}, {"pol1", 2}, {"powex", 2}, {"exp", 2}
-    };
+ public:
+    std::map<std::string, int> nPars = {{"ngaus", 3}, {"gaus", 3}, {"hat", 5}, {"pol1", 2}, {"powex", 2}, {"exp", 2}};
 
     enum SgnFuncs { kGaus = 0 };
     enum BkgFuncs { kPol1 = 0 };
     MassFitter(TH1 *hist, std::string sgnFuncName, std::string bkgFuncName, double fitRangeMin, double fitRangeMax) {
-        
         this->hist = (TH1 *)hist->Clone();
         this->fitRangeMin = fitRangeMin;
         this->fitRangeMax = fitRangeMax;
@@ -60,22 +64,22 @@ class MassFitter {
         this->nBkgPars = nPars[this->bkgFuncName];
         int nTotPars = this->nSgnPars + this->nBkgPars;
 
-        if (sgnFuncName == "gaus")
+        if (sgnFuncName == "gaus") {
             this->sgnFunc = Gaus;
-        else if (sgnFuncName == "hat")
+        } else if (sgnFuncName == "hat") {
             this->sgnFunc = Hat;
-        else {
+        } else {
             printf("Function not implemented\n");
             exit(1);
         }
 
-        if (bkgFuncName == "powex")
+        if (bkgFuncName == "powex") {
             this->bkgFunc = PowEx;
-        else if (bkgFuncName == "exp")
+        } else if (bkgFuncName == "exp") {
             this->bkgFunc = Exp;
-        else if (bkgFuncName == "pol1")
+        } else if (bkgFuncName == "pol1") {
             this->bkgFunc = Pol1;
-        else {
+        } else {
             printf("Function not implemented\n");
             exit(1);
         }
@@ -97,8 +101,9 @@ class MassFitter {
                 } else if (bkgFuncName == "exp" && std::abs(x[0] - 1.87) < 0.05) {
                     TF1::RejectPoint();
                     return this->bkgFunc(x, pars);
-                } else
-                return this->bkgFunc(x, pars);
+                } else {
+                    return this->bkgFunc(x, pars);
+                }
             },
             this->fitRangeMin, fitRangeMax, nBkgPars);
 
@@ -155,13 +160,12 @@ class MassFitter {
             this->fFit->SetParName(this->nSgnPars + 1, "slope");
             this->fFit->SetParameter(this->nSgnPars + 1, 0.1);
             this->fFit->SetParLimits(this->nSgnPars + 1, -100, 100);
-        } else if (bkgFuncName == "pol1")
+        } else if (bkgFuncName == "pol1") {
             bkgFunc = Pol1;
+        }
     }
 
-
     void Fit() {
-        
         // printf("---> %s\n", this->bkg.data());
         // prefit
         // this->fPrefit = new TF1("fPrefit", [&, this](double *x, double * par) {
@@ -179,10 +183,10 @@ class MassFitter {
             fFit->SetParameter(this->nSgnPars + iPar, fPrefit->GetParameter(iPar));
             if (fPrefit->GetParameter(iPar) > 0)
                 fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) / 3,
-                               fPrefit->GetParameter(iPar) * 3);
+                                   fPrefit->GetParameter(iPar) * 3);
             else
                 fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) * 3,
-                               fPrefit->GetParameter(iPar) / 3);
+                                   fPrefit->GetParameter(iPar) / 3);
         }
 
         // printf("\n\n\nPerfomring the full fit:\n");
@@ -220,7 +224,7 @@ class MassFitter {
             this->fSgn->SetParameter(2, this->fFit->GetParameter(2));
             this->fSgn->SetParameter(3, this->fFit->GetParameter(3));
             this->fSgn->SetParameter(4, this->fFit->GetParameter(4));
-            
+
         } else if (this->sgnFuncName == "gaus") {
             this->fSgn = new TF1("fSgn", Gaus, fitRangeMin, fitRangeMax, 3);
             this->fSgn->SetParameter(0, this->fFit->GetParameter(0));
@@ -287,9 +291,9 @@ class MassFitter {
         double step = 0.05;
         int iStep = 0;
         tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("#chi^{2}/NDF = %.2f", fFit->GetChisquare() / fFit->GetNDF()));
-        tl.DrawLatexNDC(
-            .15, .85 - step * iStep++,
-            Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetSignal(nSigma, method), this->GetSignalUnc(nSigma, method)));
+        tl.DrawLatexNDC(.15, .85 - step * iStep++,
+                        Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetSignal(nSigma, method),
+                             this->GetSignalUnc(nSigma, method)));
 
         tl.DrawLatexNDC(
             .15, .85 - step * iStep++,
@@ -311,14 +315,16 @@ class MassFitter {
         double probs[2] = {TMath::Freq(-1), TMath::Freq(1)};
         double quantiles[2];
         fSgn->GetQuantiles(2, quantiles, probs);
-        return (quantiles[1] - quantiles[0])/2;
+        return (quantiles[1] - quantiles[0]) / 2;
     }
 
     double GetWidthUnc() {
         if (!fFit) return -1;
 
-        if (this->sgnFuncName == "gaus") return fFit->GetParError(2);
-        else if(this->sgnFuncName == "hat") return fFit->GetParError(2) / fFit->GetParameter(2) * GetWidth();  // assume rel error is the same
+        if (this->sgnFuncName == "gaus")
+            return fFit->GetParError(2);
+        else if (this->sgnFuncName == "hat")
+            return fFit->GetParError(2) / fFit->GetParameter(2) * GetWidth();  // assume rel error is the same
         return -1;
     }
 
@@ -340,9 +346,9 @@ class MassFitter {
         // convert nSigma to quantiles
         double probs[2] = {TMath::Freq(-nSigma), TMath::Freq(nSigma)};
         double quantiles[2];
-        fSgn->GetQuantiles(2, quantiles, probs); // returns the limits in which the sgn func should be integrated
+        fSgn->GetQuantiles(2, quantiles, probs);  // returns the limits in which the sgn func should be integrated
 
-        if (method=="sgn_int") {
+        if (method == "sgn_int") {
             return fSgn->Integral(quantiles[0], quantiles[1]) / this->hist->GetBinWidth(1);
         } else if (method == "data_minus_bkg") {
             int firstBin = hist->GetXaxis()->FindBin(quantiles[0] * 1.0001);
@@ -363,7 +369,7 @@ class MassFitter {
         if (!fFit) return -1;
         double probs[2] = {TMath::Freq(-nSigma), TMath::Freq(nSigma)};
         double quantiles[2];
-        fSgn->GetQuantiles(2, quantiles, probs); // returns the limits in which the sgn func should be integrated
+        fSgn->GetQuantiles(2, quantiles, probs);  // returns the limits in which the sgn func should be integrated
 
         return fBkg->Integral(quantiles[0], quantiles[1]) / this->hist->GetBinWidth(1);
     }
@@ -374,7 +380,8 @@ class MassFitter {
 
         int start = this->hist->FindBin(this->fitRangeMin * 1.0001);
         int end = this->hist->FindBin(this->fitRangeMax * 0.9999);
-        double SidebandBkg = this->hist->Integral(1, leftBand) + this->hist->Integral(rightBand, this->hist->GetNbinsX());
+        double SidebandBkg =
+            this->hist->Integral(1, leftBand) + this->hist->Integral(rightBand, this->hist->GetNbinsX());
 
         double sum2 = 0;
         for (Int_t i = 1; i <= leftBand; i++) {
@@ -394,7 +401,7 @@ class MassFitter {
         return fFit->GetParError(0) / fFit->GetParameter(0) * this->GetSignal(nSigma, method);
     }
 
-   private:
+ private:
     TH1 *hist = nullptr;
     TF1 *fSgn = nullptr;
     TF1 *fHatThin = nullptr;
@@ -414,3 +421,5 @@ class MassFitter {
     double fitRangeMin;
     double fitRangeMax;
 };
+
+#endif  // FEMPY_MASSFITTER_HXX_

@@ -8,14 +8,6 @@
 #include "AliPythia8.h"
 #include "functions.hxx"
 
-using namespace Pythia8;
-
-namespace {
-enum processes { kSoftQCD = 0, kHardQCD };
-enum triggers { kMB = 0, kHighMultV0 };
-}  // namespace
-
-
 void RemoveMJ(int nEvents=1000, triggers trigger=kMB, tunes tune=kCRMode2, processes process=kSoftQCD,
                      int hPdg=3122, int lPdg=-3122, int seed = 42, std::string outDir="") {
     //__________________________________________________________

@@ -27,8 +27,9 @@
 #include "Math/GenVector/Boost.h"
 #include "Math/Vector3D.h"
 #include "Math/Vector4D.h"
-#include "functions.hxx"
 #include "yaml-cpp/yaml.h"
+
+#include "./functions.hxx"
 
 enum AlignMode {
     kNo = 0,
@@ -37,11 +38,14 @@ enum AlignMode {
     kLeading,
 };
 
-using namespace Pythia8;
-
-void MakeDistrTest(std::string inFileName = "", std::string oFileName = "Distr.root",
-                   std::string cfgFile = "cfg_distr.yml", std::string cfgSel1File = "sel_lf.yml",
-                   std::string cfgSel2File = "sel_lf.yml", int seed = 42) {
+void MakeDistrTest(
+    std::string inFileName = "",
+    std::string oFileName = "Distr.root",
+    std::string cfgFile = "cfg_distr.yml",
+    std::string cfgSel1File = "sel_lf.yml",
+    std::string cfgSel2File = "sel_lf.yml",
+    int seed = 42
+    ) {
     // Load simulation settings
     YAML::Node cfg = YAML::LoadFile(cfgFile.data());
     unsigned int md = cfg["mixdepth"].as<int>();
@@ -52,15 +56,15 @@ void MakeDistrTest(std::string inFileName = "", std::string oFileName = "Distr.r
 
     std::string sAlign = cfg["align"].as<std::string>();
     AlignMode align;
-    if (sAlign == "kNo")
+    if (sAlign == "kNo") {
         align = AlignMode::kNo;
-    else if (sAlign == "kId")
+    } else if (sAlign == "kId") {
         align = AlignMode::kId;
-    else if (sAlign == "kSpheriFull")
+    } else if (sAlign == "kSpheriFull") {
         align = AlignMode::kSpheriFull;
-    else if (sAlign == "kLeading")
+    } else if (sAlign == "kLeading") {
         align = AlignMode::kLeading;
-    else {
+    } else {
         std::cerr << "Align mode not implemented. Exit!" << std::endl;
         return;
     }
@@ -85,15 +89,15 @@ void MakeDistrTest(std::string inFileName = "", std::string oFileName = "Distr.r
         // Set tune
         std::string sTune = cfg["execution"]["generate"]["tune"].as<std::string>();
         tunes tune;
-        if (sTune == "kMonash")
+        if (sTune == "kMonash") {
             tune = tunes::kMonash;
-        else if (sTune == "kCRMode0")
+        } else if (sTune == "kCRMode0") {
             tune = tunes::kCRMode0;
-        else if (sTune == "kCRMode2")
+        } else if (sTune == "kCRMode2") {
             tune = tunes::kCRMode2;
-        else if (sTune == "kCRMode2")
+        } else if (sTune == "kCRMode2") {
             tune = tunes::kCRMode2;
-        else {
+        } else {
             std::cerr << "Pythia tune '" << sTune << "' not implemented. Exit!" << std::endl;
             exit(1);
         }
@@ -102,11 +106,11 @@ void MakeDistrTest(std::string inFileName = "", std::string oFileName = "Distr.r
         // Set process
         std::string sProcess = cfg["execution"]["generate"]["process"].as<std::string>();
         processes process;
-        if (sProcess == "kSoftQCD")
+        if (sProcess == "kSoftQCD") {
             process = processes::kSoftQCD;
-        else if (sProcess == "kHardQCD")
+        } else if (sProcess == "kHardQCD") {
             process = processes::kHardQCD;
-        else {
+        } else {
             std::cerr << "Pythia process '" << sProcess << "' not implemented. Exit!" << std::endl;
             exit(1);
         }
@@ -211,23 +215,17 @@ void MakeDistrTest(std::string inFileName = "", std::string oFileName = "Distr.r
             int d2 = particle->GetLastDaughter();
 
             if (absPdg == pdg1) {
-                if (
-                    !In(selPt1, particle->Pt()) ||
-                    !In(selEta1, particle->Eta()) ||
-                    !In(selY1, particle->Y()) ||
-                    (selInTPC1 && !isInTPC(particle))
-                ) continue;
+                if (!In(selPt1, particle->Pt()) || !In(selEta1, particle->Eta()) || !In(selY1, particle->Y()) ||
+                    (selInTPC1 && !isInTPC(particle)))
+                    continue;
 
                 // todo: daughters in TPC
                 part1.push_back({part, pdg, iPart, {d1, d2}});
             }
             if (absPdg == pdg2) {
-                if (
-                    !In(selPt2, particle->Pt()) ||
-                    !In(selEta2, particle->Eta()) ||
-                    !In(selY2, particle->Y()) ||
-                    (selInTPC2 && !isInTPC(particle))
-                ) continue;
+                if (!In(selPt2, particle->Pt()) || !In(selEta2, particle->Eta()) || !In(selY2, particle->Y()) ||
+                    (selInTPC2 && !isInTPC(particle)))
+                    continue;
 
                 // todo: daughters in TPC
                 part2.push_back({part, pdg, iPart, {d1, d2}});

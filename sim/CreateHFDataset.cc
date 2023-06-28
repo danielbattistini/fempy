@@ -5,18 +5,12 @@
 #include <string>
 #include <vector>
 
+#include "TTree.h"
+#include "TSystem.h"
+#include "./functions.hxx"
 #include "AliPythia8.h"
-#include "functions.hxx"
 
-using namespace Pythia8;
-
-namespace {
-enum triggers { kMB = 0, kHighMultV0 };
-enum kinem { kAny = 0, kDauInEta08 };
-}  // namespace
-
-
-bool isParticleInEvent(const TClonesArray* particles, const int &absPdg, const bool &requireAllDauInAcc = false) {
+bool isParticleInEvent(const TClonesArray* particles, const int& absPdg, const bool& requireAllDauInAcc = false) {
     for (auto iPart = 2; iPart < particles->GetEntriesFast(); ++iPart) {
         TParticle* particle = dynamic_cast<TParticle*>(particles->At(iPart));
         int currentPdg = particle->GetPdgCode();
@@ -41,16 +35,16 @@ bool isParticleInEvent(const TClonesArray* particles, const int &absPdg, const b
                     continue;
                 }
                 return true;
-            } else if (absPdg == 413) { // selct decay kinem of Dstar
+            } else if (absPdg == 413) {  // selct decay kinem of Dstar
                 // todo: D* kinem to be fixed
                 // first: Dstarplus -> D0 Pi+
-                for (int iDau = particle->GetFirstDaughter(); iDau <= particle->GetLastDaughter(); iDau++){
+                for (int iDau = particle->GetFirstDaughter(); iDau <= particle->GetLastDaughter(); iDau++) {
                     TParticle* dau = dynamic_cast<TParticle*>(particles->At(iDau));
                     int dauPdg = dau->GetPdgCode();
 
                     // if (std::abs(dauPdg) != 211 && std::abs(dauPdg) != 421) goto nextparticle;
                     if (std::abs(dauPdg) == 211 && !isInTPC(dau)) goto nextparticle;
-                    
+
                     // kinem selections on D0 daus
                     if (std::abs(dauPdg) == 421) {
                         // first selection on BR
@@ -59,8 +53,8 @@ bool isParticleInEvent(const TClonesArray* particles, const int &absPdg, const b
                         }
 
                         // select kinem of D0 dau
-                        std::multiset<int>D0dauPdgs = {};
-                        for (int iD0Dau = dau->GetFirstDaughter(); iD0Dau <= dau->GetLastDaughter(); iD0Dau++){
+                        std::multiset<int> D0dauPdgs = {};
+                        for (int iD0Dau = dau->GetFirstDaughter(); iD0Dau <= dau->GetLastDaughter(); iD0Dau++) {
                             TParticle* D0dau = dynamic_cast<TParticle*>(particles->At(iD0Dau));
                             if (!isInTPC(D0dau)) goto nextparticle;
 
@@ -68,19 +62,18 @@ bool isParticleInEvent(const TClonesArray* particles, const int &absPdg, const b
                         }
 
                         // select decay channel
-                        if (D0dauPdgs != decayChannels[dauPdg]) { // select the interesting decay channel
+                        if (D0dauPdgs != decayChannels[dauPdg]) {  // select the interesting decay channel
                             goto nextparticle;
                         }
                     } else if (std::abs(dauPdg) == 211) {
-                        if (!isInTPC(dau)) { // same selections as in data
+                        if (!isInTPC(dau)) {  // same selections as in data
                             goto nextparticle;
                         }
-                    } else { // neither pion nor D0: skip 
+                    } else {  // neither pion nor D0: skip
                         goto nextparticle;
                     }
                     dauPdgs.insert(dau->GetPdgCode());
-                    
-                } // end of loop over Dstar daus
+                }  // end of loop over Dstar daus
             }
         }
     nextparticle:
@@ -94,7 +87,6 @@ void CreateHFDataset(int nEvents, double maxRunTime, int energy, triggers trigge
     TStopwatch timer;
     timer.Start();
 
-    //__________________________________________________________
     // create and configure pythia generator
     gSystem->Load("liblhapdf.so");
     gSystem->Load("libpythia8.so");
@@ -175,8 +167,6 @@ void CreateHFDataset(int nEvents, double maxRunTime, int energy, triggers trigge
     pythia.ReadString(Form("Random:seed %d", seed));
     pythia.Initialize(2212, 2212, energy);
 
-
-
     int fwMultThr = 0;
     if (trigger == kHighMultV0 && process == kSoftQCD && tune == kMonash)
         fwMultThr = 130;
@@ -185,8 +175,7 @@ void CreateHFDataset(int nEvents, double maxRunTime, int energy, triggers trigge
     else
         printf("error. mult thr not implemented");
 
-    //__________________________________________________________
-    // define outputs
+    // Define outputs
     TClonesArray* particles = new TClonesArray("TParticle", 1000);
     TTree* tEvents = new TTree("tEvents", "tEvents");
     tEvents->Branch("particles", "TClonesArray", &particles);
@@ -194,9 +183,9 @@ void CreateHFDataset(int nEvents, double maxRunTime, int energy, triggers trigge
     int nCharm = 0;
     for (int iEvent = 0; iEvent < nEvents; iEvent++) {
         if (timer.RealTime() > maxRunTime * 3600) {
-            int time = int(timer.RealTime());  // in seconds
-            int nHours = int(time / 3600);
-            int nMins = int((time % 3600) / 60);
+            int time = static_cast<int>(timer.RealTime());  // in seconds
+            int nHours = static_cast<int>(time / 3600);
+            int nMins = static_cast<int>((time % 3600) / 60);
 
             printf("Reached max run time: %d:%d\n", nHours, nMins);
             break;
@@ -206,7 +195,6 @@ void CreateHFDataset(int nEvents, double maxRunTime, int energy, triggers trigge
 
         pythia.GenerateEvent();
         pythia.ImportParticles(particles, "All");
-
 
         // trigger selection
         if (trigger == kHighMultV0 && GetMultV0(particles) < fwMultThr) continue;
