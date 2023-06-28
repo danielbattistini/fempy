@@ -24,16 +24,11 @@
 #include "Math/Vector3D.h"
 #include "Math/Vector4D.h"
 
-#include "functions.hxx"
+#include "./functions.hxx"
 
-//__________________________________________________________________________________________________
 void PionPShape(std::string inFileName, bool selDauKinem, std::string oDir);
-float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2);
 
-
-//__________________________________________________________________________________________________
 void PionPShape(std::string inFileName, std::string oDir) {
-    //__________________________________________________________
     // define outputs
     TH1D *hPtAllEvts = new TH1D("hPtAllEvts", "hPtAllEvts;pt;counts", 200, 0, 10);
     TH1D *hPtDmesonEvts = new TH1D("hPtDmesonEvts", "hPtDmesonEvts;pt;counts", 200, 0, 10);
