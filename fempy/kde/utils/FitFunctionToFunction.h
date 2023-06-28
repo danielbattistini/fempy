@@ -1,7 +1,9 @@
-#ifndef FITFUNCTIONTOFUNCTION_H
-#define FITFUNCTIONTOFUNCTION_H
+#ifndef FEMPY_KDE_UTILS_FITFUNCTIONTOFUNCTION_H_
+#define FEMPY_KDE_UTILS_FITFUNCTIONTOFUNCTION_H_
 
 #include <iostream>
+#include <string>
+#include <map>
 
 #include "Math/Factory.h"
 #include "Math/Functor.h"
@@ -22,8 +24,8 @@ struct variableSettings {
 };
 
 class FitFunctionToFunction : public TObject {
-   public:
-    FitFunctionToFunction(){};
+ public:
+    FitFunctionToFunction() {}
     FitFunctionToFunction(TF1 *f1, TF1 *f2, TF1 *f2UpperUnc, TF1 *f2LowerUnc, Int_t nPar)
         : fFunc1(f1), fFunc2(f2), fNPar(nPar), fFunc1UpperUnc(f2UpperUnc), fFunc2LowerUnc(f2LowerUnc) {
         // fFunc1->SetName("fFunc1");
@@ -34,18 +36,18 @@ class FitFunctionToFunction : public TObject {
         this->fFunc2->AddToGlobalList();
         this->fFunc1UpperUnc->AddToGlobalList();
         this->fFunc2LowerUnc->AddToGlobalList();
-    };
-    ~FitFunctionToFunction(){};
+    }
+    ~FitFunctionToFunction() {}
 
     double customChi2(const double *fitpar);
-    double GetChi2() const { return this->fChi2; };
+    double GetChi2() const { return this->fChi2; }
     int Fit();
 
     void SetFitRange(Double_t xMin, Double_t xMax) {
         this->fRangeLow = xMin;
         this->fRangeUp = xMax;
-    };
-    void SetVariableSettings(Int_t iVar, variableSettings settings) { this->fVarSettings.insert({iVar, settings}); };
+    }
+    void SetVariableSettings(Int_t iVar, variableSettings settings) { this->fVarSettings.insert({iVar, settings}); }
 
     // double customChi2Formula(double *xx, double *par) {
     // const Double_t p0 = xx[0];
@@ -71,7 +73,7 @@ class FitFunctionToFunction : public TObject {
     //     cc->SaveAs("plotChi2.pdf");
     // }
 
-   private:
+ private:
     TF1 *fFunc1;
     TF1 *fFunc2;
     TF1 *fFunc1UpperUnc;
@@ -85,6 +87,6 @@ class FitFunctionToFunction : public TObject {
     ROOT::Math::Minimizer *fMinimizer;
 
     std::map<Int_t, variableSettings> fVarSettings;
-};
+}
 
-#endif
+#endif  // FEMPY_KDE_UTILS_FITFUNCTIONTOFUNCTION_H_

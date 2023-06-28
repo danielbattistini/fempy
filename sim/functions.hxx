@@ -1,14 +1,23 @@
+#ifndef SIM_FUNCTIONS_HXX_
+#define SIM_FUNCTIONS_HXX_
+
+#include <map>
+#include <utility>
+#include <algorithm>
+#include <set>
+#include <vector>
+
 #include <TClonesArray.h>
 #include <TParticle.h>
-#include "AliPythia8.h"
-#include "Math/Vector4D.h"
-#include "Math/GenVector/Boost.h"
 
-namespace {
+#include "AliPythia8.h"
+#include "Math/GenVector/Boost.h"
+#include "Math/Vector4D.h"
+
+enum triggers { kMB = 0, kHighMultV0 };
+enum kinem { kAny = 0, kDauInEta08 };
 enum tunes { kMonash = 0, kCRMode0, kCRMode2, kCRMode3 };
 enum processes { kSoftQCD = 0, kHardQCD };
-
-}
 
 std::map<int, std::multiset<int>> decayChannels = {
     // D
@@ -22,7 +31,6 @@ std::map<int, std::multiset<int>> decayChannels = {
     {-413, {-421, -211}},
 };
 
-
 struct FemtoParticle {
     ROOT::Math::PxPyPzMVector p;
     int pdg;
@@ -30,15 +38,14 @@ struct FemtoParticle {
     std::pair<int, int> daus;
 };
 
-
 using v2 = std::array<double, 2>;
 using v3 = std::array<double, 3>;
 using m2 = std::array<std::array<double, 2>, 2>;
 using m3 = std::array<std::array<double, 3>, 3>;
 
 void print(m3 mat) {
-    for (int i = 0; i<3; i++) {
-        for (int j = 0; j<3; j++) {
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
             printf("%.3f  ", mat[i][j]);
         }
         printf("\n");
@@ -46,12 +53,11 @@ void print(m3 mat) {
 }
 
 void print(v3 vec) {
-    for (int i = 0; i<3; i++) {
+    for (int i = 0; i < 3; i++) {
         printf("%.3f  ", vec[i]);
     }
     printf("\n");
 }
-
 
 // #############################################################################
 // Math ########################################################################
@@ -60,8 +66,7 @@ void print(v3 vec) {
 // signum function: return the signum of value, for value = 0 returns 0
 int sgn(double value) { return (value > 0) - (value < 0); }
 
-
-// 
+//
 template <typename Pair, typename Value>
 bool In(Pair selection, Value value) {
     return selection.first <= value && value < selection.second;
@@ -73,15 +78,7 @@ bool In(Pair selection, Value value) {
 // Returns a 3d array of zeros
 v3 Zero() { return {0, 0, 0}; }
 
-
-m3 One() {
-    return m3({
-        v3({1, 0, 0}),
-        v3({0, 1, 0}),
-        v3({0, 0, 1})
-    });
-}
-
+m3 One() { return m3({v3({1, 0, 0}), v3({0, 1, 0}), v3({0, 0, 1})}); }
 
 // Returns the generator of the rotations along the X axis
 m3 RotX(double angle) {
@@ -187,28 +184,22 @@ v3 ComputeEigenValues(m3 mat) {
     return eivals;
 }
 
-double Determinant(m2 mat) {
-    return mat[0][0] * mat[1][1] - mat[1][0] * mat[0][1];
-}
+double Determinant(m2 mat) { return mat[0][0] * mat[1][1] - mat[1][0] * mat[0][1]; }
 
 double Determinant(m3 mat) {
-    m2 smi = m2({v2({mat[1][1], mat[1][2]}),
-                 v2({mat[2][1], mat[2][2]})});
-    
-    m2 smj = m2({v2({mat[1][0], mat[1][2]}),
-                 v2({mat[2][0], mat[2][2]})});
-    
-    m2 smk = m2({v2({mat[1][0], mat[1][1]}),
-                 v2({mat[2][0], mat[2][1]})});
-    
+    m2 smi = m2({v2({mat[1][1], mat[1][2]}), v2({mat[2][1], mat[2][2]})});
+
+    m2 smj = m2({v2({mat[1][0], mat[1][2]}), v2({mat[2][0], mat[2][2]})});
+
+    m2 smk = m2({v2({mat[1][0], mat[1][1]}), v2({mat[2][0], mat[2][1]})});
+
     return mat[0][0] * Determinant(smi) - mat[0][1] * Determinant(smj) + mat[0][2] * Determinant(smk);
 }
 
-
 template <typename T>
 bool IsZero(T mat) {
-    for (const auto & row : mat)
-        for (const auto & val : row)
+    for (const auto &row : mat)
+        for (const auto &val : row)
             if (val != 0) return false;
     return true;
 }
@@ -253,30 +244,25 @@ std::vector<FemtoParticle> Rotate(m3 rot, std::vector<FemtoParticle> particles) 
     return rotated;
 }
 
-
 // Rotate the momentum vector of particle
 FemtoParticle Rotate(m3 rot, const FemtoParticle &particle) {
     ROOT::Math::PxPyPzMVector pRot(
         rot[0][0] * particle.p.Px() + rot[0][1] * particle.p.Py() + rot[0][2] * particle.p.Pz(),
         rot[1][0] * particle.p.Px() + rot[1][1] * particle.p.Py() + rot[1][2] * particle.p.Pz(),
-        rot[2][0] * particle.p.Px() + rot[2][1] * particle.p.Py() + rot[2][2] * particle.p.Pz(),
-        particle.p.M());
+        rot[2][0] * particle.p.Px() + rot[2][1] * particle.p.Py() + rot[2][2] * particle.p.Pz(), particle.p.M());
     FemtoParticle particleRot = particle;
     particleRot.p = pRot;
     return particleRot;
 }
 
-
 // Rotate the momentum vector of particle
 ROOT::Math::PxPyPzMVector Rotate(m3 rot, const ROOT::Math::PxPyPzMVector &particle) {
-    ROOT::Math::PxPyPzMVector pRot(
-        rot[0][0] * particle.Px() + rot[0][1] * particle.Py() + rot[0][2] * particle.Pz(),
-        rot[1][0] * particle.Px() + rot[1][1] * particle.Py() + rot[1][2] * particle.Pz(),
-        rot[2][0] * particle.Px() + rot[2][1] * particle.Py() + rot[2][2] * particle.Pz(),
-        particle.M());
+    ROOT::Math::PxPyPzMVector pRot(rot[0][0] * particle.Px() + rot[0][1] * particle.Py() + rot[0][2] * particle.Pz(),
+                                   rot[1][0] * particle.Px() + rot[1][1] * particle.Py() + rot[1][2] * particle.Pz(),
+                                   rot[2][0] * particle.Px() + rot[2][1] * particle.Py() + rot[2][2] * particle.Pz(),
+                                   particle.M());
     return pRot;
 }
-
 
 // #############################################################################
 // Physics #####################################################################
@@ -604,7 +590,6 @@ m3 GetRotationSpheri3DFull(TClonesArray *particles) {
     return Mul(rotSecondaryAxis, rot);
 }
 
-
 // Compute the rotation matrix for the event based on the sphericity (with minor axis included)
 m3 GetRotationSpheri3DFull(m3 sphi) {
     double b = sphi[0][0] + sphi[1][1] + sphi[2][2];
@@ -646,7 +631,6 @@ m3 GetRotationSpheri3DFull(m3 sphi) {
 
     return Mul(rotSecondaryAxis, rot);
 }
-
 
 // Get the rotation 2x2 matrix in the trasnverse plane using the siagonalized trasnverse sphericity
 std::array<std::array<double, 2>, 2> GetRotationTransverseSpheri(TClonesArray *particles) {
@@ -890,7 +874,7 @@ void SetProcess(AliPythia8 &pythia, processes process) {
     }
 }
 
-inline double ProductionRadius(TParticle * p) {
+inline double ProductionRadius(TParticle *p) {
     return std::sqrt(p->Vx() * p->Vx() + p->Vy() * p->Vy() + p->Vz() * p->Vz());
 }
 
@@ -904,9 +888,11 @@ bool IsPairClean(FemtoParticle charm, FemtoParticle light) {
 std::vector<ROOT::Math::PxPyPzMVector> GetLorentzVectors(TClonesArray *particles) {
     std::vector<ROOT::Math::PxPyPzMVector> part{};
 
-    for (int iPart = 0; iPart < particles->GetEntriesFast(); iPart++){
-        TParticle* particle = dynamic_cast<TParticle*>(particles->At(iPart));
+    for (int iPart = 0; iPart < particles->GetEntriesFast(); iPart++) {
+        TParticle *particle = dynamic_cast<TParticle *>(particles->At(iPart));
         part.push_back(ROOT::Math::PxPyPzMVector(particle->Px(), particle->Py(), particle->Pz(), particle->GetMass()));
     }
     return part;
 }
+
+#endif  // SIM_FUNCTIONS_HXX_

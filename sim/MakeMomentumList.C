@@ -7,15 +7,7 @@
 
 #include "AliPythia8.h"
 
-#include "functions.hxx"
-
-using namespace Pythia8;
-
-namespace {
-enum tunes { kMonash = 0, kCRMode0, kCRMode2, kCRMode3 };
-enum processes { kSoftQCD = 0, kHardQCD };
-enum triggers { kMB = 0, kHighMultV0 };
-}  // namespace
+#include "./functions.hxx"
 
 void MakeMomentumList(int nEvents=100000, triggers trigger=kMB, tunes tune=kCRMode2, processes process=kSoftQCD,
                      int hPdg=3122, int lPdg=-3122, int seed = 42, std::string outDir="") {
