@@ -1,5 +1,3 @@
-#include "./functions.h"
-
 #include <Fit/BinData.h>
 #include <Fit/Chi2FCN.h>
 #include <Fit/Fitter.h>
@@ -11,6 +9,7 @@
 #include <TLine.h>
 #include <TStyle.h>
 
+#include "./functions.h"
 
 // definition of shared parameter
 // same charge function
@@ -48,11 +47,11 @@ struct GlobalChi2 {
     // parameter vector is first background (in common 1 and 2)
     // and then is signal (only in 2)
     double operator()(const double *par) const {
-        double p1[nParsSC]; // NOLINT [runtime/arrays]
+        double p1[nParsSC];  // NOLINT [runtime/arrays]
         for (int i = 0; i < nParsSC; ++i) {
             p1[i] = par[iparSC[i]];
         }
-        double p2[nParsOC]; // NOLINT [runtime/arrays]
+        double p2[nParsOC];  // NOLINT [runtime/arrays]
         for (int i = 0; i < nParsOC; ++i) {
             p2[i] = par[iparOC[i]];
         }
@@ -701,10 +700,12 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
         std::vector<std::vector<double>> fitRanges = {{10, 450}, {10, 400}, {10, 500}};
 
         for (int iIter = 0; iIter < nIter; iIter++) {
-            TGraphAsymmErrors *gSC = (TGraphAsymmErrors *)inFile->Get(Form("sc/%s/gCFGen%d", uncType, iIter));
+            TGraphAsymmErrors *gSC =
+                reinterpret_cast<TGraphAsymmErrors *>(inFile->Get(Form("sc/%s/gCFGen%d", uncType, iIter)));
             gSC->SetName(Form("gSC%s%d", uncType, iIter));
             gSC->Write();
-            TGraphAsymmErrors *gOC = (TGraphAsymmErrors *)inFile->Get(Form("oc/%s/gCFGen%d", uncType, iIter));
+            TGraphAsymmErrors *gOC =
+                reinterpret_cast<TGraphAsymmErrors *>(inFile->Get(Form("oc/%s/gCFGen%d", uncType, iIter)));
             gOC->SetName(Form("gOC%s%d", uncType, iIter));
             gOC->Write();
 

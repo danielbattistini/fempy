@@ -77,7 +77,7 @@ void MakeSEMEDistr(std::string inFileName, std::string oFileName, bool selDauKin
         return;
     }
 
-    TTree* tEvents = (TTree*)inFile->Get("tEvents");
+    TTree* tEvents = reinterpret_cast<TTree *>(inFile->Get("tEvents"));
     tEvents->SetBranchStatus("particles", 1);
     tEvents->SetBranchAddress("particles", &particles);
 
