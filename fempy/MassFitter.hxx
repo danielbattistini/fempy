@@ -54,7 +54,7 @@ class MassFitter {
     enum SgnFuncs { kGaus = 0 };
     enum BkgFuncs { kPol1 = 0 };
     MassFitter(TH1 *hist, std::string sgnFuncName, std::string bkgFuncName, double fitRangeMin, double fitRangeMax) {
-        this->hist = (TH1 *)hist->Clone();
+        this->hist = reinterpret_cast<TH1 *>(hist->Clone());
         this->fitRangeMin = fitRangeMin;
         this->fitRangeMax = fitRangeMax;
         this->sgnFuncName = sgnFuncName;

@@ -130,7 +130,7 @@ void MakeDistrTest(
         }
 
         // Load the events
-        tEvents = (TTree *)inFile->Get("tEvents");
+        tEvents = reinterpret_cast<TTree *>(inFile->Get("tEvents"));
         // tEvents->SetDirectory(0);
         // inFile->Close();
 
