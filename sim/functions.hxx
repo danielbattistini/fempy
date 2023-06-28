@@ -805,7 +805,7 @@ bool ThereIsD(TClonesArray *particles) {
 // #############################################################################
 
 // Set the pythia tune
-void SetTune(AliPythia8 &pythia, tunes tune) {
+void SetTune(AliPythia8 *pythia, tunes tune) {
     if (tune == kMonash) {
         pythia.ReadString(Form("Tune:pp = 14"));
     } else if (tune == kCRMode0) {
@@ -865,7 +865,7 @@ void SetTune(AliPythia8 &pythia, tunes tune) {
 }
 
 // Set the pythia process
-void SetProcess(AliPythia8 &pythia, processes process) {
+void SetProcess(AliPythia8 *pythia, processes process) {
     if (process == kSoftQCD) {
         pythia.ReadString("SoftQCD:nonDiffractive = on");
     } else if (process == kHardQCD) {
