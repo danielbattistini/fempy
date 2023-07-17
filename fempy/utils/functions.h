@@ -75,6 +75,43 @@ double GeneralCoulombLednicky(const double &Momentum, const double &GaussR, cons
     return A_c * (CkValue + 1.);
 }
 
+// This function reduces to GeneralCoulombLednicky if (Ac - 1) is set to zero
+double GeneralCoulombLednickyShort(const double &Momentum, const double &GaussR, const double &ScattLenSin,
+                                   const double &EffRangeSin, const bool &QS, const double &RedMass,
+                                   const double &Q1Q2) {
+    if (GaussR != GaussR) {
+        std::cerr << "\033[1;33mWARNING:\033[0m GeneralCoulombLednicky got a bad "
+                     "value for the Radius (nan). Returning default value of 1.\n"
+                  << std::endl;
+        return 1;
+    }
+
+    const double Momentum2 = Momentum * Momentum;
+    const double Radius = GaussR * FmToNu;
+    const double Rho = Radius * Momentum;
+    const double Rho2 = Rho * Rho;
+    const double sLen1 = ScattLenSin * FmToNu;
+    const double eRan1 = EffRangeSin * FmToNu;
+
+    double eta = CoulombEta(Momentum, RedMass, Q1Q2);
+    double A_c = CoulombPenetrationFactor(eta);
+
+    complex<double> ScattAmplSin =
+        pow(1. / sLen1 + 0.5 * eRan1 * Momentum2 - i * Momentum * A_c - 2. * Momentum * eta * CoulombEuler(eta), -1.);
+
+    double CkValue = 0.25 * pow(abs(ScattAmplSin) / Radius, 2) * (1 - (eRan1) / (2 * sqrt(Pi) * Radius)) +
+                     Momentum * real(ScattAmplSin) * gsl_sf_dawson(2. * Rho) / (2. * sqrt(Pi) * Rho2) -
+                     Momentum * imag(ScattAmplSin) * (0.25 * (1. - exp(-4. * Rho2)) / Rho2);
+
+    if (QS) {  // quantum statistics
+        CkValue -= 0.5 * exp(-4. * Rho2);
+    } else {
+        CkValue *= 2.;
+    }
+
+    return A_c * (CkValue + 1.);
+}
+
 double GeneralCoulombLednickySecond(const double &Momentum, const double &GaussR, const double &ScattLenSin,
                                     const double &EffRangeSin, const double &ScattLenTri, const double &EffRangeTri,
                                     const bool &QS, const double &RedMass, const double &Q1Q2) {
@@ -84,6 +121,10 @@ double GeneralCoulombLednickySecond(const double &Momentum, const double &GaussR
 
 double GeneralCoulombLednicky(double *x, double *pars) {
     return GeneralCoulombLednicky(x[0], pars[0], pars[1], pars[2], static_cast<bool>(pars[3]), pars[4], pars[5]);
+}
+
+double GeneralCoulombLednickyShort(double *x, double *pars) {
+    return GeneralCoulombLednickyShort(x[0], pars[0], pars[1], pars[2], static_cast<bool>(pars[3]), pars[4], pars[5]);
 }
 
 double GeneralCoulombLednickySecond(double *x, double *pars) {
