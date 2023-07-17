@@ -284,17 +284,21 @@ if __name__ == '__main__':
     a0triUncStat = np.std(paramsLLStat.T[1])
     a0triUncSyst = np.sqrt(np.std(paramsLLTot.T[1])**2 - a0triUncStat**2)
 
-    print(f'a0(3/2) = {a0sinTot:.2f} +/- {a0sinUncStat:.2f} (stat) +/- {a0sinUncSyst:.2f} (syst) fm')
-    print(f'a0(1/2) = {a0triTot:.2f} +/- {a0triUncStat:.2f} (stat) +/- {a0triUncSyst:.2f} (syst) fm')
+    print(f'a0(3/2) = {a0sinStat:.2f} +/- {a0sinUncStat:.2f} (stat) +/- {a0sinUncSyst:.2f} (syst) fm')
+    print(f'a0(1/2) = {a0triStat:.2f} +/- {a0triUncStat:.2f} (stat) +/- {a0triUncSyst:.2f} (syst) fm')
 
     dgLLCoulombOnly = LoadRealCoulomb()
-    
 
+    oFileNameBase = '/home/daniel/an/DstarPi/20_luuksel/SimFitPlot_DstarPi_simfit_shift'
+    oFile = TFile(f'{oFileNameBase}.root', 'create')
 
     Setstyle()
     cCF = TCanvas('cCF', '', 1000, 500)
     cCF.Divide(2, 1)
     for iPad, comb in enumerate(['sc', 'oc']):
+        oFile.mkdir(comb)
+        oFile.cd(comb)
+
         pad = cCF.cd(iPad+1)
         pad.SetRightMargin(0.03)
         pad.SetTopMargin(0.03)
@@ -313,11 +317,12 @@ if __name__ == '__main__':
         # Draw syst
         dgCF[comb]['syst'].SetFillColorAlpha(kGray+2, 0.65)
         dgCF[comb]['syst'].Draw('same e2')
-        
+        dgCF[comb]['syst'].Write('gCFSyst')
         # Draw stat
         dgCF[comb]['stat'].SetMarkerSize(1)
         dgCF[comb]['stat'].SetMarkerStyle(24)
         dgCF[comb]['stat'].Draw('same pez')
+        dgCF[comb]['stat'].Write('gCFStat')
 
         # brackets
         gBrackets = TGraphErrors(1)
@@ -329,6 +334,7 @@ if __name__ == '__main__':
         gBrackets.SetLineWidth(1)
         gBrackets.SetLineColorAlpha(kBlack, 0.9)
         gBrackets.DrawClone("same []")
+        gBrackets.Write('gBrackets')
 
         tl = TLatex()
         tl.SetTextSize(0.04)
@@ -351,6 +357,8 @@ if __name__ == '__main__':
             tl.DrawLatex(0.20, 0.88, TranslateToLatex(f'kDstarPi_{comb}'))
             tl.DrawLatex(0.20, 0.25, f'a_{{0}}(I=3/2) = {a0sinStat:.2f} #pm {a0sinUncStat:.2f} (stat) #pm {a0sinUncSyst:.2f} (syst) fm')
             tl.DrawLatex(0.20, 0.25-0.05, f'a_{{0}}(I=1/2) = {a0triStat:.2f} #pm {a0triUncStat:.2f} (stat) #pm {a0triUncSyst:.2f} (syst) fm')
-
-    for ext in ['pdf', 'png', 'eps', 'root']:
-        cCF.SaveAs(f'/home/daniel/an/DstarPi/20_luuksel/SimFitPlot_DstarPi_simfit_shift.{ext}')
+        
+    for ext in ['pdf', 'png', 'eps']:
+        cCF.SaveAs(f'{oFileNameBase}.{ext}')
+    oFile.cd('/')
+    cCF.Write()
