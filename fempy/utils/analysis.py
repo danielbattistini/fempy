@@ -106,3 +106,9 @@ def is_mass_selected(mass, pt, pdg=413, selection='sgn', nsigma_mass=2., nsigma_
         return True
 
     return False
+
+def GetNormFactor(se, me, fromVal, toVal):
+    firstBin = se.FindBin(fromVal*1.0001)
+    lastBin = se.FindBin(toVal*0.9999)
+
+    return me.Integral(firstBin, lastBin) / se.Integral(firstBin, lastBin)

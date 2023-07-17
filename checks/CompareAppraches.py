@@ -1,10 +1,6 @@
 from ROOT import TFile, kBlue, kBlack, kRed, TCanvas, TLegend, kGreen
 
-def GetNormFactor(se, me, fromVal, toVal):
-    firstBin = se.FindBin(fromVal*0.9999)
-    lastBin = se.FindBin(toVal*0.9999)
-    
-    return me.Integral(firstBin, lastBin) / se.Integral(firstBin, lastBin)
+from fempy.utils import GetNormFactor
 
 
 inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_data_nopc_kStarBW15MeV.root')
