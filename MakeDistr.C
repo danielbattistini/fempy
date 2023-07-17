@@ -194,6 +194,14 @@ void MakeDistr(
 
         for (std::string event : {"SE", "ME"}) {
             auto tree = (TTree *)dir->Get(Form("t%s_%s", event.data(), comb));
+            if (!tree) {
+                std::cerr << "Error: tree not loaded properly. Exit!" << std::endl;
+                exit(1);
+            }
+            if (tree->GetEntries() == 0) {
+                std::cerr << "Error: the tree has 0 entries. Exit!" << std::endl;
+                exit(1);
+            }
             ROOT::RDF::RInterface<ROOT::Detail::RDF::RLoopManager> df = ROOT::RDataFrame(*tree);
 
             // define aliases
