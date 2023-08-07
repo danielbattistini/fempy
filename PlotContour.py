@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
-from ROOT import TFile, RDataFrame, TCanvas, TLegend, TColor, TLatex, TGraph, TGraphErrors, TLine, kGray, EColor, TGraphAsymmErrors
+from ROOT import TFile, RDataFrame, TCanvas, TLegend, TColor, TLatex, TGraph, TGraphErrors, TLine, kGray, EColor, TGraphAsymmErrors, gStyle
 
 def rgb(color):
     return tuple(int(color.lstrip('#')[i:i+2], 16)/255 for i in (0, 2, 4))
@@ -98,6 +98,40 @@ def EllipseToGraph(ellipse, nPoints=500):
     return gEllipse    
 
 
+
+def Setstyle():
+    gStyle.SetTextFont(42)
+    gStyle.SetPadBottomMargin(0.15)
+    gStyle.SetPadLeftMargin(0.15)
+
+    gStyle.Reset("Plain")
+    gStyle.SetOptTitle(False)
+    gStyle.SetTitleBorderSize(0)
+    gStyle.SetOptStat(0)
+    gStyle.SetCanvasColor(10)
+    gStyle.SetCanvasBorderMode(0)
+    gStyle.SetFrameLineWidth(1)
+    gStyle.SetPadColor(10)
+    gStyle.SetPadTickX(1)
+    gStyle.SetPadTickY(1)
+    gStyle.SetPadBottomMargin(0.15)
+    gStyle.SetPadLeftMargin(0.15)
+    gStyle.SetHistLineWidth(1)
+    gStyle.SetFuncWidth(2)
+    gStyle.SetLineWidth(2)
+    gStyle.SetLabelSize(0.045, "xyz")
+    # gStyle.SetLabelOffset(0.01, "y")
+    # gStyle.SetLabelOffset(0.01, "x")
+    gStyle.SetTitleSize(0.05, "xyz")
+    gStyle.SetTitleOffset(1.15, "y")
+    # gStyle.SetTitleOffset(1.2, "x")
+    gStyle.SetTextSizePixels(26)
+    gStyle.SetTextFont(42)
+    gStyle.SetLegendFont(42)
+    gStyle.SetLegendBorderSize(0)
+    gStyle.SetErrorX(0.005)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('inFile')
@@ -108,6 +142,10 @@ if __name__ == '__main__':
     parser.add_argument('--central', choices=('statbs', 'totbs'))
     parser.add_argument('--pair', choices=('DstarPi', 'DPi'), required=True)
     args = parser.parse_args()
+
+    Setstyle()
+    gStyle.SetPadTickX(1)
+    gStyle.SetPadTickY(1)
 
     inFile = TFile(args.inFile)
 
@@ -137,7 +175,7 @@ if __name__ == '__main__':
     a0triUncStat = yStat.std()
 
     # Make figure
-    xlim = [-0.18, 0.28]
+    xlim = [-0.18, 0.38]
     ylim = [-0.34, 1.099]
 
     # Plot a transparent 3 standard deviation covariance ellipse
@@ -161,17 +199,16 @@ if __name__ == '__main__':
     a0sinUncSyst = (a0sinUncTot**2 - a0sinUncStat**2)**0.5
     a0triUncSyst = (a0triUncTot**2 - a0triUncStat**2)**0.5
 
-    
     if args.debug:
         pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['a0sin', 'a0tri']).values()))
 
     cCountour = TCanvas('cCountour', '', 600, 600)
-    cCountour.SetRightMargin(0.03)
-    cCountour.SetTopMargin(0.03)
-    cCountour.SetLeftMargin(0.18)
-    cCountour.SetBottomMargin(0.12)
+    cCountour.SetRightMargin(0.01)
+    cCountour.SetTopMargin(0.01)
+    cCountour.SetLeftMargin(0.13)
+    cCountour.SetBottomMargin(0.13)
     pairLatex = 'D#pi' if args.pair == 'DPi' else 'D*#pi'
-    hFrame = cCountour.DrawFrame(xlim[0], ylim[0], xlim[1], ylim[1], f';a_{{{pairLatex}}} (#it{{I}} = 3/2);a_{{{pairLatex}}} (#it{{I}} = 1/2)')
+    hFrame = cCountour.DrawFrame(xlim[0], ylim[0], xlim[1], ylim[1], f';#it{{a}}_{{0}}^{{{pairLatex}}} (#it{{I}} = 3/2) (fm);#it{{a}}_{{0}}^{{{pairLatex}}} (#it{{I}} = 1/2) (fm)')
     hFrame.GetXaxis().SetTitleSize(0.05)
     hFrame.GetYaxis().SetTitleSize(0.05)
     hFrame.GetXaxis().SetLabelSize(0.05)
@@ -181,7 +218,7 @@ if __name__ == '__main__':
 
     tlALICE = TLatex()
     tlALICE.SetTextFont(42)
-    tlALICE.SetTextSize(0.06)
+    tlALICE.SetTextSize(0.045)
 
     tl = TLatex()
     tl.SetTextFont(42)
@@ -223,15 +260,14 @@ if __name__ == '__main__':
     print(f'a0(3/2) = {a0sinStat:.2f} +/- {a0sinUncStat:.2f} (stat) +/- {a0sinUncSystPlusShift:.2f} (syst) fm')
     print(f'a0(1/2) = {a0triStat:.2f} +/- {a0triUncStat:.2f} (stat) +/- {a0triUncSystPlusShift:.2f} (syst) fm')
 
-
     gCountour2Tot = EllipseToGraph(ellip2Tot)
     gCountour1Tot = EllipseToGraph(ellip1Tot)
     gCountour2Stat = EllipseToGraph(ellip2Stat)
     gCountour1Stat = EllipseToGraph(ellip1Stat)
-    
+
     gCountour1TotShifted = EllipseToGraph(ellip1TotShifted)
     gCountour2TotShifted = EllipseToGraph(ellip2TotShifted)
-    
+
     gCountour1TotShiftedEnlarged = EllipseToGraph(ellip1TotShiftedEnlarged)
     gCountour2TotShiftedEnlarged = EllipseToGraph(ellip2TotShiftedEnlarged)
 
@@ -293,10 +329,10 @@ if __name__ == '__main__':
     lh.SetLineColor(kGray+2)
     
     if args.pair == 'DstarPi':
-        legPosX = [0.56, 0.95]
+        legPosX = [0.48, 0.95]
         legPosY = [0.64, 0.78]
     elif args.pair == 'DPi':
-        legPosX = [0.56, 0.95]
+        legPosX = [0.48, 0.95]
         legPosY = [0.4, 0.78]
     leg = TLegend(legPosX[0], legPosY[0], legPosX[1], legPosY[1])
     if args.debug:
@@ -376,14 +412,15 @@ if __name__ == '__main__':
         gScattParStatCentrTotPlusShift.Draw('same lpe')
 
     leg.SetBorderSize(0)
+    leg.SetTextSize(0.035)
 
     lv.Draw()
     lh.Draw()
     leg.Draw()
 
     if not args.debug:
-        tlALICE.DrawLatexNDC(0.36, 0.89, 'ALICE')
-        tl.DrawLatexNDC(0.36, 0.89-0.05, 'pp #sqrt{s} = 13 TeV, High-mult. (0-0.17%)')
+        tlALICE.DrawLatexNDC(0.23, 0.89, 'ALICE pp #sqrt{#it{s}} = 13 TeV')
+        tl.DrawLatexNDC(0.23, 0.89-0.05, 'High-mult. (0#font[122]{-}0.17% INEL > 0)')
 
     if args.debug:
         gScattParStat.Draw('same pe')
@@ -429,11 +466,11 @@ if __name__ == '__main__':
         zhguo1.Draw('same pe')
         zhguo2.Draw('same pe')
         blhuang.Draw('same pe')
-        leg.AddEntry(xyguo, "X.Y.Guo", "p")
-        leg.AddEntry(zhguo1, "Z.H.Guo-1", "p")
-        leg.AddEntry(zhguo2, "Z.H.Guo-2", "p")
-        leg.AddEntry(blhuang, "B.L.Huang Fit-u2", "p")
-        leg.AddEntry(lliu, "L.Liu", "p")
+        leg.AddEntry(xyguo, "X. Y. Guo #it{et al.}", "p")
+        leg.AddEntry(zhguo1, "Z. H. Guo (Fit-1B) #it{et al.}", "p")
+        leg.AddEntry(zhguo2, "Z. H. Guo (Fit-2B) #it{et al.}", "p")
+        leg.AddEntry(blhuang, "B. L. Huang #it{et al.}", "p")
+        leg.AddEntry(lliu, "L. Liu #it{et al.}", "p")
 
     for ext in ['png', 'pdf', 'eps', 'root']:
         if args.debug:
