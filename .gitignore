@@ -9,3 +9,5 @@
 luigi-server*.log*
 luigi-server*.out
 luigi-server*.err
+
+.DS_Store
