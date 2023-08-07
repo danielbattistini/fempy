@@ -780,7 +780,8 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
         delete tResults;
         delete cCombFit;
     }
-    cCombFit->SaveAs(Form("/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs%d%s.pdf]", nIter, uncType));
+    cCombFit->SaveAs(
+        Form("/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs%d%s.pdf]", nIter, uncType));
     oFile->cd(uncType);
     tResults->Write();
     delete tResults;
