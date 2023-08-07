@@ -112,11 +112,36 @@ double GeneralCoulombLednickyShort(const double &Momentum, const double &GaussR,
     return A_c * (CkValue + 1.);
 }
 
-double GeneralCoulombLednickySecond(const double &Momentum, const double &GaussR, const double &ScattLenSin,
-                                    const double &EffRangeSin, const double &ScattLenTri, const double &EffRangeTri,
-                                    const bool &QS, const double &RedMass, const double &Q1Q2) {
-    return 0.25 * GeneralCoulombLednicky(Momentum, GaussR, ScattLenSin, EffRangeSin, QS, RedMass, Q1Q2) +
-           0.75 * GeneralCoulombLednicky(Momentum, GaussR, ScattLenTri, EffRangeTri, QS, RedMass, Q1Q2);
+// this function should not be used. The one in combfit is correct
+// double GeneralCoulombLednickySecond(const double &Momentum, const double &GaussR, const double &ScattLenSin,
+//                                     const double &EffRangeSin, const double &ScattLenTri, const double &EffRangeTri,
+//                                     const bool &QS, const double &RedMass, const double &Q1Q2) {
+//     exit(1);
+//     return 0.25 * GeneralCoulombLednicky(Momentum, GaussR, ScattLenSin, EffRangeSin, QS, RedMass, Q1Q2) +
+//            0.75 * GeneralCoulombLednicky(Momentum, GaussR, ScattLenTri, EffRangeTri, QS, RedMass, Q1Q2);
+// }
+
+double GeneralCoulombLednickyDoubleSource(const double &Momentum, const double &GaussR1, const double &GaussR2,
+                                          const double &w1, const double &ScattLen, const double &EffRange,
+                                          const bool &QS, const double &RedMass, const double &Q1Q2) {
+    double gcl1 = GeneralCoulombLednicky(Momentum, GaussR1, ScattLen, EffRange, QS, RedMass, Q1Q2);
+    double gcl2 = GeneralCoulombLednicky(Momentum, GaussR2, ScattLen, EffRange, QS, RedMass, Q1Q2);
+    return w1 * gcl1 + (1 - w1) * gcl2;
+}
+
+double GeneralCoulombLednickyDoubleSource(double *x, double *pars) {
+    double kStar = x[0];
+
+    double source1 = pars[0];
+    double source2 = pars[1];
+    double w1 = pars[2];
+    double scattLen = pars[3];
+    double effRange = pars[4];
+    double qs = pars[5];
+    double redMass = pars[6];
+    double q1q2 = pars[7];
+
+    return GeneralCoulombLednickyDoubleSource(x[0], source1, source2, w1, scattLen, effRange, qs, redMass, q1q2);
 }
 
 double GeneralCoulombLednicky(double *x, double *pars) {
