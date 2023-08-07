@@ -36,12 +36,8 @@ def Setstyle():
     gStyle.SetFuncColor(kGreen)
     gStyle.SetLineWidth(2)
     gStyle.SetLabelSize(0.045, "xyz")
-    gStyle.SetLabelOffset(0.01, "y")
-    gStyle.SetLabelOffset(0.01, "x")
     gStyle.SetLabelColor(kBlack, "xyz")
     gStyle.SetTitleSize(0.05, "xyz")
-    gStyle.SetTitleOffset(1.25, "y")
-    gStyle.SetTitleOffset(1.2, "x")
     gStyle.SetTitleFillColor(kWhite)
     gStyle.SetTextSizePixels(26)
     gStyle.SetTextFont(42)
@@ -64,7 +60,7 @@ def SetHistStyle(hist):
     hist.SetMarkerStyle(20)
     hist.SetMarkerSize(1)
 
-    
+
 def GraphAverage(graphsStat, graphsTot, shift=False):
     nPoints = graphsTot[0].GetN()
 
@@ -104,16 +100,16 @@ def GraphAverage(graphsStat, graphsTot, shift=False):
         'syst': gAverageSyst,
     }
 
-def FunctionAverage(functionsStat, functionsTot, nPoints = 500, shift=False):
+
+def FunctionAverage(functionsStat, functionsTot, nPoints=500, shift=False):
     yStat = [[] for _ in range(nPoints)]
-    ySyst = [[] for _ in range(nPoints)]
     yTot = [[] for _ in range(nPoints)]
 
     xmin = ctypes.c_double()
     xmax = ctypes.c_double()
     functionsStat[0].GetRange(xmin, xmax)
     xx = np.linspace(xmin.value, xmax.value, nPoints)
-    
+
     for func in functionsStat:
         for iPoint, x in enumerate(xx):
             yStat[iPoint].append(func.Eval(x))
@@ -121,7 +117,7 @@ def FunctionAverage(functionsStat, functionsTot, nPoints = 500, shift=False):
     for func in functionsTot:
         for iPoint, x in enumerate(xx):
             yTot[iPoint].append(func.Eval(x))
-    
+
     yavgStat = [np.mean(yStat[iPoint]) for iPoint in range(nPoints)]
     ystdStat = [np.std(yStat[iPoint]) for iPoint in range(nPoints)]
     yavgTot = [np.mean(yTot[iPoint]) for iPoint in range(nPoints)]
@@ -131,7 +127,7 @@ def FunctionAverage(functionsStat, functionsTot, nPoints = 500, shift=False):
     ystdSystPlusShift = [np.sqrt(tot**2 + s**2) for tot, stat, s in zip(ystdTot, ystdStat, shifts)]
     ystd = ystdSystPlusShift if shift else ystdTot
     gAverage = TGraphErrors(1)
-    
+
     for iPoint, (x, y, yerr) in enumerate(zip(xx, yavgStat, ystd)):
         gAverage.SetPoint(iPoint, x, y)
         gAverage.SetPointError(iPoint, 0, yerr)
@@ -174,18 +170,20 @@ def LoadRealCoulomb():
     fileSC = TFile('~/alice/CharmingAnalyses/DKDpi/feeddownContribCF/momRes/Dstar_PiplusDplusOutput.root')
     gSC = fileSC.Get('genuineCF')
     gSC.SetName('gCoulombSC')
-    
+
     fileOC = TFile('~/alice/CharmingAnalyses/DKDpi/feeddownContribCF/momRes/Dstar_PiplusDminusOutput.root')
     gOC = fileOC.Get('genuineCF')
     gOC.SetName('gCoulombOC')
-    
+
     return {
         'sc': gSC,
         'oc': gOC,
     }
 
+
 def RedMass(m1, m2):
     return m1 * m2 / (m1 + m2)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -204,7 +202,7 @@ if __name__ == '__main__':
     graphs = GetGraphsInDir(inFile.Get('stat/iters'))
     graphsSCStat = [g for g in graphs if 'SC' in g.GetName()]
     graphsOCStat = [g for g in graphs if 'OC' in g.GetName()]
-    
+
     dgCF = {
         'sc': GraphAverage(graphsSCStat, graphsSCTot, shift=True),
         'oc': GraphAverage(graphsOCStat, graphsOCTot, shift=True),
@@ -217,57 +215,55 @@ if __name__ == '__main__':
     lfLLSCStat = []
     for a0sinStat, a0triStat, r1, r2, w1 in paramsLLStat:
         lfLLSCStat.append(TF1("fLLsc", GeneralCoulombLednickyTwoRadii, 4, 300, 8))
-        lfLLSCStat[-1].FixParameter(0,r1)
-        lfLLSCStat[-1].FixParameter(1,r2)
-        lfLLSCStat[-1].FixParameter(2,w1)
-        lfLLSCStat[-1].FixParameter(3,a0sinStat)
-        lfLLSCStat[-1].FixParameter(4,0)
-        lfLLSCStat[-1].FixParameter(5,0)
-        lfLLSCStat[-1].FixParameter(6,RedMass(lightMass, heavyMass)*1000)
-        lfLLSCStat[-1].FixParameter(7,1)
+        lfLLSCStat[-1].FixParameter(0, r1)
+        lfLLSCStat[-1].FixParameter(1, r2)
+        lfLLSCStat[-1].FixParameter(2, w1)
+        lfLLSCStat[-1].FixParameter(3, a0sinStat)
+        lfLLSCStat[-1].FixParameter(4, 0)
+        lfLLSCStat[-1].FixParameter(5, 0)
+        lfLLSCStat[-1].FixParameter(6, RedMass(lightMass, heavyMass)*1000)
+        lfLLSCStat[-1].FixParameter(7, 1)
 
     lfLLOCStat = []
     for a0sinStat, a0triStat, r1, r2, w1 in paramsLLStat:
         lfLLOCStat.append(TF1("fLLsc", GeneralCoulombLednickySecondTwoRadii, 4, 300, 10))
-        lfLLOCStat[-1].FixParameter(0,r1)
-        lfLLOCStat[-1].FixParameter(1,r2)
-        lfLLOCStat[-1].FixParameter(2,w1)
-        lfLLOCStat[-1].FixParameter(3,a0sinStat)
-        lfLLOCStat[-1].FixParameter(4,0)
-        lfLLOCStat[-1].FixParameter(5,a0triStat)
-        lfLLOCStat[-1].FixParameter(6,0)
-        lfLLOCStat[-1].FixParameter(7,0)
-        lfLLOCStat[-1].FixParameter(8,RedMass(lightMass, heavyMass)*1000)
-        lfLLOCStat[-1].FixParameter(9,-1)
-    
+        lfLLOCStat[-1].FixParameter(0, r1)
+        lfLLOCStat[-1].FixParameter(1, r2)
+        lfLLOCStat[-1].FixParameter(2, w1)
+        lfLLOCStat[-1].FixParameter(3, a0sinStat)
+        lfLLOCStat[-1].FixParameter(4, 0)
+        lfLLOCStat[-1].FixParameter(5, a0triStat)
+        lfLLOCStat[-1].FixParameter(6, 0)
+        lfLLOCStat[-1].FixParameter(7, 0)
+        lfLLOCStat[-1].FixParameter(8, RedMass(lightMass, heavyMass)*1000)
+        lfLLOCStat[-1].FixParameter(9, -1)
+
     lfLLSCTot = []
     for a0sinTot, a0triTot, r1, r2, w1 in paramsLLTot:
         lfLLSCTot.append(TF1("fLLsc", GeneralCoulombLednickyTwoRadii, 4, 300, 8))
-        lfLLSCTot[-1].FixParameter(0,r1)
-        lfLLSCTot[-1].FixParameter(1,r2)
-        lfLLSCTot[-1].FixParameter(2,w1)
-        lfLLSCTot[-1].FixParameter(3,a0sinTot)
-        lfLLSCTot[-1].FixParameter(4,0)
-        lfLLSCTot[-1].FixParameter(5,0)
-        lfLLSCTot[-1].FixParameter(6,RedMass(lightMass, heavyMass)*1000)
-        lfLLSCTot[-1].FixParameter(7,1)
+        lfLLSCTot[-1].FixParameter(0, r1)
+        lfLLSCTot[-1].FixParameter(1, r2)
+        lfLLSCTot[-1].FixParameter(2, w1)
+        lfLLSCTot[-1].FixParameter(3, a0sinTot)
+        lfLLSCTot[-1].FixParameter(4, 0)
+        lfLLSCTot[-1].FixParameter(5, 0)
+        lfLLSCTot[-1].FixParameter(6, RedMass(lightMass, heavyMass)*1000)
+        lfLLSCTot[-1].FixParameter(7, 1)
 
     lfLLOCTot = []
     for a0sinTot, a0triTot, r1, r2, w1 in paramsLLTot:
         lfLLOCTot.append(TF1("fLLsc", GeneralCoulombLednickySecondTwoRadii, 4, 300, 10))
-        lfLLOCTot[-1].FixParameter(0,r1)
-        lfLLOCTot[-1].FixParameter(1,r2)
-        lfLLOCTot[-1].FixParameter(2,w1)
-        lfLLOCTot[-1].FixParameter(3,a0sinTot)
-        lfLLOCTot[-1].FixParameter(4,0)
-        lfLLOCTot[-1].FixParameter(5,a0triTot)
-        lfLLOCTot[-1].FixParameter(6,0)
-        lfLLOCTot[-1].FixParameter(7,0)
-        lfLLOCTot[-1].FixParameter(8,RedMass(lightMass, heavyMass)*1000)
-        lfLLOCTot[-1].FixParameter(9,-1)
-        
-        
-                    
+        lfLLOCTot[-1].FixParameter(0, r1)
+        lfLLOCTot[-1].FixParameter(1, r2)
+        lfLLOCTot[-1].FixParameter(2, w1)
+        lfLLOCTot[-1].FixParameter(3, a0sinTot)
+        lfLLOCTot[-1].FixParameter(4, 0)
+        lfLLOCTot[-1].FixParameter(5, a0triTot)
+        lfLLOCTot[-1].FixParameter(6, 0)
+        lfLLOCTot[-1].FixParameter(7, 0)
+        lfLLOCTot[-1].FixParameter(8, RedMass(lightMass, heavyMass)*1000)
+        lfLLOCTot[-1].FixParameter(9, -1)
+
     dgLL = {
         'sc': FunctionAverage(lfLLSCStat, lfLLSCTot, shift=True),
         'oc': FunctionAverage(lfLLOCStat, lfLLOCTot, shift=True),
@@ -308,7 +304,8 @@ if __name__ == '__main__':
         dgLL[comb].SetFillColorAlpha(kBlue+1, 0.7)
         dgLL[comb].SetLineColorAlpha(0, 0)
         dgLL[comb].Draw('same e3')
-        
+        dgLL[comb].Write('gFit')
+
         dgLLCoulombOnly[comb].SetLineColor(kOrange+7)
         dgLLCoulombOnly[comb].SetLineStyle(1)
         dgLLCoulombOnly[comb].SetLineWidth(2)
@@ -343,7 +340,7 @@ if __name__ == '__main__':
             tl.DrawLatex(0.22, 0.88, 'ALICE pp #sqrt{#it{s}} = 13 TeV')
             tl.DrawLatex(0.22, 0.82, 'High-mult. (0 #minus 0.17% INEL > 0)')
             tl.DrawLatex(0.22, 0.76, TranslateToLatex(f'kDstarPi_{comb}'))
-            
+
             leg = TLegend(0.2, 0.55, 0.9, 0.7)
             leg.SetTextSizePixels(12)
             leg.SetTextSize(0.035)
@@ -357,7 +354,7 @@ if __name__ == '__main__':
             tl.DrawLatex(0.20, 0.88, TranslateToLatex(f'kDstarPi_{comb}'))
             tl.DrawLatex(0.20, 0.25, f'a_{{0}}(I=3/2) = {a0sinStat:.2f} #pm {a0sinUncStat:.2f} (stat) #pm {a0sinUncSyst:.2f} (syst) fm')
             tl.DrawLatex(0.20, 0.25-0.05, f'a_{{0}}(I=1/2) = {a0triStat:.2f} #pm {a0triUncStat:.2f} (stat) #pm {a0triUncSyst:.2f} (syst) fm')
-        
+
     for ext in ['pdf', 'png', 'eps']:
         cCF.SaveAs(f'{oFileNameBase}.{ext}')
     oFile.cd('/')
