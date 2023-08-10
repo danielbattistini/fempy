@@ -135,14 +135,6 @@ def FunctionAverage(functionsStat, functionsTot, nPoints=500, shift=False):
     return gAverage
 
 
-def ComputeBinBrackets(hist):
-    gBrackets = TGraphErrors(1)
-    for iBin in range(hist.GetNbinsX()):
-        gBrackets.SetPoint(iBin, hist.GetBinCenter(iBin+1), hist.GetBinContent(iBin+1))
-        gBrackets.SetPointError(iBin, hist.GetBinWidth(iBin+1)/2, 0)
-    return gBrackets
-
-
 def WeightedCoulombLednicky(x, par):
     # effective source radii
     r1 = par[0]
@@ -285,7 +277,7 @@ if __name__ == '__main__':
 
     dgLLCoulombOnly = LoadRealCoulomb()
 
-    oFileNameBase = '/home/daniel/an/DstarPi/20_luuksel/SimFitPlot_DstarPi_simfit_shift'
+    oFileNameBase = '/home/daniel/an/DstarPi/20_luuksel/SimFitPlot_DstarPi_simfit_shift_2'
     oFile = TFile(f'{oFileNameBase}.root', 'create')
 
     Setstyle()
@@ -314,13 +306,14 @@ if __name__ == '__main__':
         # Draw syst
         dgCF[comb]['syst'].SetFillColorAlpha(kGray+2, 0.65)
         dgCF[comb]['syst'].Draw('same e2')
-        dgCF[comb]['syst'].Write('gCFSyst')
+        dgCF[comb]['syst'].Write('gCFGenSyst')
         # Draw stat
         dgCF[comb]['stat'].SetMarkerSize(1)
         dgCF[comb]['stat'].SetMarkerStyle(24)
         dgCF[comb]['stat'].Draw('same pez')
-        dgCF[comb]['stat'].Write('gCFStat')
+        dgCF[comb]['stat'].Write('gCFGenStat')
 
+        # todo: uniform the calculation of the brackets with utils::ComputeBinBrackets
         # brackets
         gBrackets = TGraphErrors(1)
         for iPoint in range(6):

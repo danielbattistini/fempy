@@ -6,7 +6,7 @@ import sys
 
 import yaml
 
-from ROOT import TDatabasePDG
+from ROOT import TDatabasePDG, TGraphErrors
 
 import fempy
 
@@ -112,3 +112,12 @@ def GetNormFactor(se, me, fromVal, toVal):
     lastBin = se.FindBin(toVal*0.9999)
 
     return me.Integral(firstBin, lastBin) / se.Integral(firstBin, lastBin)
+
+
+def ComputeBinBrackets(hist, name='gBrackets'):
+    gBrackets = TGraphErrors(1)
+    gBrackets.SetName(name)
+    for iBin in range(hist.GetNbinsX()):
+        gBrackets.SetPoint(iBin, hist.GetBinCenter(iBin+1), hist.GetBinContent(iBin+1))
+        gBrackets.SetPointError(iBin, hist.GetBinWidth(iBin+1)/2, 0)
+    return gBrackets
