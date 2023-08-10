@@ -152,10 +152,11 @@ double GeneralCoulombLednickyShort(double *x, double *pars) {
     return GeneralCoulombLednickyShort(x[0], pars[0], pars[1], pars[2], static_cast<bool>(pars[3]), pars[4], pars[5]);
 }
 
-double GeneralCoulombLednickySecond(double *x, double *pars) {
-    return GeneralCoulombLednickySecond(x[0], pars[0], pars[1], pars[2], pars[3], pars[4], static_cast<bool>(pars[5]),
-                                        pars[6], pars[7]);
-}
+// double GeneralCoulombLednickySecond(double *x, double *pars) {
+//     return GeneralCoulombLednickySecond(
+//         x[0], pars[0], pars[1], pars[2], pars[3], pars[4], static_cast<bool>(pars[5]),
+//                                         pars[6], pars[7]);
+// }
 
 // void TidyCats::GetCatsPionDstar(CATS *cats, int momBins, double kMin, double kMax, TidyCats::lightDmesonPot pot,
 //                                 TidyCats::Sources source, int chargecombi) {
