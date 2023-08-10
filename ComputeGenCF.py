@@ -1,5 +1,3 @@
-import fempy
-from ROOT import MassFitter, GeneralCoulombLednicky
 import sys
 import yaml
 import argparse
@@ -11,6 +9,10 @@ import numpy as np
 from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend, gRandom, TNtuple, TH2D, RDataFrame, TH1D
 gInterpreter.ProcessLine('#include "fempy/utils/functions.h"')
 gInterpreter.ProcessLine('#include "fempy/MassFitter.hxx"')
+from ROOT import MassFitter, GeneralCoulombLednicky
+
+import fempy
+from fempy.utils.analysis import ComputeBinBrackets
 
 
 def Average(hist, xmin, xmax):
@@ -740,6 +742,14 @@ def ComputeGenCF(args):
         cFinalFit.Modified()
         cFinalFit.Update()
         cFinalFit.Write()
+        gCFGenStat.SetName('gCFGenStat')
+        gCFGenStat.Write()
+        gCFGenSyst.SetName('gCFGenSyst')
+        gCFGenSyst.Write()
+
+        gBrackets = ComputeBinBrackets(hCFGenStat)
+        gBrackets.Write()
+
     print(f'output saved in {oFileName}')
     oFile.Close()
 
