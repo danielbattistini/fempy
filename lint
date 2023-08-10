@@ -1,4 +1,5 @@
-# script to lint the code of the repository.
+# script to lint the code of the repository. Environment variables are defined
+# in .github/workflows/super-linter.env
 #
 # requires:
 #   - docker
@@ -8,8 +9,5 @@
 
 docker run -e RUN_LOCAL=true \
     -e LOG_LEVEL=WARN \
-    -e BASH_SEVERITY=WARNING \
-    -e VALIDATE_CPP=true \
-    -e VALIDATE_PYTHON=true \
-    -v $PWD:/tmp/lint \
-    github/super-linter
+    --env-file ".github/workflows/super-linter.env" \
+    -v $PWD:/tmp/lint github/super-linter
