@@ -1,15 +1,25 @@
 import argparse
-
 import ctypes
-
 import numpy as np
 
-from ROOT import gInterpreter, TDatabasePDG, TFile, TCanvas, TLatex, gStyle, kBlue, kGray, TF1, kOrange, TLegend, TGraphErrors, kWhite, kRed, kGreen, kBlack, RDataFrame
+from ROOT import (
+    gInterpreter,
+    gStyle,
+    RDataFrame,
+    TFile,
+    TDatabasePDG,
+    TGraphErrors,
+    TCanvas,
+    TLatex,
+    TF1,
+    TLegend,
+    EColor,
+)
 gInterpreter.ProcessLine('#include "combfit/functions.h"')
-from ROOT import GeneralCoulombLednickyTwoRadii, GeneralCoulombLednickySecondTwoRadii
+from ROOT import GeneralCoulombLednickyTwoRadii, GeneralCoulombLednickySecondTwoRadii, GeneralCoulombLednicky
 
-from fempy import TranslateToLatex
 from fempy.utils.io import GetGraphsInDir
+from fempy import TranslateToLatex
 
 
 def Setstyle():
@@ -24,24 +34,24 @@ def Setstyle():
     gStyle.SetCanvasColor(10)
     gStyle.SetCanvasBorderMode(0)
     gStyle.SetFrameLineWidth(1)
-    gStyle.SetFrameFillColor(kWhite)
+    gStyle.SetFrameFillColor(EColor.kWhite)
     gStyle.SetPadColor(10)
     gStyle.SetPadTickX(1)
     gStyle.SetPadTickY(1)
     gStyle.SetPadBottomMargin(0.15)
     gStyle.SetPadLeftMargin(0.15)
     gStyle.SetHistLineWidth(1)
-    gStyle.SetHistLineColor(kRed)
+    gStyle.SetHistLineColor(EColor.kRed)
     gStyle.SetFuncWidth(2)
-    gStyle.SetFuncColor(kGreen)
+    gStyle.SetFuncColor(EColor.kGreen)
     gStyle.SetLineWidth(2)
     gStyle.SetLabelSize(0.045, "xyz")
-    gStyle.SetLabelColor(kBlack, "xyz")
+    gStyle.SetLabelColor(EColor.kBlack, "xyz")
     gStyle.SetTitleSize(0.05, "xyz")
-    gStyle.SetTitleFillColor(kWhite)
+    gStyle.SetTitleFillColor(EColor.kWhite)
     gStyle.SetTextSizePixels(26)
     gStyle.SetTextFont(42)
-    gStyle.SetLegendFillColor(kWhite)
+    gStyle.SetLegendFillColor(EColor.kWhite)
     gStyle.SetLegendFont(42)
     gStyle.SetLegendBorderSize(0)
     gStyle.SetErrorX(0.005)
@@ -177,9 +187,10 @@ def RedMass(m1, m2):
     return m1 * m2 / (m1 + m2)
 
 
-if __name__ == '__main__':
+def main():
+    defInFile = '/home/daniel/an/DstarPi/20_luuksel/SimFit_nopc_kStarBW50MeV_bs10002syst_chi2lt10_radii.root'
     parser = argparse.ArgumentParser()
-    parser.add_argument('inFile', nargs='?', default='/home/daniel/an/DstarPi/20_luuksel/SimFit_nopc_kStarBW50MeV_bs10002syst_chi2lt10_radii.root')
+    parser.add_argument('inFile', nargs='?', default=defInFile)
     args = parser.parse_args()
 
     lightMass = TDatabasePDG.Instance().GetParticle(211).Mass()
@@ -201,8 +212,11 @@ if __name__ == '__main__':
     }
 
     # build LL curves
-    paramsLLTot = np.array(list(RDataFrame(inFile.Get('tot/tResults')).AsNumpy(['a0sin', 'a0tri', 'r1', 'r2', 'w1']).values())).T
-    paramsLLStat = np.array(list(RDataFrame(inFile.Get('stat/tResults')).AsNumpy(['a0sin', 'a0tri', 'r1', 'r2', 'w1']).values())).T
+    rdfTot = RDataFrame(inFile.Get('tot/tResults'))
+    paramsLLTot = np.array(list(rdfTot.AsNumpy(['a0sin', 'a0tri', 'r1', 'r2', 'w1']).values())).T
+
+    rdfStat = RDataFrame(inFile.Get('stat/tResults'))
+    paramsLLStat = np.array(list(rdfStat.AsNumpy(['a0sin', 'a0tri', 'r1', 'r2', 'w1']).values())).T
 
     lfLLSCStat = []
     for a0sinStat, a0triStat, r1, r2, w1 in paramsLLStat:
@@ -213,7 +227,7 @@ if __name__ == '__main__':
         lfLLSCStat[-1].FixParameter(3, a0sinStat)
         lfLLSCStat[-1].FixParameter(4, 0)
         lfLLSCStat[-1].FixParameter(5, 0)
-        lfLLSCStat[-1].FixParameter(6, RedMass(lightMass, heavyMass)*1000)
+        lfLLSCStat[-1].FixParameter(6, RedMass(lightMass, heavyMass) * 1000)
         lfLLSCStat[-1].FixParameter(7, 1)
 
     lfLLOCStat = []
@@ -227,7 +241,7 @@ if __name__ == '__main__':
         lfLLOCStat[-1].FixParameter(5, a0triStat)
         lfLLOCStat[-1].FixParameter(6, 0)
         lfLLOCStat[-1].FixParameter(7, 0)
-        lfLLOCStat[-1].FixParameter(8, RedMass(lightMass, heavyMass)*1000)
+        lfLLOCStat[-1].FixParameter(8, RedMass(lightMass, heavyMass) * 1000)
         lfLLOCStat[-1].FixParameter(9, -1)
 
     lfLLSCTot = []
@@ -239,7 +253,7 @@ if __name__ == '__main__':
         lfLLSCTot[-1].FixParameter(3, a0sinTot)
         lfLLSCTot[-1].FixParameter(4, 0)
         lfLLSCTot[-1].FixParameter(5, 0)
-        lfLLSCTot[-1].FixParameter(6, RedMass(lightMass, heavyMass)*1000)
+        lfLLSCTot[-1].FixParameter(6, RedMass(lightMass, heavyMass) * 1000)
         lfLLSCTot[-1].FixParameter(7, 1)
 
     lfLLOCTot = []
@@ -253,7 +267,7 @@ if __name__ == '__main__':
         lfLLOCTot[-1].FixParameter(5, a0triTot)
         lfLLOCTot[-1].FixParameter(6, 0)
         lfLLOCTot[-1].FixParameter(7, 0)
-        lfLLOCTot[-1].FixParameter(8, RedMass(lightMass, heavyMass)*1000)
+        lfLLOCTot[-1].FixParameter(8, RedMass(lightMass, heavyMass) * 1000)
         lfLLOCTot[-1].FixParameter(9, -1)
 
     dgLL = {
@@ -287,24 +301,24 @@ if __name__ == '__main__':
         oFile.mkdir(comb)
         oFile.cd(comb)
 
-        pad = cCF.cd(iPad+1)
+        pad = cCF.cd(iPad + 1)
         pad.SetRightMargin(0.03)
         pad.SetTopMargin(0.03)
         pad.DrawFrame(0, 0.7, 299.9999, 1.8999, TranslateToLatex(';__kStarMeV__;__C__'))
 
         # Draw LL
-        dgLL[comb].SetFillColorAlpha(kBlue+1, 0.7)
+        dgLL[comb].SetFillColorAlpha(EColor.kBlue + 1, 0.7)
         dgLL[comb].SetLineColorAlpha(0, 0)
         dgLL[comb].Draw('same e3')
         dgLL[comb].Write('gFit')
 
-        dgLLCoulombOnly[comb].SetLineColor(kOrange+7)
+        dgLLCoulombOnly[comb].SetLineColor(EColor.kOrange + 7)
         dgLLCoulombOnly[comb].SetLineStyle(1)
         dgLLCoulombOnly[comb].SetLineWidth(2)
         dgLLCoulombOnly[comb].Draw('same l')
 
         # Draw syst
-        dgCF[comb]['syst'].SetFillColorAlpha(kGray+2, 0.65)
+        dgCF[comb]['syst'].SetFillColorAlpha(EColor.kGray + 2, 0.65)
         dgCF[comb]['syst'].Draw('same e2')
         dgCF[comb]['syst'].Write('gCFGenSyst')
         # Draw stat
@@ -322,7 +336,7 @@ if __name__ == '__main__':
 
         SetHistStyle(gBrackets)
         gBrackets.SetLineWidth(1)
-        gBrackets.SetLineColorAlpha(kBlack, 0.9)
+        gBrackets.SetLineColorAlpha(EColor.kBlack, 0.9)
         gBrackets.DrawClone("same []")
         gBrackets.Write('gBrackets')
 
@@ -345,10 +359,16 @@ if __name__ == '__main__':
             leg.Draw()
         else:
             tl.DrawLatex(0.20, 0.88, TranslateToLatex(f'kDstarPi_{comb}'))
-            tl.DrawLatex(0.20, 0.25, f'a_{{0}}(I=3/2) = {a0sinStat:.2f} #pm {a0sinUncStat:.2f} (stat) #pm {a0sinUncSyst:.2f} (syst) fm')
-            tl.DrawLatex(0.20, 0.25-0.05, f'a_{{0}}(I=1/2) = {a0triStat:.2f} #pm {a0triUncStat:.2f} (stat) #pm {a0triUncSyst:.2f} (syst) fm')
+            a03_2 = f'a_{{0}}(I=3/2) = {a0sinStat:.2f} #pm {a0sinUncStat:.2f} (stat) #pm {a0sinUncSyst:.2f} (syst) fm'
+            tl.DrawLatex(0.20, 0.25, a03_2)
+            a01_2 = f'a_{{0}}(I=1/2) = {a0triStat:.2f} #pm {a0triUncStat:.2f} (stat) #pm {a0triUncSyst:.2f} (syst) fm'
+            tl.DrawLatex(0.20, 0.25 - 0.05, a01_2)
 
     for ext in ['pdf', 'png', 'eps']:
         cCF.SaveAs(f'{oFileNameBase}.{ext}')
     oFile.cd('/')
     cCF.Write()
+
+
+if __name__ == '__main__':
+    main()

@@ -1,21 +1,19 @@
 '''Macro to merge same/opposite charge SE/ME distributions.'''
 
-from posixpath import ismount
 from ROOT import TFile, TList, TTree
-from sys import exit
 
 
-def MergePairs():
+def MergePairs(inFileName, oFileName, isMC, combos):
     # merge data
-    isMC = False
-    combos = 'pap'
+    # isMC = False
+    # combos = 'pap'
 
-    if isMC:
-        inFileName = '/home/daniel/alice/CharmingAnalyses/Dpi_HMpp13TeV_quick/data/mcgp/AnalysisResults.root'
-        oFileName = '/home/daniel/alice/CharmingAnalyses/Dpi_HMpp13TeV_quick/data/mcgp/AnalysisResults_merged.root'
-    else:
-        inFileName = '/home/daniel/alice/CharmingAnalyses/Dpi_HMpp13TeV_quick/data/data/AnalysisResults.root'
-        oFileName = '/home/daniel/alice/CharmingAnalyses/Dpi_HMpp13TeV_quick/data/data/AnalysisResults_merged.root'
+    # if isMC:
+    #     inFileName = '/home/daniel/alice/CharmingAnalyses/Dpi_HMpp13TeV_quick/data/mcgp/AnalysisResults.root'
+    #     oFileName = '/home/daniel/alice/CharmingAnalyses/Dpi_HMpp13TeV_quick/data/mcgp/AnalysisResults_merged.root'
+    # else:
+    #     inFileName = '/home/daniel/alice/CharmingAnalyses/Dpi_HMpp13TeV_quick/data/data/AnalysisResults.root'
+    #     oFileName = '/home/daniel/alice/CharmingAnalyses/Dpi_HMpp13TeV_quick/data/data/AnalysisResults_merged.root'
 
     if combos == 'pap':  # pair anti-pair
         mergeComb = {
@@ -65,4 +63,4 @@ def MergePairs():
     oFile.Close()
 
 
-MergePairs()
+# MergePairs()

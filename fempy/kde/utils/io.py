@@ -1,4 +1,6 @@
 import os
+import sys
+
 from ROOT import TFile, TH1, TH2, TH3, TDirectoryFile, TList
 
 def GetObjectFromFile(inFile, pathToObj):

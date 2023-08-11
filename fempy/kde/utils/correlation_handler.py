@@ -11,7 +11,7 @@ class CorrelationHandler:
     Class to handle the correlation function.
     '''
 
-    def __init__(self, same_event, mixed_event, lazy=False, name='cf', lambda_param=1) -> None:
+    def __init__(self, same_event, mixed_event, name='cf', lambda_param=1) -> None:
         """Default constructor.
 
         Parameters
@@ -51,8 +51,7 @@ class CorrelationHandler:
         self.name = name
         self.lambda_param = lambda_param
 
-        # if not lazy:
-        #     self.compute_cf()
+        self.compute_cf()
 
         print('expformula: ', self.same_event.GetExpFormula())
 
@@ -60,17 +59,14 @@ class CorrelationHandler:
         return self.same_event.Eval(x[0]) / self.mixed_event.Eval(x[0])
 
 
-    # def compute_cf(self):
-    #     '''Computes the correlation function'''
-    #     x_min = self.same_event.GetMinimumX()
-    #     x_max = self.same_event.GetMaximumX()
+    def compute_cf(self):
+        '''Computes the correlation function'''
+        x_min = self.same_event.GetMinimumX()
+        x_max = self.same_event.GetMaximumX()
 
-    #     lambdaex = lambda x, par : self.same_event.Eval(x[0]) / self.mixed_event.Eval(x[0])
-    #     self.corr_func = TF1(self.name, lambdaex, x_min, x_max)
-    #     self.corr_func.Draw()
+        lambdaex = lambda x, par : self.same_event.Eval(x[0]) / self.mixed_event.Eval(x[0])
+        self.corr_func = TF1(self.name, lambdaex, x_min, x_max)
+        self.corr_func.Draw()
 
-    # def eval(self, x, par):
-    #     return self.same_event.Eval(x[0]) / self.mixed_event.Eval(x[0])
-
-    # def __Add__(self, cf2):
-    #     return TF1('sum', f'{self.lambda_param}*{self.name}+{cf2.lambda_param}*{cf2.name}', self.)
+    def eval(self, x, par):
+        return self.same_event.Eval(x[0]) / self.mixed_event.Eval(x[0])
