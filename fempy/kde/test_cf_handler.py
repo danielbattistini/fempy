@@ -1,6 +1,6 @@
 '''test
 '''
-from ROOT import TF1, TCanvas, TFile
+from ROOT import TF1, TFile
 
 from utils.correlation_handler import CorrelationHandler
 from utils.io import GetObjectFromFile
@@ -17,4 +17,3 @@ inFile = TFile(inFileName)
 
 se = GetObjectFromFile(inFile, 'SE_pp_sgn_centr')
 me = GetObjectFromFile(inFile, 'ME_pp_sgn_centr')
-

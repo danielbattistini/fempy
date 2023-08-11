@@ -1,25 +1,40 @@
 import argparse
 
-from ROOT import TFile, TCanvas, TLatex, gStyle, kBlue, kGray, kOrange, TLegend, TGraphErrors, kWhite, kRed, kGreen, kBlack
+from ROOT import (
+    TFile,
+    TCanvas,
+    TLatex,
+    gStyle,
+    kBlue,
+    kGray,
+    kOrange,
+    TLegend,
+    TGraphErrors,
+    kWhite,
+    kRed,
+    kGreen,
+    kBlack
+)
 
 from fempy import TranslateToLatex
 
+
 def LoadObjects(pair, suffix):
     objs = {
-        'sc': [],
-        'oc': [],
+        'sc': {},
+        'oc': {},
     }
 
     if pair == 'DstarK':
         file = TFile(f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_{suffix}.root')
         for comb in ['sc', 'oc']:
             objs[comb] = {
-                'hstat' : file.Get(f'{comb}/hCFGenStat'),
-                'stat' : file.Get(f'{comb}/gCFGenStat'),
-                'syst' : file.Get(f'{comb}/gCFGenSyst'),
-                'llstat' : file.Get(f'{comb}/gLLStat'),
-                'lltot' : file.Get(f'{comb}/gLLTot'),
-                'coulomb' : file.Get(f'{comb}/gCoulomb'),
+                'hstat': file.Get(f'{comb}/hCFGenStat'),
+                'stat': file.Get(f'{comb}/gCFGenStat'),
+                'syst': file.Get(f'{comb}/gCFGenSyst'),
+                'llstat': file.Get(f'{comb}/gLLStat'),
+                'lltot': file.Get(f'{comb}/gLLTot'),
+                'coulomb': file.Get(f'{comb}/gCoulomb'),
             }
             objs[comb]['hstat'].SetDirectory(0)
         objs['sc']['a0'] = -0.305
@@ -37,12 +52,12 @@ def LoadObjects(pair, suffix):
         file = TFile(f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_{suffix}.root')
         for comb in ['sc', 'oc']:
             objs[comb] = {
-                'hstat' : file.Get(f'{comb}/hCFGenStat'),
-                'stat' : file.Get(f'{comb}/gCFGenStat'),
-                'syst' : file.Get(f'{comb}/gCFGenSyst'),
-                'llstat' : file.Get(f'{comb}/gLLStat'),
-                'lltot' : file.Get(f'{comb}/gLLTot'),
-                'coulomb' : file.Get(f'{comb}/gCoulomb'),
+                'hstat': file.Get(f'{comb}/hCFGenStat'),
+                'stat': file.Get(f'{comb}/gCFGenStat'),
+                'syst': file.Get(f'{comb}/gCFGenSyst'),
+                'llstat': file.Get(f'{comb}/gLLStat'),
+                'lltot': file.Get(f'{comb}/gLLTot'),
+                'coulomb': file.Get(f'{comb}/gCoulomb'),
             }
             objs[comb]['hstat'].SetDirectory(0)
 
@@ -71,6 +86,7 @@ def LoadObjects(pair, suffix):
         file.Close()
 
     return objs, config
+
 
 def Setstyle():
     gStyle.SetTextFont(42)
@@ -125,7 +141,7 @@ def SetHistStyle(hist):
     hist.SetMarkerStyle(20)
     hist.SetMarkerSize(1)
 
-    
+
 def ComputeBinBrackets(hist):
     gBrackets = TGraphErrors(1)
     print(hist)
@@ -133,8 +149,9 @@ def ComputeBinBrackets(hist):
         gBrackets.SetPoint(iBin, hist.GetBinCenter(iBin+1), hist.GetBinContent(iBin+1))
         gBrackets.SetPointError(iBin, hist.GetBinWidth(iBin+1)/2, 0)
     return gBrackets
-        
-if __name__ == '__main__':
+
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--pair', choices=('DstarK', 'DstarPi'))
     parser.add_argument('--simfit', default=False, action='store_true')
@@ -148,7 +165,7 @@ if __name__ == '__main__':
     Setstyle()
 
     objects, cfg = LoadObjects(args.pair, suffix)
-    
+
     cCF = TCanvas('cCF', '', 1000, 500)
 
     cCF.Divide(2, 1)
@@ -158,8 +175,12 @@ if __name__ == '__main__':
         pad.SetRightMargin(0.03)
         pad.SetTopMargin(0.03)
         pad.SetFrameLineWidth(1)
-        pad.DrawFrame(cfg['pltRangeX'][0], cfg['pltRangeY'][0], cfg['pltRangeX'][1], cfg['pltRangeY'][1], TranslateToLatex(';__kStarMeV__;__C__'))
-        
+        pad.DrawFrame(
+            cfg['pltRangeX'][0],
+            cfg['pltRangeY'][0],
+            cfg['pltRangeX'][1],
+            cfg['pltRangeY'][1], TranslateToLatex(';__kStarMeV__;__C__'))
+
         objs['lltot'].SetFillColorAlpha(kBlue+1, 0.7)
         objs['lltot'].SetLineColorAlpha(0, 0)
         objs['lltot'].Draw('same e3')
@@ -193,7 +214,7 @@ if __name__ == '__main__':
             tl.DrawLatex(0.22, 0.88, 'ALICE pp #sqrt{#it{s}} = 13 TeV')
             tl.DrawLatex(0.22, 0.82, 'High-mult. (0 #minus 0.17% INEL > 0)')
             tl.DrawLatex(0.22, 0.76, TranslateToLatex(f'k{args.pair}_{comb}'))
-            
+
             leg = TLegend(0.2, 0.55, 0.9, 0.7)
             leg.SetTextSizePixels(12)
             leg.SetTextSize(0.035)
@@ -205,21 +226,39 @@ if __name__ == '__main__':
             leg.Draw()
 
             if not args.simfit:
-                tl.DrawLatex(0.20, 0.2, f'a_{{0}} = {objs["a0"]:.2f} #pm {objs["a0stat"]:.2f} (stat) #pm {objs["a0syst"]:.2f} (syst) fm')
+                text = f'a_{{0}} = {objs["a0"]:.2f} #pm {objs["a0stat"]:.2f} (stat) #pm {objs["a0syst"]:.2f} (syst) fm'
+                tl.DrawLatex(0.20, 0.2, text)
         else:
             tl.DrawLatex(0.20, 0.88, TranslateToLatex(f'k{args.pair}_{comb}'))
-            
-            if args.simfit:
-                tl.DrawLatex(0.20, 0.25, f'a_{{0}}(I=3/2) = {objects["3/2"]["a0"]:.2f} #pm {objects["3/2"]["a0stat"]:.2f} (stat) #pm {objects["3/2"]["a0syst"]:.2f} (syst) fm')
-                tl.DrawLatex(0.20, 0.25-0.05, f'a_{{0}}(I=1/2) = {objects["1/2"]["a0"]:.2f} #pm {objects["1/2"]["a0stat"]:.2f} (stat) #pm {objects["1/2"]["a0syst"]:.2f} (syst) fm')
-            else:
-                tl.DrawLatex(0.20, 0.2, f'a_{{0}} = {objs["a0"]:.2f} #pm {objs["a0stat"]:.2f} (stat) #pm {objs["a0syst"]:.2f} (syst) fm')
 
-        
+            if args.simfit:
+                text3_2 = (
+                    f'a_{{0}}(I=3/2) = {objects["3/2"]["a0"]:.2f} '
+                    f' #pm {objects["3/2"]["a0stat"]:.2f} (stat)'
+                    f' #pm {objects["3/2"]["a0syst"]:.2f} (syst) fm'
+                )
+                tl.DrawLatex(0.20, 0.25, text3_2)
+
+                text1_2 = (
+                    f'a_{{0}}(I=1/2) = {objects["1/2"]["a0"]:.2f}'
+                    f' #pm {objects["1/2"]["a0stat"]:.2f} (stat)'
+                    f' #pm {objects["1/2"]["a0syst"]:.2f} (syst) fm'
+                )
+                tl.DrawLatex(0.20, 0.25-0.05, text1_2)
+            else:
+                text = f'a_{{0}} = {objs["a0"]:.2f} #pm {objs["a0stat"]:.2f} (stat) #pm {objs["a0syst"]:.2f} (syst) fm'
+                tl.DrawLatex(0.20, 0.2, text)
+
     for ext in ['pdf', 'png', 'eps', 'root']:
         if args.pair == 'DstarK':
             cCF.SaveAs(f'/home/daniel/an/DstarK/2_luuksel/GenCFCorrPlot_{args.pair}_{suffix}.{ext}')
         else:
-            cCF.SaveAs(f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorrPlot_{args.pair}_{suffix}{"_simfit" if args.simfit else ""}.{ext}')
-    
+            oFileName = (
+                '/home/daniel/an/DstarPi/20_luuksel/'
+                f'GenCFCorrPlot_{args.pair}_{suffix}{"_simfit" if args.simfit else ""}.{ext}'
+            )
+            cCF.SaveAs(oFileName)
 
+
+if __name__ == '__main__':
+    main()

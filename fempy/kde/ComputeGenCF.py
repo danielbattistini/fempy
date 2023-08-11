@@ -114,14 +114,14 @@ def ExtractGenCF(inFileName, oFileName):
         return cf_sgn
 
 
-    cRaw = TCanvas("cRaw", "cRaw"regions
-    fCFRawCentr = TF1("fCFRawCentr", cfRawCentr, 0, 3) 
-    fCFRawUpper = TF1("fCFRawUpper", cfRawUpper, 0, 3) 
-    fCFRawLower = TF1("fCFRawLower", cfRawLower, 0, 3) 
+    cRaw = TCanvas("cRaw", "cRaw", 600, 600)
+    # fCFRawCentr = TF1("fCFRawCentr", cfRawCentr, 0, 3)
+    # fCFRawUpper = TF1("fCFRawUpper", cfRawUpper, 0, 3)
+    # fCFRawLower = TF1("fCFRawLower", cfRawLower, 0, 3)
 
-    fCFRawCentr.Draw()
-    fCFRawUpper.Draw('same')
-    fCFRawLower.Draw('same')
+    # fCFRawCentr.Draw()
+    # fCFRawUpper.Draw('same')
+    # fCFRawLower.Draw('same')
     cRaw.Write()
    
     # cSBL = TCanvas("cSBL", "cSBL", 600, 600)

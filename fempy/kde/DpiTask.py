@@ -48,7 +48,7 @@ class MergePairsTask(luigi.Task):
     mergingCombinations = 'pap'
 
     def run(self):
-        MergePairs(inFileName=self.inFileName, oFileName=self.oFileName, combos=self.mergingCombinations)
+        MergePairs(self.inFileName, self.oFileName, False, self.mergingCombinations)
 
     def output(self):
         return luigi.LocalTarget(self.oFileName)
@@ -67,8 +67,8 @@ class EstimateDensityTask(luigi.Task):
     oFile = luigi.Parameter()
 
     def run(self):
-
-        EstimateDensity(inFileName=self.inFile, oFileName=self.oFile)
+        #! kernelSetup = None is not valid, check
+        EstimateDensity(kernelSetup=None, inFileName=self.inFile, oFileName=self.oFile)
 
     def output(self):
         return luigi.LocalTarget(self.oFile)
