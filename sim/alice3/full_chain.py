@@ -40,14 +40,19 @@ u = acts.UnitConstants
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('particle', choices=('KzeroS', 'Dzero'))
+parser.add_argument('oDir')
 parser.add_argument('--evt', type=int, required=True)
+parser.add_argument('-B', default=1, type=float)
+parser.add_argument('--dipole', default=False, action='store_true')
 parser.add_argument('--pileup', type=int, default=1)
+parser.add_argument('--minHits', type=int, default=7)
 parser.add_argument('--forced-decays', action='store_true', default=False)
+parser.add_argument('--geom', default='20230731_fixed_endcaps')
+parser.add_argument('--seed', default=42, type=int)
 args = parser.parse_args()
 
-oDir = f'/home/ktas/ge86rim/an/alice3/perf_{args.particle}'
-geo_dir = pathlib.Path(oDir)
+oDir = args.oDir
+geo_dir = pathlib.Path(f'/home/ktas/ge86rim/phsw/fempy/sim/alice3/geom/{args.geom}')
 
 
 # IA: logging details
@@ -60,9 +65,9 @@ myVerboseAmbiguityResolution = acts.logging.WARNING #INFO
 
 import sys
 
-IA_MF = 1.0 # magnetic field
+IA_MF = args.B # magnetic field
 
-IA_nMeasurementsMin = 7#9#11#9#10#11 #7#5 #4#7 #7
+IA_nMeasurementsMin = args.minHits #9#11#9#10#11 #7#5 #4#7 #7
 IA_maximumSharedHits = 1#3 #3
 
 
@@ -70,8 +75,13 @@ IA_maximumSharedHits = 1#3 #3
 
 IA_outputDirName = "output/"
 IA_outputDirName += f"evt-{args.evt}"
+IA_outputDirName += f"_B-{args.B:.1f}T"
+IA_outputDirName += f"_dipole" if args.dipole else ''
+IA_outputDirName += f"_geom-{args.geom[:8]}"
+IA_outputDirName += f"_minHits-{args.minHits}"
 IA_outputDirName += f"_pileup-{args.pileup}"
 IA_outputDirName += f"_forced-decays" if args.forced_decays else ''
+IA_outputDirName += f"_seed-{args.seed}"
 
 outputDir = pathlib.Path(oDir) / IA_outputDirName
 
@@ -79,8 +89,11 @@ if not outputDir.exists():
     outputDir.mkdir(mode = 0o777, parents= True, exist_ok= True)
 
 detector, trackingGeometry, decorators = alice3.buildALICE3Geometry(geo_dir, True, False, acts.logging.INFO)
-field = acts.ConstantBField(acts.Vector3(0.0, 0.0, IA_MF * u.T))
-rnd = acts.examples.RandomNumbers(seed=42)
+if args.dipole:
+    field = acts.examples.MagneticFieldMapXyz('geom/fieldMap_solenoid_dipoles_4-10-21_xyz_in_mm.txt')
+else:
+    field = acts.ConstantBField(acts.Vector3(0.0, 0.0, IA_MF * u.T))
+rnd = acts.examples.RandomNumbers(seed=args.seed)
 
 s = acts.examples.Sequencer(events=args.evt, numThreads=-1)
 s.trackFpes=False
@@ -117,7 +130,7 @@ s = addPythia8(
     ),
     rnd=rnd,
     outputDirRoot=outputDir,
-    printPythiaEventListing='long'
+    # printPythiaEventListing='long'
 )
 
 
@@ -164,7 +177,7 @@ s = addSeeding(
         maxSeedsPerSpM=1,
         sigmaScattering=3,#3, #1.,#5.,
         radLengthPerSeed=0.01,#0.008,  #0.005,  # default: float radLengthPerSeed = 0.05; (https://github.com/acts-project/acts/blob/main/Core/include/Acts/Seeding/SeedFinderConfig.hpp)
-        minPt=50* u.MeV, #60 * u.MeV, # GOOD IA! was: 500 * u.MeV,
+        minPt=100* u.MeV, #60 * u.MeV, # GOOD IA! was: 500 * u.MeV,
         impactMax=1. * u.mm, #1. * u.mm,
         cotThetaMax=27.2899,
         seedConfirmation=True,
