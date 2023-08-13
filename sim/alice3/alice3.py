@@ -117,7 +117,7 @@ def buildALICE3Geometry(
                 min(acts.logging.INFO.value, logLevel.value)),
         )
 
-    tgeo_fileName = Path('geom_tmp/o2sim_geometry.root')
+    tgeo_fileName = geo_dir / "o2sim_geometry.root"
 
     if jsonconfig:
         jsonFile = geo_dir / "tgeo-config.json"
@@ -141,12 +141,12 @@ def buildALICE3Geometry(
         mdecorator=matDeco,
         buildBeamPipe=True,
         unitScalor=10.0,  # explicit units
-        beamPipeRadius=3.7 * u.mm,
-#        beamPipeRadius=4.5 * u.mm,
-        beamPipeHalflengthZ=500.0 * u.mm,
-        beamPipeLayerThickness=0.1 * u.mm,
-#        beampipeEnvelopeR=0.1 * u.mm,
-        layerEnvelopeR=0.1 * u.mm,
+#        beamPipeRadius=3.7 * u.mm,
+        beamPipeRadius=4.8 * u.mm,
+        beamPipeHalflengthZ=1000.0 * u.mm,  #500.0 * u.mm,
+        beamPipeLayerThickness=0.25 * u.mm, #0.25 * u.mm,
+        beamPipeEnvelopeR=0.01 * u.mm,
+        layerEnvelopeR=0.01 * u.mm,
         surfaceLogLevel=logLevel,
         layerLogLevel=logLevel,
         volumeLogLevel=logLevel,
@@ -162,7 +162,12 @@ def buildALICE3Geometry(
                 sensitiveNames=LayerTriplet(
                     negative=["FT3Sensor*"], central=["TRKSensor*"], positive=["FT3Sensor*"]),
                 sensitiveAxes=LayerTriplet("XYZ"),
-                rRange=LayerTriplet((3.9 * u.mm, 45 * u.mm)),
+#                rRange=LayerTriplet((5.1 * u.mm, 45 * u.mm)),
+#                rRange=LayerTriplet((5.1 * u.mm, 35.5 * u.mm)),
+                rRange=LayerTriplet(negative=(5 * u.mm, 45 * u.mm),
+                                    central=(5.1 * u.mm, 36 * u.mm),
+                                    positive=(5 * u.mm, 45 * u.mm)),
+
                 zRange=LayerTriplet(
                     negative=(-400 * u.mm, -250 * u.mm),
                     central=(-250 * u.mm, 250 * u.mm),
@@ -191,6 +196,48 @@ def buildALICE3Geometry(
                 barrelMap={},
                 discMap={},
             ),
+
+#            Volume(
+#                name="ColdPlate",
+#                binToleranceR=(1 * u.mm, 1 * u.mm),
+#                binToleranceZ=(1 * u.mm, 1 * u.mm),
+#                binTolerancePhi=(0.025 * u.mm, 0.025 * u.mm),
+#                layers=LayerTriplet(
+#                    positive=False, central=True, negative=False),
+#                subVolumeName=LayerTriplet("COLDPLATE*"),
+##                sensitiveNames=LayerTriplet(["TRKSensor*"]),
+##                sensitiveAxes=LayerTriplet("XYZ"),
+#                rRange=LayerTriplet(
+#                    central=(25.3 * u.mm, 35 * u.mm),
+#                ),
+#                zRange=LayerTriplet(
+#                    central=(-250 * u.mm, 250 * u.mm),
+#                ),
+#                splitTolR=LayerTriplet(
+#                    central=1 * u.mm,
+#                ),
+#                splitTolZ=LayerTriplet(-1.0),
+#                binning0=LayerTriplet(
+#                    negative=[(0, equidistant)],
+#                    central=[(0, equidistant)],
+#                    positive=[(0, equidistant)],
+#                ),
+#                binning1=LayerTriplet(
+#                    negative=[(0, equidistant)],
+#                    central=[(0, equidistant)],
+#                    positive=[(0, equidistant)],
+#                ),
+#                cylinderDiscSplit=True,
+#                cylinderNZSegments=6,
+#                cylinderNPhiSegments=32,
+#                discNRSegments=0,
+#                discNPhiSegments=0,
+#                itkModuleSplit=False,
+#                barrelMap={},
+#                discMap={},
+#            ),
+
+
             Volume(
                 name="OuterPixels",
                 binToleranceR=(5 * u.mm, 5 * u.mm),
@@ -202,16 +249,16 @@ def buildALICE3Geometry(
                 sensitiveNames=LayerTriplet(
                     negative=["FT3Sensor*"], central=["TRKSensor*"], positive=["FT3Sensor*"]),
                 sensitiveAxes=LayerTriplet("XYZ"),
-                rRange=LayerTriplet(negative=(50 * u.mm, 1000 * u.mm),
+                rRange=LayerTriplet(negative=(50 * u.mm, 500 * u.mm),
                                     central=(50 * u.mm, 440 * u.mm),
-                                    positive=(50 * u.mm, 1000 * u.mm)),
+                                    positive=(50 * u.mm, 500 * u.mm)),
                 zRange=LayerTriplet(
                     negative=(-1300 * u.mm, -700 * u.mm),
                     central=(-700 * u.mm, 700 * u.mm),
                     positive=(700 * u.mm, 1300 * u.mm),
                 ),
                 splitTolR=LayerTriplet(
-                    negative=-1.0, central=5 * u.mm, positive=-1.0),
+                    negative=-1.0, central=1 * u.mm, positive=-1.0),
                 splitTolZ=LayerTriplet(
                     negative=5 * u.mm, central=-1.0, positive=5 * u.mm
                 ),
@@ -284,8 +331,8 @@ def buildALICE3Geometry(
                 sensitiveNames=LayerTriplet(["FT3Sensor*"]),
                 sensitiveAxes=LayerTriplet("XYZ"),
                 rRange=LayerTriplet(
-                    negative=(0 * u.mm, 1500 * u.mm),
-                    positive=(0 * u.mm, 1500 * u.mm),
+                    negative=(50 * u.mm, 1500 * u.mm),
+                    positive=(50 * u.mm, 1500 * u.mm),
                 ),
                 zRange=LayerTriplet(
                     negative=(-4200 * u.mm, -1350 * u.mm),
