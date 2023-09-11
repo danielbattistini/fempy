@@ -5,16 +5,28 @@ import yaml
 from rich import print
 # todo: implement colors
 
-from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphAsymmErrors, gROOT, kRed, kBlack, kAzure
+from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphAsymmErrors, EColor
 
 from fempy.utils.io import GetObjectFromFile
 from fempy.utils.format import TranslateToLatex, FigInit
 import fempy
 
 colors = {
-    'kRed': kRed,
-    'kBlack': kBlack,
-    'kAzure': kAzure,
+    'kWhite': EColor.kWhite,
+    'kBlack': EColor.kBlack,
+    'kGray': EColor.kGray,
+    'kRed': EColor.kRed,
+    'kGreen': EColor.kGreen,
+    'kBlue': EColor.kBlue,
+    'kYellow': EColor.kYellow,
+    'kMagenta': EColor.kMagenta,
+    'kCyan': EColor.kCyan,
+    'kOrange': EColor.kOrange,
+    'kSpring': EColor.kSpring,
+    'kTeal': EColor.kTeal,
+    'kAzure': EColor.kAzure,
+    'kViolet': EColor.kViolet,
+    'kPink': EColor.kPink,
 }
 
 FigInit()
@@ -67,7 +79,6 @@ def CompareGraphs(cfgName):
                     inObj.SetLineColor(colors[inputCfg['color']])
                     inObj.SetMarkerColor(colors[inputCfg['color']])
 
-                    print(inObj.GetNbinsX())
                     if inputCfg['normalize']:
                         inObj.Scale(1./inObj.Integral())
                 inObjs.append(inObj)
@@ -94,7 +105,16 @@ def CompareGraphs(cfgName):
                         inObj.Draw('')
                 else:
                     inObj.Draw("same")
-                leg.AddEntry(inObj, legend)
+
+                # Compute statistics for hist in the displayed range
+                if isinstance(inObj, TH1) and plot['opt']['leg']['sigma']:
+                    firstBin = inObj.FindBin(plot['opt']['rangex'][0]*1.0001)
+                    lastBin = inObj.FindBin(plot['opt']['rangex'][1]*0.9999)
+                    inObj.GetXaxis().SetRange(firstBin, lastBin)
+                    print(f'{legend}: mean = {inObj.GetMean()} sigma = {inObj.GetStdDev()}')
+                    leg.AddEntry(inObj, f'{legend};    #sigma={inObj.GetStdDev():.3f}')
+                else:
+                    leg.AddEntry(inObj, legend)
             leg.SetTextSize(0.03)
             leg.SetTextSize(0.03)
 
@@ -185,7 +205,6 @@ def CompareGraphs(cfgName):
                         if isinstance(inObjUnc, TGraph):
                             inObjUnc.Draw('pa')
                         else:
-                            print("drawwww")
                             inObjUnc.Draw('')
                     else:
                         inObjUnc.Draw('same')
@@ -198,7 +217,7 @@ def CompareGraphs(cfgName):
             # save canvas
             for ext in plot["opt"]["ext"]:
                 cPlot.SaveAs(f'{os.path.splitext(plot["output"])[0]}.{ext}')
-    input()
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments')
     parser.add_argument('cfg')
