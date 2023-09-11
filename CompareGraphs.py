@@ -8,7 +8,7 @@ from rich import print
 from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, EColor
 
 from fempy.utils.io import GetObjectFromFile
-from fempy.utils.format import TranslateToLatex, FigInit, colors
+from fempy.utils.format import TranslateToLatex, FigInit
 import fempy
 
 colors = {
