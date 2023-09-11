@@ -5,10 +5,10 @@ import yaml
 from rich import print
 # todo: implement colors
 
-from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphAsymmErrors, EColor
+from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, EColor
 
 from fempy.utils.io import GetObjectFromFile
-from fempy.utils.format import TranslateToLatex, FigInit
+from fempy.utils.format import TranslateToLatex, FigInit, colors
 import fempy
 
 colors = {
@@ -31,6 +31,7 @@ colors = {
 
 FigInit()
 
+
 def GetCanvasSplitting(nPanels):
     if nPanels < 3:
         return (nPanels, 1)
@@ -47,7 +48,6 @@ def CompareGraphs(cfgName):
         except yaml.YAMLError as exc:
             print(exc)
             sys.exit()
-
 
         # gROOT.SetBatch(False)
         for plot in cfg:
@@ -76,11 +76,11 @@ def CompareGraphs(cfgName):
                 if isinstance(inObj, TH1):
                     inObj.SetDirectory(0)
                     inObj.Rebin(inputCfg['rebin'])
-                    inObj.SetLineColor(colors[inputCfg['color']])
-                    inObj.SetMarkerColor(colors[inputCfg['color']])
 
                     if inputCfg['normalize']:
                         inObj.Scale(1./inObj.Integral())
+                inObj.SetLineColor(colors[inputCfg['color']])
+                inObj.SetMarkerColor(colors[inputCfg['color']])
                 inObjs.append(inObj)
                 legends.append(inputCfg['legend'])
 
@@ -107,14 +107,16 @@ def CompareGraphs(cfgName):
                     inObj.Draw("same")
 
                 # Compute statistics for hist in the displayed range
-                if isinstance(inObj, TH1) and plot['opt']['leg']['sigma']:
+                if isinstance(inObj, TH1):
                     firstBin = inObj.FindBin(plot['opt']['rangex'][0]*1.0001)
                     lastBin = inObj.FindBin(plot['opt']['rangex'][1]*0.9999)
                     inObj.GetXaxis().SetRange(firstBin, lastBin)
                     print(f'{legend}: mean = {inObj.GetMean()} sigma = {inObj.GetStdDev()}')
-                    leg.AddEntry(inObj, f'{legend};    #sigma={inObj.GetStdDev():.3f}')
-                else:
-                    leg.AddEntry(inObj, legend)
+                    if plot['opt']['leg']['mean']:
+                        legend += f';  #mu={inObj.GetMean():.3f}'
+                    if plot['opt']['leg']['sigma']:
+                        legend += f';  #sigma={inObj.GetStdDev():.3f}'
+                leg.AddEntry(inObj, legend)
             leg.SetTextSize(0.03)
             leg.SetTextSize(0.03)
 
@@ -156,26 +158,27 @@ def CompareGraphs(cfgName):
                 line.SetLineStyle(9)
 
                 line.Draw('same')
-            
+
             # relative uncertainties
             if plot['relunc']['enable']:
                 pad = cPlot.cd(panels['relunc'])
+                pad.SetGridx(plot['relunc']['gridx'])
+                pad.SetGridy(plot['relunc']['gridy'])
+
                 pad.SetLeftMargin(0.16)
 
                 inObjsUncs = []
                 for iObj, inObj in enumerate(inObjs):
+                    inObjUnc = inObj.Clone()
                     if isinstance(inObj, TH1):
-                        inObjUnc = inObj.Clone()
                         for iBin in range(inObj.GetNbinsX()):
                             print(inObj.GetBinError(iBin+1)/inObj.GetBinContent(iBin+1))
                             inObjUnc.SetBinContent(iBin+1, 100 * inObj.GetBinError(iBin+1)/inObj.GetBinContent(iBin+1))
                             inObjUnc.SetBinError(iBin+1, 0)
 
-                        inObjsUncs.append(inObjUnc)
-                    elif isinstance(inObj, TGraph) and False:
+                    elif isinstance(inObj, TGraph):
                         for iPoint in range(inObj.GetN()):
-
-                            if isinstance(inObjUnc, TGraphAsymmErrors):
+                            if isinstance(inObjUnc, (TGraphErrors, TGraphAsymmErrors)):
                                 x = inObj.GetPointX(iPoint)
                                 y = inObj.GetPointY(iPoint)
                                 xUncUpper = inObj.GetErrorXhigh(iPoint)
@@ -187,16 +190,19 @@ def CompareGraphs(cfgName):
                                 inObjUnc.SetPoint(iPoint, x,  100 * yAvgUnc/y)
 
                                 inObjUnc.SetPointError(iPoint, xUncLower, xUncUpper, 0, 0)
-                            elif isinstance(inObjUnc, TGraphAsymmErrors):
+                            elif isinstance(inObjUnc, (TGraphErrors, TGraphAsymmErrors)):
                                 x = inObj.GetPointX(iPoint)
                                 y = inObj.GetPointY(iPoint)
                                 xUnc = inObj.GetErrorX(iPoint)
                                 yUnc = inObj.GetErrorY(iPoint)
 
-                                inObjUnc.SetPoint(iPoint, x,  1000 * yUnc/y)
+                                inObjUnc.SetPoint(iPoint, x,  100 * yUnc/y)
                                 inObjUnc.SetPointError(iPoint, xUnc, 0)
                             else:
                                 fempy.error('gne')
+                    inObjUnc.SetLineColor(inObj.GetLineColor())
+                    inObjUnc.SetMarkerColor(inObj.GetMarkerColor())
+                    inObjsUncs.append(inObjUnc)
 
                     if iObj == 0:
                         inObjUnc.GetXaxis().SetRangeUser(plot['opt']['rangex'][0], plot['opt']['rangex'][1])
@@ -208,21 +214,15 @@ def CompareGraphs(cfgName):
                             inObjUnc.Draw('')
                     else:
                         inObjUnc.Draw('same')
-                    inObjsUncs[0].SetLineColor(2)
-                    # inObjsUncs[0].Draw()
-
-                    # cPlot.Update()
-                    # cPlot.Modified()
 
             # save canvas
             for ext in plot["opt"]["ext"]:
                 cPlot.SaveAs(f'{os.path.splitext(plot["output"])[0]}.{ext}')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments')
     parser.add_argument('cfg')
     args = parser.parse_args()
 
-
-        
     CompareGraphs(args.cfg)
