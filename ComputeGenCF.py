@@ -746,6 +746,9 @@ def ComputeGenCF(args):
         gCFGenStat.Write()
         gCFGenSyst.SetName('gCFGenSyst')
         gCFGenSyst.Write()
+        gFit = gLLTot.Clone()
+        gFit.SetName('gFit')
+        gFit.Write()
 
         gBrackets = ComputeBinBrackets(hCFGenStat)
         gBrackets.Write()
