@@ -8,6 +8,7 @@
 #include <TLatex.h>
 #include <TLine.h>
 #include <TStyle.h>
+#include <TROOT.h>
 
 #include "./functions.h"
 
@@ -112,7 +113,7 @@ ROOT::Fit::FitResult fitSimultaneousLL(TGraphAsymmErrors *gSC, TGraphAsymmErrors
     auto kAzureMy = TColor::GetFreeColorIndex();
     TColor *cAzureMy = new TColor(kAzureMy, 159. / 255, 191. / 255, 223. / 255, "kAzureMy", 1.0);
 
-    double massD = TDatabasePDG::Instance()->GetParticle(411)->Mass() * 1000;
+    double massD = TDatabasePDG::Instance()->GetParticle(413)->Mass() * 1000;
     double massPi = TDatabasePDG::Instance()->GetParticle(211)->Mass() * 1000;
     double redMass = massD * massPi / (massD + massPi);
 
@@ -680,9 +681,11 @@ ROOT::Fit::FitResult fitSimultaneousLL(TGraphAsymmErrors *gSC, TGraphAsymmErrors
 //   fileToUpdate->Close();
 // }
 
-void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIter) {
+void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIter, double sourceRelUnc = -1) {
+    gROOT->SetBatch(true);
+
     TFile *inFile = new TFile(inFileName);
-    TFile *oFile = new TFile(oFileName, "create");
+    TFile *oFile = new TFile(Form("%s.root", oFileName), "create");
 
     for (auto uncType : {"tot", "stat"}) {
         oFile->mkdir(Form("%s/iters", uncType));
@@ -691,12 +694,27 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
 
         TCanvas *cCombFit = new TCanvas("cCombFit", "", 1200, 600);
         cCombFit->Divide(3, 1);
-        cCombFit->SaveAs(
-            Form("/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs%d%s.pdf[", nIter, uncType));
+        cCombFit->SaveAs(Form("%s.pdf[", oFileName));
+            // Form("/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs%d%s.pdf[", nIter, uncType));
 
         std::vector<double> weights1 = {0.66, 0.69, 0.64};
-        std::vector<double> radii1 = {0.97, 1.06, 0.89};
-        std::vector<double> radii2 = {2.52, 2.88, 2.32};
+        std::vector<double> radii1 = {0.97};
+        std::vector<double> radii2 = {2.52};
+
+        if (sourceRelUnc < 0) { // use normal uncertainties extracted from the source fit
+            radii1.push_back(1.06);
+            radii1.push_back(0.89);
+
+            radii2.push_back(2.88);
+            radii2.push_back(2.32);
+        } else { // use source from extrap of r_core(mult)
+            radii1.push_back(radii1[0] * (1 - sourceRelUnc));
+            radii1.push_back(radii1[0] * (1 + sourceRelUnc));
+
+            radii2.push_back(radii2[0] * (1 - sourceRelUnc));
+            radii2.push_back(radii2[0] * (1 + sourceRelUnc));
+        }
+        
         std::vector<std::vector<double>> fitRanges = {{10, 450}, {10, 400}, {10, 500}};
 
         for (int iIter = 0; iIter < nIter; iIter++) {
@@ -709,8 +727,12 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
             gOC->SetName(Form("gOC%s%d", uncType, iIter));
             gOC->Write();
 
-            int iRadius = gRandom->Integer(3);
-            int iFitRange = gRandom->Integer(3);
+            int iRadius = 0;
+            int iFitRange = 0;
+            if (uncType == "tot") {
+                iRadius = gRandom->Integer(3);
+                iFitRange = gRandom->Integer(3);
+            }
 
             ROOT::Fit::FitResult result = fitSimultaneousLL(gSC, gOC, radii1[iRadius], radii2[iRadius],
                                                             weights1[iRadius], fitRanges[iFitRange][1]);
@@ -767,23 +789,14 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
             gScattPar->SetMarkerStyle(20);
             gScattPar->SetMarkerSize(1);
             gScattPar->Draw("same");
-            cCombFit->SaveAs(
-                Form("/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs%d%s.pdf", nIter, uncType));
-            // cCombFit->Write();
+            cCombFit->SaveAs(Form("%s.pdf", oFileName));
             delete gSC;
             delete gOC;
         }
-        cCombFit->SaveAs(
-            Form("/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs%d%s.pdf]", nIter, uncType));
+        cCombFit->SaveAs(Form("%s.pdf]", oFileName));
         oFile->cd(uncType);
         tResults->Write();
         delete tResults;
         delete cCombFit;
     }
-    cCombFit->SaveAs(
-        Form("/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs%d%s.pdf]", nIter, uncType));
-    oFile->cd(uncType);
-    tResults->Write();
-    delete tResults;
-    delete cCombFit;
 }
