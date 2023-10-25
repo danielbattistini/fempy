@@ -376,7 +376,7 @@ def ComputeGenCF(args):
         inFileData = TFile('/home/daniel/an/DstarK/2_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
         inFileMC = TFile('~/an/DstarK/2_luuksel/distr/Distr_mchf_nopc_kStarBW50MeV_fromq.root')
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}.root'
-        oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-kaonPurity.root'
+        oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity.root'
         config = '/home/daniel/an/DstarK/cfg_gencf_DstarK_50MeV.yml'
 
         lightMass = TDatabasePDG.Instance().GetParticle(321).Mass()
