@@ -358,7 +358,7 @@ class MassFitter {
             double bkg = GetBackground(nSigma);
             return data - bkg;
         } else {
-            printf(Form("'%s' is an invalid signal extraction method. Exit!\n", method.data()));
+            printf("'%s' is an invalid signal extraction method. Exit!\n", method.data());
             exit(1);
         }
         return -1;
