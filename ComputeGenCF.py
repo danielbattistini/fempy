@@ -415,6 +415,9 @@ def ComputeGenCF(args):
             sys.exit()
 
     oFile = TFile(oFileName, 'create')
+    if oFile.IsZombie():
+        sys.exit()
+
     for comb in ['sc', 'oc']:
         np.random.seed(42)
         if args.pair == 'DstarPi' and comb == 'sc':
