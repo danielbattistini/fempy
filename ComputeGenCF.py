@@ -62,9 +62,9 @@ def IsLamParMatValid(lam_par):
     return abs(total - 1) < 1e-6
 
 
-def LoadLambdaParam(cfgCentr, npFracVar=1., heavyPurity=None):
+def LoadLambdaParam(cfgCentr, npFracAbsVar=0., heavyPurity=None):
     cfgVar = copy.deepcopy(cfgCentr)
-    cfgVar['heavy'][1]['nonprompt']['frac'] *= npFracVar
+    cfgVar['heavy'][1]['nonprompt']['frac'] += npFracAbsVar
     cfgVar['heavy'][0]['prompt']['frac'] = 1 - cfgVar['heavy'][1]['nonprompt']['frac']
 
     if heavyPurity != None:
@@ -493,7 +493,7 @@ def ComputeGenCF(args):
         if args.pair == 'DstarK':
             lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
             purity, _ = ComputeIntegratedPurity(dhhSEData[0].ProjectionY(f"Purity_{0}", 1, lastBin))
-            lamPar = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
+            lamPar = SumLamPar(LoadLambdaParam(cfg, 0, purity), cfg['treatment'])
         else:
             lamPar = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
 
@@ -555,18 +555,15 @@ def ComputeGenCF(args):
             for iIter in range(args.bs):
                 iVar = np.random.randint(nVar)
 
+                # non prompt fraction D*: (7.7 +/m 1.3 (stat) +/- 0.2 (syst)) % (syst inherited from pD)
+                npFracAbsVar = [0, (0.013**2 + 0.002**2)**0.5, -(0.013**2 + 0.002**2)**0.5][np.random.randint(3)]
+
                 if args.pair == 'DstarK':
                     lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
                     purity, _ = ComputeIntegratedPurity(dhhSEData[iVar].ProjectionY(f"hPurity_{0}", 1, lastBin))
-                    lamParCentr = SumLamPar(LoadLambdaParam(cfg, 1, purity), cfg['treatment'])
-                    lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1, purity), cfg['treatment'])
-                    lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9, purity), cfg['treatment'])
+                    lamPar = SumLamPar(LoadLambdaParam(cfg, npFracAbsVar, purity), cfg['treatment'])
 
-                    if not IsLamParMatValid(LoadLambdaParam(cfg, 1, purity)):
-                        fempy.error("lambda parameters don't sum to 1!!")
-                    if not IsLamParMatValid(LoadLambdaParam(cfg, 1.1, purity)):
-                        fempy.error("lambda parameters don't sum to 1!!")
-                    if not IsLamParMatValid(LoadLambdaParam(cfg, 0.9, purity)):
+                    if not IsLamParMatValid(LoadLambdaParam(cfg, npFracAbsVar, purity)):
                         fempy.error("lambda parameters don't sum to 1!!")
 
                     hCFSgn = dCFData[iVar]['sgn'].Clone(f'hCFSgn{iIter}')
@@ -578,9 +575,7 @@ def ComputeGenCF(args):
                     hMESgn = VaryHistogram(dMEPurity[iVar], purityVar) * dMEData[iVar]['sgn']
                     hCFSgn = hSESgn/hMESgn
 
-                    lamParCentr = SumLamPar(LoadLambdaParam(cfg), cfg['treatment'])
-                    lamParSharp = SumLamPar(LoadLambdaParam(cfg, 1.1), cfg['treatment'])
-                    lamParFlat = SumLamPar(LoadLambdaParam(cfg, 0.9), cfg['treatment'])
+                    lamPar = SumLamPar(LoadLambdaParam(cfg, npFracAbsVar), cfg['treatment'])
 
                 radius1, radius2, weight1 = list(zip(radii1, radii2, weights1))[np.random.randint(3)]
 
@@ -591,7 +586,7 @@ def ComputeGenCF(args):
                     comb=comb,
                     iVar=iVar,
                     iIter=iIter,
-                    lamPar=[lamParCentr, lamParFlat, lamParSharp][np.random.randint(3)],
+                    lamPar=lamPar,
                     fitRange=fitRanges[np.random.randint(3)],
                     bkgFitRange=bkgFitRanges[np.random.randint(3)],
                     redMass=RedMass(heavyMass, lightMass) * 1000,
