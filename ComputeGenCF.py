@@ -62,10 +62,13 @@ def IsLamParMatValid(lam_par):
     return abs(total - 1) < 1e-6
 
 
-def LoadLambdaParam(cfgCentr, npFracAbsVar=0., heavyPurity=None):
+def LoadLambdaParam(cfgCentr, npFracAbsVar=0., heavyPurity=None, lightFracRelVar=0):
     cfgVar = copy.deepcopy(cfgCentr)
     cfgVar['heavy'][1]['nonprompt']['frac'] += npFracAbsVar
     cfgVar['heavy'][0]['prompt']['frac'] = 1 - cfgVar['heavy'][1]['nonprompt']['frac']
+
+    cfgVar['light'][1]['sec']['frac'] *= (1 + lightFracRelVar)
+    cfgVar['light'][0]['prim']['frac'] = 1 - cfgVar['light'][1]['sec']['frac']
 
     if heavyPurity != None:
         cfgVar['heavy'][0]['prompt']['purity'] = heavyPurity
@@ -373,6 +376,7 @@ def ComputeGenCF(args):
         inFileData = TFile('/home/daniel/an/DstarK/2_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
         inFileMC = TFile('~/an/DstarK/2_luuksel/distr/Distr_mchf_nopc_kStarBW50MeV_fromq.root')
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}.root'
+        oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-kaonPurity.root'
         config = '/home/daniel/an/DstarK/cfg_gencf_DstarK_50MeV.yml'
 
         lightMass = TDatabasePDG.Instance().GetParticle(321).Mass()
@@ -558,10 +562,17 @@ def ComputeGenCF(args):
                 # non prompt fraction D*: (7.7 +/m 1.3 (stat) +/- 0.2 (syst)) % (syst inherited from pD)
                 npFracAbsVar = [0, (0.013**2 + 0.002**2)**0.5, -(0.013**2 + 0.002**2)**0.5][np.random.randint(3)]
 
+                # variation o thermal first
+                lightFracRelVar = [0, 0.10, -0.10][np.random.randint(3)]
+
+                # variation o D* meson purity
+
                 if args.pair == 'DstarK':
                     lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
                     purity, _ = ComputeIntegratedPurity(dhhSEData[iVar].ProjectionY(f"hPurity_{0}", 1, lastBin))
-                    lamPar = SumLamPar(LoadLambdaParam(cfg, npFracAbsVar, purity), cfg['treatment'])
+                    DmesonPurityRelVar = [0, 0.02, -0.02][np.random.randint(3)]
+                    purity *= (1. + DmesonPurityRelVar)
+                    lamPar = SumLamPar(LoadLambdaParam(cfg, npFracAbsVar, purity, lightFracRelVar), cfg['treatment'])
 
                     if not IsLamParMatValid(LoadLambdaParam(cfg, npFracAbsVar, purity)):
                         fempy.error("lambda parameters don't sum to 1!!")
