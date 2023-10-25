@@ -384,6 +384,12 @@ def ComputeGenCF(args):
         inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_data_nopc_kStarBW50MeV.root')
         inFileMC = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/Distr_mcgp_nopc_kStarBW50MeV_true.root')
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}.root'
+        if False:
+            inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/sbsyst/Distr_mass_2_7_0.20.root')
+            oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_sbsyst_mass_2_7_0.20_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}.root'
+        if True:
+            inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/sbsyst/Distr_mass_2_5_0.07.root')
+            oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_sbsyst_mass_2_5_0.07_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}.root'
         config = '/home/daniel/an/DstarPi/cfg_gencf_DstarPi_50MeV.yml'
 
         lightMass = TDatabasePDG.Instance().GetParticle(211).Mass()
@@ -408,7 +414,7 @@ def ComputeGenCF(args):
             print(exc)
             sys.exit()
 
-    oFile = TFile(oFileName, 'recreate')
+    oFile = TFile(oFileName, 'create')
     for comb in ['sc', 'oc']:
         np.random.seed(42)
         if args.pair == 'DstarPi' and comb == 'sc':
@@ -744,11 +750,12 @@ def ComputeGenCF(args):
         cFinalFit.Write()
         gCFGenStat.SetName('gCFGenStat')
         gCFGenStat.Write()
-        gCFGenSyst.SetName('gCFGenSyst')
-        gCFGenSyst.Write()
-        gFit = gLLTot.Clone()
-        gFit.SetName('gFit')
-        gFit.Write()
+        if args.syst:
+            gCFGenSyst.SetName('gCFGenSyst')
+            gCFGenSyst.Write()
+            gFit = gLLTot.Clone()
+            gFit.SetName('gFit')
+            gFit.Write()
 
         gBrackets = ComputeBinBrackets(hCFGenStat)
         gBrackets.Write()
