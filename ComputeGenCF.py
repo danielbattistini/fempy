@@ -315,7 +315,7 @@ def ComputeScattPar(**kwargs):
     fWeightedLL.FixParameter(7, 1 if comb == 'sc' else -1)
     if scalableLL:
         fWeightedLL.SetParameter(8, 1)
-        fWeightedLL.SetParLimits(8, 0.95, 1.05)
+        fWeightedLL.SetParLimits(8, 0.1, 1.1)
     else:
         fWeightedLL.FixParameter(8, 1)
 
@@ -369,6 +369,8 @@ def ComputeGenCF(args):
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL.root'
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaled.root'
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_shifted.root'
+        oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL.root'
+        oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700.root'
         config = '/home/daniel/an/DstarK/cfg_gencf_DstarK_50MeV.yml'
 
         lightMass = TDatabasePDG.Instance().GetParticle(321).Mass()
@@ -398,6 +400,7 @@ def ComputeGenCF(args):
         sys.exit()
 
     fitRanges = [[10, 450], [10, 400], [10, 500]]
+    fitRanges = [[10, 700], [10, 800], [10, 600]]
     bkgFitRanges = [[300, 1000], [350, 1100], [250, 900]]
     normRange = [1500, 2000]
     heavyMass = TDatabasePDG.Instance().GetParticle(411).Mass()
