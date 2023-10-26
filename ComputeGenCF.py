@@ -9,7 +9,7 @@ import numpy as np
 from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend, gRandom, TNtuple, TH2D, RDataFrame, TH1D
 gInterpreter.ProcessLine('#include "combfit/functions.h"')
 gInterpreter.ProcessLine('#include "fempy/MassFitter.hxx"')
-from ROOT import MassFitter, GeneralCoulombLednickyTwoRadii
+from ROOT import MassFitter, ScalableGeneralCoulombLednickyTwoRadii
 
 import fempy
 from fempy.utils.analysis import ComputeBinBrackets
@@ -220,6 +220,7 @@ def ComputeScattPar(**kwargs):
     hCFMJ = kwargs['mj']
     lamPar = kwargs['lamPar']
     gGravities = kwargs['gGravities']
+    scalableLL = kwargs['scalableLL']
     redMass = kwargs['redMass']
     radius1 = kwargs['radius1']
     radius2 = kwargs['radius2']
@@ -285,7 +286,7 @@ def ComputeScattPar(**kwargs):
             hhCFGen.Fill(hCFGen.GetBinCenter(iBin+1), hCFGen.GetBinContent(iBin+1))
 
     # Compute the coulomb-only CF with Lednicky
-    fCoulomb = TF1("fCoulomb", GeneralCoulombLednickyTwoRadii, fitRange[0], fitRange[1], 8)
+    fCoulomb = TF1("fCoulomb", ScalableGeneralCoulombLednickyTwoRadii, fitRange[0], fitRange[1], 9)
     fCoulomb.FixParameter(0, radius1)
     fCoulomb.FixParameter(1, radius2)
     fCoulomb.FixParameter(2, weight1)
@@ -294,11 +295,12 @@ def ComputeScattPar(**kwargs):
     fCoulomb.FixParameter(5, 0.)
     fCoulomb.FixParameter(6, redMass)
     fCoulomb.FixParameter(7, 1 if comb == 'sc' else -1)
+    fCoulomb.FixParameter(8, 1)
     fCoulomb.SetLineColor(kBlue)
 
     # Fit the CF
     gCFGen = ApplyCenterOfGravity(hCFGen, gGravities)
-    fWeightedLL = TF1(f"fWeightedLL{iIter}", GeneralCoulombLednickyTwoRadii, fitRange[0], fitRange[1], 8)
+    fWeightedLL = TF1(f"fWeightedLL{iIter}", ScalableGeneralCoulombLednickyTwoRadii, fitRange[0], fitRange[1], 9)
     fWeightedLL.FixParameter(0, radius1)
     fWeightedLL.FixParameter(1, radius2)
     fWeightedLL.FixParameter(2, weight1)
@@ -308,11 +310,17 @@ def ComputeScattPar(**kwargs):
     fWeightedLL.FixParameter(5, 0.)
     fWeightedLL.FixParameter(6, redMass)
     fWeightedLL.FixParameter(7, 1 if comb == 'sc' else -1)
+    if scalableLL:
+        fWeightedLL.SetParameter(8, 1)
+        fWeightedLL.SetParLimits(8, 0.95, 1.05)
+    else:
+        fWeightedLL.FixParameter(8, 1)
 
     status = gCFGen.Fit(fWeightedLL, "SMRQ+0").Status()
     chi2ndf = fWeightedLL.GetChisquare()/fWeightedLL.GetNDF()
     scattLen = fWeightedLL.GetParameter(3)
     scattLenUnc = fWeightedLL.GetParError(3)
+    normLL = fWeightedLL.GetParameter(8)
 
     # Draw canvas
     cFit = TCanvas(f'cFit_{iIter}', '', 600, 600)
@@ -338,11 +346,11 @@ def ComputeScattPar(**kwargs):
     if chi2ndf > 3 or abs(scattLen) > 0.99:
         tl.DrawLatex(0.2, 0.85 - 3 * step, 'BAD FIT')
     else:
-        tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, iVar, purityVar, weight1, radius1, radius2, fitRange[1], bkgFitRange[0], bkgFitRange[1], lamPar['flat'], lamPar['gen'])
+        tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, iVar, purityVar, weight1, radius1, radius2, fitRange[1], bkgFitRange[0], bkgFitRange[1], lamPar['flat'], lamPar['gen'], normLL)
     gCFGen.SetName(f'gCFGen{iIter}')
     gCFGen.Write()
     cFit.Write()
-    return scattLen, scattLenUnc, chi2ndf, hCFGen
+    return scattLen, scattLenUnc, normLL, chi2ndf, hCFGen
 
 
 def ComputeGenCF(args):
@@ -356,6 +364,7 @@ def ComputeGenCF(args):
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity.root'
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp.root'
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL.root'
+        oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaled.root'
         config = '/home/daniel/an/DstarK/cfg_gencf_DstarK_50MeV.yml'
 
         lightMass = TDatabasePDG.Instance().GetParticle(321).Mass()
@@ -466,7 +475,7 @@ def ComputeGenCF(args):
         gGravities = LoadGravities(hGravities, kStarBW)
         gGravities.Write()
 
-        tTrialsStat = TNtuple('tTrialsStat', 'trials', 'a0:a0unc:status:chi2ndf:iVar:purityVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
+        tTrialsStat = TNtuple('tTrialsStat', 'trials', 'a0:a0unc:status:chi2ndf:iVar:purityVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen:normLL')
 
         oFile.mkdir(f'{comb}/stat')
         oFile.cd(f'{comb}/stat')
@@ -490,7 +499,7 @@ def ComputeGenCF(args):
                 hCFSgn = hSESgn/hMESgn
             hCFMJ = hCFMC.Clone(f'hCFMC{iIter}')
 
-            scattLen, _, _, hCFGen = ComputeScattPar(
+            scattLen, _, normLL, _, hCFGen = ComputeScattPar(
                 sgn=hCFSgn if iIter == 0 else Bootstrap(hCFSgn),
                 sbr=None if args.pair == 'DstarPi' else hCFSbr if iIter == 0 else Bootstrap(hCFSbr),
                 mj=hCFMJ if iIter == 0 else Bootstrap(hCFMJ),
@@ -508,6 +517,7 @@ def ComputeGenCF(args):
                 gGravities=gGravities,
                 tTrials=tTrialsStat,
                 purityVar=0,
+                scalableLL=args.scalableLL,
             )
 
         oFile.cd(comb)
@@ -533,7 +543,7 @@ def ComputeGenCF(args):
             oFile.mkdir(f'{comb}/tot')
             oFile.cd(f'{comb}/tot')
             hhCFGenTot = TH2D('hhCFGenTot', '', dCFData[0]['sgn'].GetNbinsX(), 0, 3000, 2000, 0, 2)
-            tTrialsTot = TNtuple('tTrialsTot', 'trials', 'a0:a0unc:status:chi2ndf:iVar:purityVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen')
+            tTrialsTot = TNtuple('tTrialsTot', 'trials', 'a0:a0unc:status:chi2ndf:iVar:purityVar:w1:r1:r2:fitMax:bkgFitMin:bkgFitMax:lFlat:lGen:normLL')
 
             for iIter in range(args.bs):
                 iVar = np.random.randint(nVar)
@@ -587,6 +597,8 @@ def ComputeGenCF(args):
                     hhCFGen=hhCFGenTot,
                     tTrials=tTrialsTot,
                     purityVar=purity,
+                    normLL=normLL,
+                    scalableLL=args.scalableLL,
                 )
             oFile.cd(comb)
 
@@ -613,8 +625,8 @@ def ComputeGenCF(args):
             # plot syst curve
             dfTrialsTot = pd.DataFrame(RDataFrame(tTrialsTot).AsNumpy())
             cfVariationTot = [[] for _ in range(nLednickyPoints)]
-            for iVar, (scattLen, iVar, r1, r2, w1) in enumerate(zip(dfTrialsTot['a0'], dfTrialsTot['iVar'], dfTrialsTot['r1'], dfTrialsTot['r2'], dfTrialsTot['w1'])):
-                fWeightedLLTot = TF1(f"fWeightedLLTot{iVar}", GeneralCoulombLednickyTwoRadii, fitRanges[0][0], fitRanges[0][1], 8)
+            for iVar, (scattLen, iVar, r1, r2, w1, normLL) in enumerate(zip(dfTrialsTot['a0'], dfTrialsTot['iVar'], dfTrialsTot['r1'], dfTrialsTot['r2'], dfTrialsTot['w1'], dfTrialsTot['normLL'])):
+                fWeightedLLTot = TF1(f"fWeightedLLTot{iVar}", ScalableGeneralCoulombLednickyTwoRadii, fitRanges[0][0], fitRanges[0][1], 9)
                 fWeightedLLTot.FixParameter(0, r1)
                 fWeightedLLTot.FixParameter(1, r2)
                 fWeightedLLTot.FixParameter(2, w1)
@@ -623,7 +635,7 @@ def ComputeGenCF(args):
                 fWeightedLLTot.FixParameter(5, 0.)
                 fWeightedLLTot.FixParameter(6, RedMass(lightMass, heavyMass)*1000)
                 fWeightedLLTot.FixParameter(7, 1 if comb == 'sc' else -1)
-
+                fWeightedLLTot.FixParameter(8, normLL)
                 for iPoint in range(nLednickyPoints):
                     cfVariationTot[iPoint].append(fWeightedLLTot.Eval(float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
 
@@ -635,8 +647,8 @@ def ComputeGenCF(args):
         # plot lednicky curves
         dfTrials = pd.DataFrame(RDataFrame(tTrialsStat).AsNumpy())
         cfVariationStat = [[] for _ in range(nLednickyPoints)]
-        for iIter, scattLen in enumerate(dfTrials['a0']):
-            fWeightedLLStat = TF1(f"fWeightedLLStat{iIter}", GeneralCoulombLednickyTwoRadii, fitRanges[0][0], fitRanges[0][1], 8)
+        for iIter, (scattLen, normLL) in enumerate(zip(dfTrials['a0'], dfTrials['normLL'])):
+            fWeightedLLStat = TF1(f"fWeightedLLStat{iIter}", ScalableGeneralCoulombLednickyTwoRadii, fitRanges[0][0], fitRanges[0][1], 9)
             fWeightedLLStat.FixParameter(0, radii1[0])
             fWeightedLLStat.FixParameter(1, radii2[0])
             fWeightedLLStat.FixParameter(2, weights1[0])
@@ -645,6 +657,7 @@ def ComputeGenCF(args):
             fWeightedLLStat.FixParameter(5, 0.)
             fWeightedLLStat.FixParameter(6, RedMass(lightMass, heavyMass)*1000)
             fWeightedLLStat.FixParameter(7, 1 if comb == 'sc' else -1)
+            fWeightedLLStat.FixParameter(8, normLL)
 
             for iPoint in range(nLednickyPoints):
                 cfVariationStat[iPoint].append(fWeightedLLStat.Eval(float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
@@ -700,7 +713,7 @@ def ComputeGenCF(args):
         if args.bs > 0 and args.syst:
             tl.DrawLatex(0.2, 0.85 - 2 * step, f'#chi^{{2}}/ndf = {chi2:.0f} / {ndf:.0f}')
 
-        fCoulombLL = TF1(f"fCoulombLL", GeneralCoulombLednickyTwoRadii, fitRanges[0][0], fitRanges[0][1], 8)
+        fCoulombLL = TF1("fCoulombLL", ScalableGeneralCoulombLednickyTwoRadii, fitRanges[0][0], fitRanges[0][1], 9)
         fCoulombLL.FixParameter(0, radii1[0])
         fCoulombLL.FixParameter(1, radii2[0])
         fCoulombLL.FixParameter(2, weights1[0])
@@ -709,6 +722,7 @@ def ComputeGenCF(args):
         fCoulombLL.FixParameter(5, 0.)
         fCoulombLL.FixParameter(6, RedMass(lightMass, heavyMass)*1000)
         fCoulombLL.FixParameter(7, 1 if comb == 'sc' else -1)
+        fCoulombLL.FixParameter(8, 1)
         fCoulombLL.SetLineColor(kBlue)
 
         leg = TLegend(0.6, 0.75, .9, 0.9)
@@ -756,6 +770,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pair', choices=('DstarPi', 'DstarK'))
     parser.add_argument('--syst', action='store_true', default=False)
+    parser.add_argument('--scalableLL', action='store_true', default=False)
     parser.add_argument('--bs', type=int, default=0)
     args = parser.parse_args()
 
