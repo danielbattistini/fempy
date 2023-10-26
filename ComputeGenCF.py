@@ -315,8 +315,8 @@ def ComputeScattPar(**kwargs):
     fCoulomb.FixParameter(3, 0)
     fCoulomb.FixParameter(4, 0.)
     fCoulomb.FixParameter(5, 0.)
-    fCoulomb.FixParameter(6, 1 if comb == 'sc' else -1)
-    fCoulomb.FixParameter(7, redMass)
+    fCoulomb.FixParameter(6, redMass)
+    fCoulomb.FixParameter(7, 1 if comb == 'sc' else -1)
     fCoulomb.SetLineColor(kBlue)
 
     # Fit the CF
@@ -329,8 +329,8 @@ def ComputeScattPar(**kwargs):
     fWeightedLL.SetParLimits(3, -1, 1)
     fWeightedLL.FixParameter(4, 0.)
     fWeightedLL.FixParameter(5, 0.)
-    fWeightedLL.FixParameter(6, 1 if comb == 'sc' else -1)
-    fWeightedLL.FixParameter(7, redMass)
+    fWeightedLL.FixParameter(6, redMass)
+    fWeightedLL.FixParameter(7, 1 if comb == 'sc' else -1)
 
     status = gCFGen.Fit(fWeightedLL, "SMRQ+0").Status()
     chi2ndf = fWeightedLL.GetChisquare()/fWeightedLL.GetNDF()
@@ -377,6 +377,7 @@ def ComputeGenCF(args):
         inFileMC = TFile('~/an/DstarK/2_luuksel/distr/Distr_mchf_nopc_kStarBW50MeV_fromq.root')
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}.root'
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity.root'
+        oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp.root'
         config = '/home/daniel/an/DstarK/cfg_gencf_DstarK_50MeV.yml'
 
         lightMass = TDatabasePDG.Instance().GetParticle(321).Mass()
@@ -642,8 +643,8 @@ def ComputeGenCF(args):
                 fWeightedLLTot.FixParameter(3, scattLen)
                 fWeightedLLTot.FixParameter(4, 0.)
                 fWeightedLLTot.FixParameter(5, 0.)
-                fWeightedLLTot.FixParameter(6, 1 if comb == 'sc' else -1)
-                fWeightedLLTot.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
+                fWeightedLLTot.FixParameter(6, RedMass(lightMass, heavyMass)*1000)
+                fWeightedLLTot.FixParameter(7, 1 if comb == 'sc' else -1)
 
                 for iPoint in range(nLednickyPoints):
                     cfVariationTot[iPoint].append(fWeightedLLTot.Eval(float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
@@ -664,8 +665,8 @@ def ComputeGenCF(args):
             fWeightedLLStat.FixParameter(3, scattLen)
             fWeightedLLStat.FixParameter(4, 0.)
             fWeightedLLStat.FixParameter(5, 0.)
-            fWeightedLLStat.FixParameter(6, 1 if comb == 'sc' else -1)
-            fWeightedLLStat.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
+            fWeightedLLStat.FixParameter(6, RedMass(lightMass, heavyMass)*1000)
+            fWeightedLLStat.FixParameter(7, 1 if comb == 'sc' else -1)
 
             for iPoint in range(nLednickyPoints):
                 cfVariationStat[iPoint].append(fWeightedLLStat.Eval(float(iPoint)/nLednickyPoints*(fitRanges[0][1] - fitRanges[0][0]) + fitRanges[0][0]))
@@ -728,8 +729,8 @@ def ComputeGenCF(args):
         fCoulombLL.FixParameter(3, 0)
         fCoulombLL.FixParameter(4, 0.)
         fCoulombLL.FixParameter(5, 0.)
-        fCoulombLL.FixParameter(6, 1 if comb == 'sc' else -1)
-        fCoulombLL.FixParameter(7, RedMass(lightMass, heavyMass)*1000)
+        fCoulombLL.FixParameter(6, RedMass(lightMass, heavyMass)*1000)
+        fCoulombLL.FixParameter(7, 1 if comb == 'sc' else -1)
         fCoulombLL.SetLineColor(kBlue)
 
         leg = TLegend(0.6, 0.75, .9, 0.9)
