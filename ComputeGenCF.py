@@ -9,7 +9,10 @@ import numpy as np
 from ROOT import TFile, TF1, TGraphErrors, TDatabasePDG, gInterpreter, TCanvas, kBlue, TLatex, gStyle, TLegend, gRandom, TNtuple, TH2D, RDataFrame, TH1D
 gInterpreter.ProcessLine('#include "combfit/functions.h"')
 gInterpreter.ProcessLine('#include "fempy/MassFitter.hxx"')
-from ROOT import MassFitter, ScalableGeneralCoulombLednickyTwoRadii
+from ROOT import MassFitter, ScalableGeneralCoulombLednickyTwoRadii, ScalableShifted300GeneralCoulombLednickyTwoRadii
+
+LednickyModel = ScalableGeneralCoulombLednickyTwoRadii
+
 
 import fempy
 from fempy.utils.analysis import ComputeBinBrackets
@@ -286,7 +289,7 @@ def ComputeScattPar(**kwargs):
             hhCFGen.Fill(hCFGen.GetBinCenter(iBin+1), hCFGen.GetBinContent(iBin+1))
 
     # Compute the coulomb-only CF with Lednicky
-    fCoulomb = TF1("fCoulomb", ScalableGeneralCoulombLednickyTwoRadii, fitRange[0], fitRange[1], 9)
+    fCoulomb = TF1("fCoulomb", LednickyModel, fitRange[0], fitRange[1], 9)
     fCoulomb.FixParameter(0, radius1)
     fCoulomb.FixParameter(1, radius2)
     fCoulomb.FixParameter(2, weight1)
@@ -300,7 +303,7 @@ def ComputeScattPar(**kwargs):
 
     # Fit the CF
     gCFGen = ApplyCenterOfGravity(hCFGen, gGravities)
-    fWeightedLL = TF1(f"fWeightedLL{iIter}", ScalableGeneralCoulombLednickyTwoRadii, fitRange[0], fitRange[1], 9)
+    fWeightedLL = TF1(f"fWeightedLL{iIter}", LednickyModel, fitRange[0], fitRange[1], 9)
     fWeightedLL.FixParameter(0, radius1)
     fWeightedLL.FixParameter(1, radius2)
     fWeightedLL.FixParameter(2, weight1)
@@ -365,6 +368,7 @@ def ComputeGenCF(args):
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp.root'
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL.root'
         oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaled.root'
+        oFileName = f'/home/daniel/an/DstarK/2_luuksel/GenCFCorr_nopc_kStarBW50MeV_fromq_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_shifted.root'
         config = '/home/daniel/an/DstarK/cfg_gencf_DstarK_50MeV.yml'
 
         lightMass = TDatabasePDG.Instance().GetParticle(321).Mass()
@@ -626,7 +630,7 @@ def ComputeGenCF(args):
             dfTrialsTot = pd.DataFrame(RDataFrame(tTrialsTot).AsNumpy())
             cfVariationTot = [[] for _ in range(nLednickyPoints)]
             for iVar, (scattLen, iVar, r1, r2, w1, normLL) in enumerate(zip(dfTrialsTot['a0'], dfTrialsTot['iVar'], dfTrialsTot['r1'], dfTrialsTot['r2'], dfTrialsTot['w1'], dfTrialsTot['normLL'])):
-                fWeightedLLTot = TF1(f"fWeightedLLTot{iVar}", ScalableGeneralCoulombLednickyTwoRadii, fitRanges[0][0], fitRanges[0][1], 9)
+                fWeightedLLTot = TF1(f"fWeightedLLTot{iVar}", LednickyModel, fitRanges[0][0], fitRanges[0][1], 9)
                 fWeightedLLTot.FixParameter(0, r1)
                 fWeightedLLTot.FixParameter(1, r2)
                 fWeightedLLTot.FixParameter(2, w1)
@@ -648,7 +652,7 @@ def ComputeGenCF(args):
         dfTrials = pd.DataFrame(RDataFrame(tTrialsStat).AsNumpy())
         cfVariationStat = [[] for _ in range(nLednickyPoints)]
         for iIter, (scattLen, normLL) in enumerate(zip(dfTrials['a0'], dfTrials['normLL'])):
-            fWeightedLLStat = TF1(f"fWeightedLLStat{iIter}", ScalableGeneralCoulombLednickyTwoRadii, fitRanges[0][0], fitRanges[0][1], 9)
+            fWeightedLLStat = TF1(f"fWeightedLLStat{iIter}", LednickyModel, fitRanges[0][0], fitRanges[0][1], 9)
             fWeightedLLStat.FixParameter(0, radii1[0])
             fWeightedLLStat.FixParameter(1, radii2[0])
             fWeightedLLStat.FixParameter(2, weights1[0])
@@ -713,7 +717,7 @@ def ComputeGenCF(args):
         if args.bs > 0 and args.syst:
             tl.DrawLatex(0.2, 0.85 - 2 * step, f'#chi^{{2}}/ndf = {chi2:.0f} / {ndf:.0f}')
 
-        fCoulombLL = TF1("fCoulombLL", ScalableGeneralCoulombLednickyTwoRadii, fitRanges[0][0], fitRanges[0][1], 9)
+        fCoulombLL = TF1("fCoulombLL", LednickyModel, fitRanges[0][0], fitRanges[0][1], 9)
         fCoulombLL.FixParameter(0, radii1[0])
         fCoulombLL.FixParameter(1, radii2[0])
         fCoulombLL.FixParameter(2, weights1[0])
@@ -771,7 +775,10 @@ if __name__ == '__main__':
     parser.add_argument('--pair', choices=('DstarPi', 'DstarK'))
     parser.add_argument('--syst', action='store_true', default=False)
     parser.add_argument('--scalableLL', action='store_true', default=False)
+    parser.add_argument('--shift', action='store_true', default=False)
     parser.add_argument('--bs', type=int, default=0)
     args = parser.parse_args()
+
+    LednickyModel = ScalableShifted300GeneralCoulombLednickyTwoRadii if args.shift else ScalableGeneralCoulombLednickyTwoRadii
 
     ComputeGenCF(args)

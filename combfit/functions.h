@@ -151,6 +151,30 @@ double ScalableGeneralCoulombLednickyTwoRadii(double *x, double *pars) {
 
 /*
 x[0]:   Momentum (double)
+par[0]: r1 (double)
+par[1]: r2 (double)
+par[2]: w1 (double)
+par[3]: ScattLen (double)
+par[4]: EffRange (double)
+par[5]: QS (bool)
+par[6]: RedMass (double)
+par[7]: Q1Q (double)
+par[8]: overall normalization (double)
+*/
+double ScalableShifted300GeneralCoulombLednickyTwoRadii(double *x, double *pars) {
+    double gcl1 = GeneralCoulombLednicky(x[0], pars[0], pars[3], pars[4], static_cast<bool>(pars[5]), pars[6], pars[7]);
+    double gcl2 = GeneralCoulombLednicky(x[0], pars[1], pars[3], pars[4], static_cast<bool>(pars[5]), pars[6], pars[7]);
+    double cf = pars[8] * (pars[2] * gcl1 + (1 - pars[2]) * gcl2);
+    // compute the CF at 300 MeV and shift
+    double res1 = GeneralCoulombLednicky(300, pars[0], pars[3], pars[4], static_cast<bool>(pars[5]), pars[6], pars[7]);
+    double res2 = GeneralCoulombLednicky(300, pars[1], pars[3], pars[4], static_cast<bool>(pars[5]), pars[6], pars[7]);
+    double residue = pars[8] * (pars[2] * res1 + (1 - pars[2]) * res2);
+    
+    return cf - (residue - 1);
+}
+
+/*
+x[0]:   Momentum (double)
 
 par[0]: r1 (double)
 par[1]: r2 (double)
