@@ -585,8 +585,8 @@ def ComputeGenCF(args):
                     hSESgn = VaryHistogram(dSEPurity[iVar], purityVar) * dSEData[iVar]['sgn']
                     hMESgn = VaryHistogram(dMEPurity[iVar], purityVar) * dMEData[iVar]['sgn']
                     hCFSgn = hSESgn/hMESgn
-
-                    lamPar = SumLamPar(LoadLambdaParam(cfg, npFracAbsVar), cfg['treatment'])
+                    purity = purityVar
+                    lamPar = SumLamPar(LoadLambdaParam(cfg, npFracAbsVar, lightFracRelVar=lightFracRelVar), cfg['treatment'])
 
                 radius1, radius2, weight1 = list(zip(radii1, radii2, weights1))[np.random.randint(3)]
 
@@ -607,7 +607,7 @@ def ComputeGenCF(args):
                     gGravities=gGravities,
                     hhCFGen=hhCFGenTot,
                     tTrials=tTrialsTot,
-                    purityVar=purityVar,
+                    purityVar=purity,
                 )
             oFile.cd(comb)
 
