@@ -133,6 +133,24 @@ double GeneralCoulombLednickyTwoRadii(double *x, double *pars) {
 
 /*
 x[0]:   Momentum (double)
+par[0]: r1 (double)
+par[1]: r2 (double)
+par[2]: w1 (double)
+par[3]: ScattLen (double)
+par[4]: EffRange (double)
+par[5]: QS (bool)
+par[6]: RedMass (double)
+par[7]: Q1Q (double)
+par[8]: overall normalization (double)
+*/
+double ScalableGeneralCoulombLednickyTwoRadii(double *x, double *pars) {
+    double gcl1 = GeneralCoulombLednicky(x[0], pars[0], pars[3], pars[4], static_cast<bool>(pars[5]), pars[6], pars[7]);
+    double gcl2 = GeneralCoulombLednicky(x[0], pars[1], pars[3], pars[4], static_cast<bool>(pars[5]), pars[6], pars[7]);
+    return pars[8] * (pars[2] * gcl1 + (1 - pars[2]) * gcl2);
+}
+
+/*
+x[0]:   Momentum (double)
 
 par[0]: r1 (double)
 par[1]: r2 (double)
@@ -152,4 +170,26 @@ double GeneralCoulombLednickySecondTwoRadii(double *x, double *pars) {
                                                         static_cast<bool>(pars[7]), pars[8], pars[9]);
 }
 
+/*
+x[0]:   Momentum (double)
+
+par[0]: r1 (double)
+par[1]: r2 (double)
+par[2]: w1 (double)
+par[3]: ScattLenSin (double)
+par[4]: EffRangeSin (double)
+par[5]: ScattLenTri (double)
+par[6]: EffRangeTri (double)
+par[7]: QS (bool)
+par[8]: RedMass (double)
+par[9]: Q1Q (double)
+par[10]: overall normalization (double)
+*/
+double ScalableGeneralCoulombLednickySecondTwoRadii(double *x, double *pars) {
+    double gcl1 = GeneralCoulombLednickySecond(x[0], pars[0], pars[3], pars[4], pars[5], pars[6],
+                                               static_cast<bool>(pars[7]), pars[8], pars[9]);
+    double gcl2 = GeneralCoulombLednickySecond(x[0], pars[1], pars[3], pars[4], pars[5], pars[6],
+                                               static_cast<bool>(pars[7]), pars[8], pars[9]);
+    return pars[10] * (pars[2] * gcl1 + (1 - pars[2]) * gcl2);
+}
 #endif  // COMBFIT_FUNCTIONS_H_
