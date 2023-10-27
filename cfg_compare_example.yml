@@ -1,0 +1,40 @@
+- plot:
+    output: ~/an/DPi/14_mult/CompareMultEvt
+
+    input:
+    -   file:  /data/DPi/merge_4849/AnalysisResults_4849.root
+        name: HM_CharmFemto_DplusPion_EvtCuts0/HM_CharmFemto_DplusPion_EvtCuts0/fHistNtrackletsAllEvents
+        legend: 'All evts'
+        rebin: 1
+        color: kRed
+        normalize: true
+    -   file:  /data/DPi/merge_4849/AnalysisResults_4849.root
+        name: HM_CharmFemto_DplusPion_EvtCuts0/HM_CharmFemto_DplusPion_EvtCuts0/fHistNtrackletsEventsWithD
+        legend: 'Evts With D'
+        rebin: 1
+        color: kBlue
+        normalize: true
+
+    opt:
+        rangex: [0, 150]
+        rangey: [0, 0.05]
+        rebin: 1
+        logx: false
+        logy: false
+        title: ';#it{N}_{tracklets};Counts'
+
+        ext: [pdf]
+
+        leg:
+            posx: [0.2, 0.5]
+            posy: [0.7, 0.9]
+            header: 'tracklets'
+
+    ratio:
+        enable: false
+        rangey: [0, 3.5]
+        rebin: 1
+
+    relunc:
+        enable: false
+        rangey: [0, 10]
