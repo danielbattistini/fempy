@@ -17,6 +17,7 @@ LednickyModel = ScalableGeneralCoulombLednickyTwoRadii
 import fempy
 from fempy.utils.analysis import ComputeBinBrackets
 
+gRandom.SetSeed(1)
 
 def Average(hist, xmin, xmax):
     firstBin = hist.GetXaxis().FindBin(xmin * 1.0001)
@@ -147,7 +148,7 @@ def Bootstrap(hist):
         mu = hist.GetBinContent(iBin)
         sigma = hist.GetBinError(iBin)
 
-        hBootstrapped.SetBinContent(iBin, np.random.normal(mu, sigma))
+        hBootstrapped.SetBinContent(iBin, gRandom.Gaus(mu, sigma))
         hBootstrapped.SetBinError(iBin, sigma)
     return hBootstrapped
 
