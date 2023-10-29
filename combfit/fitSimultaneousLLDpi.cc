@@ -12,9 +12,10 @@
 
 #include "./functions.h"
 
+// singlet = 3/2
 // definition of shared parameter
 // same charge function
-const int nParsSC = 8;
+const int nParsSC = 9;
 int iparSC[nParsSC] = {
     0,  // first source radius
     1,  // second source radius
@@ -23,11 +24,12 @@ int iparSC[nParsSC] = {
     4,  // effective range singlet
     7,  // QS
     8,  // charge product
-    10  // reduced mass
+    10,  // reduced mass
+    11,  // overall normalization
 };
 
 // opposite charge function
-const int nParsOC = 10;
+const int nParsOC = 11;
 int iparOC[nParsOC] = {
     0,  // first source radius
     1,  // second source radius
@@ -38,7 +40,8 @@ int iparOC[nParsOC] = {
     6,  // effective range triplet
     7,  // QS
     9,  // charge product
-    10  // reduced mass
+    10,  // reduced mass
+    12,  // overall normalization
 };
 
 // Create the GlobalCHi2 structure
@@ -97,7 +100,8 @@ double GetMinHisto(TH1 *histo) {
 
 ROOT::Fit::FitResult fitSimultaneousLL(TGraphAsymmErrors *gSC, TGraphAsymmErrors *gOC, double radiusFirst = 0.97,
                                        double radiusSecond = 2.52, double weightFirst = 0.66, double maxRange = 300.,
-                                       bool deleteFile = false, std::string outName = "LLSimFit_Dpi",
+                                       bool scalableLL = false, bool deleteFile = false,
+                                       std::string outName = "LLSimFit_Dpi",
                                        std::string suffix = "", bool savePDF = false, bool fixRadii = true) {
     gStyle->SetPadRightMargin(0.035);
     gStyle->SetPadTopMargin(0.035);
@@ -118,8 +122,8 @@ ROOT::Fit::FitResult fitSimultaneousLL(TGraphAsymmErrors *gSC, TGraphAsymmErrors
     double redMass = massD * massPi / (massD + massPi);
 
     // now perform global fit
-    auto fSCSim = new TF1("fSCSim", GeneralCoulombLednickyTwoRadii, 0., maxRange, nParsSC);
-    auto fOCSim = new TF1("fOCSim", GeneralCoulombLednickySecondTwoRadii, 0., maxRange, nParsOC);
+    auto fSCSim = new TF1("fSCSim", ScalableGeneralCoulombLednickyTwoRadii, 0., maxRange, nParsSC);
+    auto fOCSim = new TF1("fOCSim", ScalableGeneralCoulombLednickySecondTwoRadii, 0., maxRange, nParsOC);
 
     ROOT::Math::WrappedMultiTF1 wfSC(*fSCSim, 1);
     ROOT::Math::WrappedMultiTF1 wfOC(*fOCSim, 1);
@@ -139,8 +143,8 @@ ROOT::Fit::FitResult fitSimultaneousLL(TGraphAsymmErrors *gSC, TGraphAsymmErrors
     ROOT::Fit::Chi2Function chi2_OC(dataOC, wfOC);
     GlobalChi2 globalChi2(chi2_SC, chi2_OC);
 
-    const int nPars = 11;
-    double par0[nPars] = {radiusFirst, radiusSecond, weightFirst, -0.08, 0., -0.08, 0., 0., 1., -1., redMass};
+    const int nPars = 13;
+    double par0[nPars] = {radiusFirst, radiusSecond, weightFirst, -0.08, 0., -0.08, 0., 0., 1., -1., redMass, 1, 1};
 
     ROOT::Fit::Fitter fitter;
     fitter.Config().SetParamsSettings(nPars, par0);
@@ -157,8 +161,17 @@ ROOT::Fit::FitResult fitSimultaneousLL(TGraphAsymmErrors *gSC, TGraphAsymmErrors
     fitter.Config().ParSettings(8).Fix();
     fitter.Config().ParSettings(9).Fix();
     fitter.Config().ParSettings(10).Fix();
+    if (scalableLL) {
+        fitter.Config().ParSettings(11).SetLowerLimit(0.95);
+        fitter.Config().ParSettings(11).SetUpperLimit(1.05);
+        fitter.Config().ParSettings(12).SetLowerLimit(0.95);
+        fitter.Config().ParSettings(12).SetUpperLimit(1.05);
+    } else {
+        fitter.Config().ParSettings(11).Fix();
+        fitter.Config().ParSettings(12).Fix();
+    }
 
-    fitter.Config().MinimizerOptions().SetPrintLevel(0);
+    fitter.Config().MinimizerOptions().SetPrintLevel(1);
     fitter.Config().SetMinimizer("Minuit2", "Migrad");
 
     // // fit FCN function directly
@@ -168,529 +181,22 @@ ROOT::Fit::FitResult fitSimultaneousLL(TGraphAsymmErrors *gSC, TGraphAsymmErrors
     ROOT::Fit::FitResult result = fitter.Result();
 
     return result;
-
-    // const double *params = result.GetParams();
-    // const double *parErrors = result.GetErrors();
-
-    // auto lineAtOne = new TLine(0., 1., 300., 1.);
-    // lineAtOne->SetLineWidth(1);
-    // lineAtOne->SetLineColor(kGray + 1);
-    // lineAtOne->SetLineStyle(2);
-
-    // auto lat = new TLatex();
-    // lat->SetTextColor(kBlack);
-    // lat->SetTextFont(42);
-    // lat->SetTextSize(0.045);
-    // lat->SetNDC();
-
-    // auto cSimFit = new TCanvas("cSimFit", "", 1000, 500);
-    // cSimFit->Divide(2, 1);
-    // cSimFit->cd(1)->DrawFrame(0., 0.5, 300., 1.5,
-    //                           ";#it{k}* (MeV/#it{c});#it{C}(#it{k}*)");
-    // lineAtOne->Draw();
-    // fSCSim->SetFitResult(result, iparSC);
-    // fSCSim->SetRange(rangeSC().first, rangeSC().second);
-    // fSCSim->SetLineColor(kAzure + 4);
-    // fSCSimStat->SetFitResult(resultStat, iparSC);
-    // fSCSimStat->SetRange(rangeSC().first, rangeSC().second);
-    // fSCSimStat->SetLineColor(kAzure + 4);
-
-    // MyFitResult myResultSCStat(fitter.Result(), fSCSim, iparSC);
-    // TH1F *hCISCStat = new TH1F("hCISCStat", "", 1000, 0., maxRange);
-    // hCISCStat->SetFillColor(kAzureMy);
-    // hCISCStat->SetLineColor(kAzureMy);
-    // hCISCStat->SetFillColor(kAzureMy);
-    // for (auto i{1}; i <= 1000; i++) {
-    //   hCISCStat->SetBinContent(i, fSCSim->Eval(hCISCStat->GetBinCenter(i)));
-    // }
-    // ROOT::Fit::BinData dataSC4CIStat(opt, rangeSC);
-    // ROOT::Fit::FillData(dataSC4CIStat, hCISCStat);
-    // double ciSCStat[1000];
-    // myResultSCStat.GetConfidenceIntervals(dataSC4CIStat, ciSCStat, 0.68);
-    // for (auto i{1}; i <= 1000; i++) {
-    //   hCISCStat->SetBinError(i, ciSCStat[i - 1]);
-    // }
-
-    // auto leg = new TLegend(0.5, 0.75, 0.8, 0.9);
-    // leg->SetTextSize(0.045);
-    // leg->SetBorderSize(0);
-    // leg->SetFillStyle(0);
-    // leg->AddEntry(hCISCStat, "stat", "f");
-
-    // hCISC->Draw("e2same");
-    // hCISCStat->Draw("e2same");
-    // fSCSim->Draw("same");
-    // gSC->Draw("p");
-    // lat->DrawLatex(
-    //     0.2, 0.7,
-    //     Form("a_{I=3/2} = %0.2f #pm %0.2f fm", params[3], parErrors[3]));
-    // lat->DrawLatex(
-    //     0.2, 0.8,
-    //     Form("a_{I=1/2} = %0.2f #pm %0.2f fm", params[5], parErrors[5]));
-
-    // cSimFit->cd(2)->DrawFrame(0., 0.5, 300., 1.5,
-    //                           ";#it{k}* (MeV/#it{c});#it{C}(#it{k}*)");
-    // lineAtOne->Draw();
-    // fOCSim->SetFitResult(result, iparOC);
-    // fOCSim->SetRange(rangeOC().first, rangeOC().second);
-    // fOCSim->SetLineColor(kAzure + 4);
-    // fOCSimStat->SetFitResult(resultStat, iparOC);
-    // fOCSimStat->SetRange(rangeOC().first, rangeOC().second);
-    // fOCSimStat->SetLineColor(kAzure + 4);
-
-    // MyFitResult myResultOCStat(fitter.Result(), fOCSim, iparOC);
-    // TH1F *hCIOCStat = new TH1F("hCIOCStat", "", 1000, 0., maxRange);
-    // hCIOCStat->SetFillColor(kAzureMy);
-    // hCIOCStat->SetLineColor(kAzureMy);
-    // hCIOCStat->SetFillColor(kAzureMy);
-    // for (auto i{1}; i <= 1000; i++) {
-    //   hCIOCStat->SetBinContent(i, fOCSim->Eval(hCIOCStat->GetBinCenter(i)));
-    // }
-    // ROOT::Fit::BinData dataOC4CIStat(opt, rangeOC);
-    // ROOT::Fit::FillData(dataOC4CIStat, hCIOC);
-    // double ciOCStat[1000];
-    // myResultOCStat.GetConfidenceIntervals(dataOC4CIStat, ciOCStat, 0.68);
-    // for (auto i{1}; i <= 1000; i++) {
-    //   hCIOCStat->SetBinError(i, ciOCStat[i - 1]);
-    // }
-
-    // hCIOCStat->Draw("e2same");
-    // fOCSim->Draw("same");
-    // gOC->Draw("p");
-    // leg->Draw();
-
-    // auto lineVert = new TLine(0., -0.29, 0., 0.29);
-    // lineVert->SetLineWidth(1);
-    // lineVert->SetLineColor(kGray + 1);
-    // lineVert->SetLineStyle(2);
-
-    // auto lineHor = new TLine(-0.29, 0., 0.29, 0.);
-    // lineHor->SetLineWidth(1);
-    // lineHor->SetLineColor(kGray + 1);
-    // lineHor->SetLineStyle(2);
-
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    // auto cContour = new TCanvas("cContour", "", 500, 500);
-
-    // TFitResult fitResForContour(result);
-    // TGraph *gContour1Sigma = new TGraph(200);
-    // gContour1Sigma->SetName("gContour1Sigma");
-    // fitResForContour.Contour(3, 5, gContour1Sigma, 0.34);
-    // TGraph *gContour2Sigma = new TGraph(200);
-    // gContour2Sigma->SetName("gContour2Sigma");
-    // fitResForContour.Contour(3, 5, gContour2Sigma, 0.86);
-    // gContour1Sigma->SetTitle("");
-    // gContour2Sigma->SetTitle("");
-    // gContour1Sigma->SetFillColor(kAzureMy);
-    // gContour2Sigma->SetFillColor(kAzure + 4);
-    // gContour1Sigma->SetLineColor(kAzureMy);
-    // gContour2Sigma->SetLineColor(kAzure + 4);
-
-    // TFitResult fitResForContourStat(resultStat);
-    // TGraph *gContour1SigmaStat = new TGraph(200);
-    // gContour1SigmaStat->SetName("gContour1SigmaStat");
-    // fitResForContourStat.Contour(3, 5, gContour1SigmaStat, 0.34);
-    // TGraph *gContour2SigmaStat = new TGraph(200);
-    // gContour2SigmaStat->SetName("gContour2SigmaStat");
-    // fitResForContourStat.Contour(3, 5, gContour2SigmaStat, 0.86);
-    // gContour1SigmaStat->SetTitle("");
-    // gContour2SigmaStat->SetTitle("");
-    // gContour1SigmaStat->SetFillColor(kAzureMy);
-    // gContour2SigmaStat->SetFillColor(kAzure + 4);
-    // gContour1SigmaStat->SetLineColor(kAzureMy);
-    // gContour2SigmaStat->SetLineColor(kAzure + 4);
-
-    // auto legContour = new TLegend(0.7, 0.75, 0.9, 0.9);
-    // legContour->SetTextSize(0.045);
-    // legContour->SetBorderSize(0);
-    // legContour->SetFillStyle(0);
-    // legContour->AddEntry(gContour1Sigma, "68% CI", "f");
-    // legContour->AddEntry(gContour2Sigma, "95% CI", "f");
-    // auto hFrame = cContour->DrawFrame(-0.29, -0.29, 0.29, 0.29,
-    //                                   ";a_{I=3/2} (fm);a_{I=1/2} (fm)");
-    // lineHor->Draw();
-    // lineVert->Draw();
-    // hFrame->GetXaxis()->SetDecimals();
-    // hFrame->GetYaxis()->SetDecimals();
-    // hFrame->GetXaxis()->SetNdivisions(508);
-    // hFrame->GetYaxis()->SetNdivisions(508);
-    // hFrame->GetYaxis()->SetTitleOffset(1.4);
-    // gContour2Sigma->Draw("cf");
-    // gContour1Sigma->Draw("cf");
-    // legContour->Draw();
-
-    // if (saveResult != kNot) {
-    //   std::string outNameTot = "";
-    //   std::string outNamePDF = "";
-    //   std::string option = "";
-    //   if (saveResult == kRecreate) {
-    //     outNameTot =
-    //         Form("%s_radiusFirst%0.2f_radiusSecond%0.2f_weightFirst%0.2f_%s.root",
-    //              outName.data(), radiusFirst, radiusSecond, weightFirst,
-    //              suffix.data());
-    //     outNamePDF =
-    //         Form("%s_radiusFirst%0.2f_radiusSecond%0.2f_weightFirst%0.2f_%s.pdf",
-    //              outName.data(), radiusFirst, radiusSecond, weightFirst,
-    //              suffix.data());
-    //     option = "create";
-    //   } else if (saveResult == kUpdate) {
-    //     outNameTot = Form("%s.root", outName.data());
-    //     outNamePDF =
-    //         Form("%s_radiusFirst%0.2f_radiusSecond%0.2f_weightFirst%0.2f_%s.pdf",
-    //              outName.data(), radiusFirst, radiusSecond, weightFirst,
-    //              suffix.data());
-    //     option = "update";
-    //     if (deleteFile && !gSystem->Exec(Form("ls %s", outNameTot.data()))) {
-    //       gSystem->Exec(Form("rm %s", outNameTot.data()));
-    //     }
-    //   }
-
-    //   TFile outFile(outNameTot.data(), option.data());
-    //   TDirectoryFile *dir = nullptr;
-    //   if (saveResult == kUpdate) {
-    //     dir = new TDirectoryFile(
-    //         Form("radiusFirst%0.2f_radiusSecond%0.2f_weightFirst%0.2f_%s",
-    //              radiusFirst, radiusSecond, weightFirst, suffix.data()),
-    //         Form("radiusFirst%0.2f_radiusSecond%0.2f_weightFirst%0.2f_%s",
-    //              radiusFirst, radiusSecond, weightFirst, suffix.data()));
-    //     outFile.cd();
-    //     dir->Write();
-    //     dir->cd();
-    //   }
-    //   cContour->Write();
-    //   cSimFit->Write();
-    //   gContour2Sigma->Write();
-    //   gContour1Sigma->Write();
-    //   gContour2SigmaStat->Write();
-    //   gContour1SigmaStat->Write();
-    //   gSC->Write();
-    //   gOC->Write();
-    //   gSCStat->Write();
-    //   gOCStat->Write();
-    //   hCISC->Write();
-    //   hCIOC->Write();
-    //   hCISCStat->Write();
-    //   hCIOCStat->Write();
-    //   fSCSim->Write();
-    //   fOCSim->Write();
-    //   fSCSimStat->Write();
-    //   fOCSimStat->Write();
-    //   outFile.Close();
-
-    //   if (savePDF) {
-    //     cSimFit->SaveAs(outNamePDF.data());
-    //   }
-    // }
-
-    // delete hCISC;
-    // delete hCIOC;
-    // delete hCISCStat;
-    // delete hCIOCStat;
-    // delete cContour;
-    // delete cSimFit;
-
-    // return std::map<std::string, double>{
-    //   {"par0", params[3]},
-    //   {"par1", params[5]},
-    //   {"unc0", parErrors[3]},
-    //   {"unc1", parErrors[5]},
-    //   {"chi2", result.Chi2()},
-    //   {"ndf", result.Ndf()}
-    // };
 }
 
-// void mainSingleFit(TGraphErrors *gSC, TGraphErrors *gOC) {
-//   std::array<double, 3> radiusFirst = {0.97, 0.97 + 0.09, 0.97 - 0.08};
-//   std::array<double, 3> radiusSecond = {2.52, 2.52 + 0.36, 2.52 - 0.20};
-//   std::array<double, 3> weightsFirst = {0.66, 0.66 + 0.03, 0.66 - 0.02};
-//   bool deleteFile = true;
-//   int counter{0};
-
-//   auto inFileSCStat = TFile::Open("Result_PipDp.root");
-//   auto gSCStat = (TGraphAsymmErrors *)inFileSCStat->Get("CF_corr_N_truth");
-//   gSCStat->SetName("gSC_corr_N_truth_stat");
-//   for (int iPt{0}; iPt < gSCStat->GetN(); ++iPt) {
-//     double kStar, cf;
-//     gSC->GetPoint(iPt, kStar, cf);
-//     gSCStat->SetPoint(iPt, kStar, cf);
-//   }
-//   auto inFileOCStat = TFile::Open("Result_PipDm.root");
-//   auto gOCStat = (TGraphAsymmErrors *)inFileOCStat->Get("CF_corr_N_truth");
-//   gOCStat->SetName("gOC_corr_N_truth_stat");
-//   for (int iPt{0}; iPt < gOCStat->GetN(); ++iPt) {
-//     double kStar, cf;
-//     gOC->GetPoint(iPt, kStar, cf);
-//     gOCStat->SetPoint(iPt, kStar, cf);
-//   }
-
-//   auto hScatterLenFirst =
-//       new TH1F("hScatterLenFirst", ";;scattering length (fm)", 28, -0.5, 27.5);
-//   auto hScatterLenSecond =
-//       new TH1F("hScatterLenSecond", ";;scattering length (fm)", 28, -0.5, 27.5);
-//   auto hScatterLenStatFirst = new TH1F(
-//       "hScatterStatLenFirst", ";;scattering length (fm)", 28, -0.5, 27.5);
-//   auto hScatterLenStatSecond = new TH1F(
-//       "hScatterStatLenSecond", ";;scattering length (fm)", 28, -0.5, 27.5);
-//   auto hChi2 = new TH1F("hChi2", ";;#chi^{2}/ndf", 28, -0.5, 27.5);
-//   hScatterLenFirst->SetLineColor(kAzure + 4);
-//   hScatterLenFirst->SetLineWidth(2);
-//   hScatterLenFirst->SetMarkerColor(kAzure + 4);
-//   hScatterLenFirst->SetMarkerStyle(kFullCircle);
-//   hScatterLenSecond->SetLineColor(kRed + 1);
-//   hScatterLenSecond->SetLineWidth(2);
-//   hScatterLenSecond->SetMarkerColor(kRed + 1);
-//   hScatterLenSecond->SetMarkerStyle(kFullCircle);
-//   hScatterLenStatFirst->SetLineColor(kAzure + 4);
-//   hScatterLenStatFirst->SetLineWidth(2);
-//   hScatterLenStatFirst->SetMarkerColor(kAzure + 4);
-//   hScatterLenStatFirst->SetMarkerStyle(kFullCircle);
-//   hScatterLenStatSecond->SetLineColor(kRed + 1);
-//   hScatterLenStatSecond->SetLineWidth(2);
-//   hScatterLenStatSecond->SetMarkerColor(kRed + 1);
-//   hScatterLenStatSecond->SetMarkerStyle(kFullCircle);
-//   hChi2->SetLineColor(kBlack);
-//   hChi2->SetLineWidth(2);
-//   hChi2->SetMarkerColor(kBlack);
-//   hChi2->SetMarkerStyle(kFullCircle);
-
-//   std::string suffix = "";
-
-//   gROOT->SetBatch(true);
-//   for (auto &rad1 : radiusFirst) {
-//     for (auto &rad2 : radiusSecond) {
-//       for (auto &wei : weightsFirst) {
-//         if (counter > 0)
-//           deleteFile = false;
-//         std::map<std::string, double> res = fitSimultaneousLL(
-//             gSCStat, gOCStat, gSC, gOC, rad1, rad2, wei, 200., kUpdate,
-//             deleteFile, Form("LLSimFit_Dpi%s", suffix.data()), "", true, true);
-//         counter++;
-//         hScatterLenFirst->SetBinContent(counter, res["par0"]);
-//         hScatterLenFirst->SetBinError(counter, res["unc0"]);
-//         hScatterLenSecond->SetBinContent(counter, res["par1"]);
-//         hScatterLenSecond->SetBinError(counter, res["unc1"]);
-//         hScatterLenStatFirst->SetBinContent(counter, res["par0stat"]);
-//         hScatterLenStatFirst->SetBinError(counter, res["unc0stat"]);
-//         hScatterLenStatSecond->SetBinContent(counter, res["par1stat"]);
-//         hScatterLenStatSecond->SetBinError(counter, res["unc1stat"]);
-//         hChi2->SetBinContent(counter, res["chi2"] / res["ndf"]);
-//         hChi2->SetBinError(counter, 1.e-20);
-//         hScatterLenFirst->GetXaxis()->SetBinLabel(
-//             counter,
-//             Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f",
-//                  rad1, rad2, wei));
-//         hScatterLenSecond->GetXaxis()->SetBinLabel(
-//             counter,
-//             Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f",
-//                  rad1, rad2, wei));
-//         hScatterLenStatFirst->GetXaxis()->SetBinLabel(
-//             counter,
-//             Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f",
-//                  rad1, rad2, wei));
-//         hScatterLenStatSecond->GetXaxis()->SetBinLabel(
-//             counter,
-//             Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f",
-//                  rad1, rad2, wei));
-//         hChi2->GetXaxis()->SetBinLabel(
-//             counter,
-//             Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f",
-//                  rad1, rad2, wei));
-//       }
-//     }
-//   }
-//   double rad1 = 1.15;
-//   double rad2 = 2.69;
-//   double wei = 0.68;
-//   std::map<std::string, double> res = fitSimultaneousLL(
-//       gSCStat, gOCStat, gSC, gOC, rad1, rad2, wei, 200., kUpdate, deleteFile,
-//       Form("LLSimFit_Dpi%s", suffix.data()), "", true, true);
-//   hScatterLenFirst->SetBinContent(28, res["par0"]);
-//   hScatterLenFirst->SetBinError(28, res["unc0"]);
-//   hScatterLenSecond->SetBinContent(28, res["par1"]);
-//   hScatterLenSecond->SetBinError(28, res["unc1"]);
-//   hScatterLenStatFirst->SetBinContent(28, res["par0stat"]);
-//   hScatterLenStatFirst->SetBinError(28, res["unc0stat"]);
-//   hScatterLenStatSecond->SetBinContent(28, res["par1stat"]);
-//   hScatterLenStatSecond->SetBinError(28, res["unc1stat"]);
-//   hChi2->SetBinContent(28, res["chi2"] / res["ndf"]);
-//   hChi2->SetBinError(28, 1.e-20);
-//   hScatterLenFirst->GetXaxis()->SetBinLabel(
-//       28, Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f", rad1,
-//                rad2, wei));
-//   hScatterLenSecond->GetXaxis()->SetBinLabel(
-//       28, Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f", rad1,
-//                rad2, wei));
-//   hScatterLenStatFirst->GetXaxis()->SetBinLabel(
-//       28, Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f", rad1,
-//                rad2, wei));
-//   hScatterLenStatSecond->GetXaxis()->SetBinLabel(
-//       28, Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f", rad1,
-//                rad2, wei));
-//   hChi2->GetXaxis()->SetBinLabel(
-//       28, Form("#it{r}_{1} = %0.2f #it{r}_{2} = %0.2f #it{w}_{1} = %0.2f", rad1,
-//                rad2, wei));
-//   gROOT->SetBatch(false);
-
-//   auto cScattLen = new TCanvas("cScattLen", "", 1500, 500);
-//   auto leg = new TLegend(0.2, 0.2, 0.4, 0.4);
-//   leg->SetTextSize(0.045);
-//   leg->SetBorderSize(0);
-//   leg->SetFillStyle(0);
-//   leg->AddEntry(hScatterLenFirst, "a_{I=3/2}");
-//   leg->AddEntry(hScatterLenSecond, "a_{I=1/2}");
-//   cScattLen->SetLeftMargin(0.08);
-//   hScatterLenFirst->GetYaxis()->SetRangeUser(-0.3, 0.1);
-//   hScatterLenFirst->Draw();
-//   hScatterLenSecond->Draw("same");
-//   leg->Draw();
-//   cScattLen->SaveAs("ScatteringLength_Dpi_fit_allradii.pdf");
-
-//   auto cChi2 = new TCanvas("cChi2", "", 1500, 500);
-//   cChi2->SetLeftMargin(0.08);
-//   hChi2->Draw();
-//   cChi2->SaveAs("ScatteringLength_Dpi_fitchi2_allradii.pdf");
-
-//   auto lineVert = new TLine(0., -0.29, 0., 0.29);
-//   lineVert->SetLineWidth(1);
-//   lineVert->SetLineColor(kGray + 1);
-//   lineVert->SetLineStyle(2);
-
-//   auto lineHor = new TLine(-0.29, 0., 0.29, 0.);
-//   lineHor->SetLineWidth(1);
-//   lineHor->SetLineColor(kGray + 1);
-//   lineHor->SetLineStyle(2);
-
-//   std::vector<TGraph *> gContour1Sigma{}, gContour2Sigma{};
-//   auto inFile = TFile::Open(Form("LLSimFit_Dpi%s.root", suffix.data()));
-//   TDirectoryFile *dir = nullptr;
-//   TKey *key;
-//   TIter next(inFile->GetListOfKeys());
-//   while ((key = (TKey *)next())) {
-//     dir = dynamic_cast<TDirectoryFile *>(inFile->Get(key->GetName()));
-//     gContour1Sigma.push_back(
-//         dynamic_cast<TGraph *>(dir->Get("gContour1Sigma")));
-//     gContour2Sigma.push_back(
-//         dynamic_cast<TGraph *>(dir->Get("gContour2Sigma")));
-//   }
-
-//   auto cContourAll = new TCanvas("cContourAll", "", 900, 900);
-//   cContourAll->DrawFrame(-0.29, -0.29, 0.29, 0.29,
-//                          ";a_{I=3/2} (fm);a_{I=1/2} (fm)");
-//   lineHor->Draw();
-//   lineVert->Draw();
-
-//   for (int i{0}; i < 28; ++i) {
-//     gContour2Sigma[i]->Draw("cf");
-//   }
-//   for (int i{0}; i < 28; ++i) {
-//     gContour1Sigma[i]->Draw("cf");
-//   }
-
-//   auto legContour = new TLegend(0.7, 0.75, 0.9, 0.9);
-//   legContour->SetTextSize(0.045);
-//   legContour->SetBorderSize(0);
-//   legContour->SetFillStyle(0);
-//   legContour->AddEntry(gContour1Sigma[0], "68% CI", "f");
-//   legContour->AddEntry(gContour2Sigma[0], "95% CI", "f");
-//   legContour->Draw();
-
-//   auto lat = new TLatex();
-//   lat->SetTextColor(kBlack);
-//   lat->SetTextFont(42);
-//   lat->SetTextSize(0.07);
-//   lat->SetNDC();
-//   cContourAll->SaveAs("ContourPlot_Dpi_fit_allradii_convolution.pdf");
-
-//   auto cContour = new TCanvas("cContour", "", 1920, 1080);
-//   cContour->Divide(10, 3);
-//   int iPad{0};
-//   for (auto &rad1 : radiusFirst) {
-//     for (auto &rad2 : radiusSecond) {
-//       for (auto &wei : weightsFirst) {
-//         ++iPad;
-//         auto hFrame = cContour->cd(iPad)->DrawFrame(
-//             -0.29, -0.29, 0.29, 0.29, ";a_{I=3/2} (fm);a_{I=1/2} (fm)");
-//         hFrame->GetXaxis()->SetTitleSize(0.07);
-//         hFrame->GetYaxis()->SetTitleSize(0.07);
-//         hFrame->GetXaxis()->SetLabelSize(0.07);
-//         hFrame->GetYaxis()->SetLabelSize(0.07);
-//         hFrame->GetXaxis()->SetTitleOffset(0.9);
-//         hFrame->GetYaxis()->SetTitleOffset(0.9);
-//         lineHor->Draw();
-//         lineVert->Draw();
-//         gContour2Sigma[iPad - 1]->Draw("cf");
-//         gContour1Sigma[iPad - 1]->Draw("cf");
-//         lat->DrawLatex(0.2, 0.9, Form("#it{r}_{1} = %0.2f fm", rad1));
-//         lat->DrawLatex(0.2, 0.8, Form("#it{r}_{2} = %0.2f fm", rad2));
-//         lat->DrawLatex(0.2, 0.7, Form("#it{w}_{1} = %0.2f fm", wei));
-//       }
-//     }
-//   }
-//   auto hFrame = cContour->cd(iPad + 1)->DrawFrame(
-//       -0.29, -0.29, 0.29, 0.29, ";a_{I=3/2} (fm);a_{I=1/2} (fm)");
-//   hFrame->GetXaxis()->SetTitleSize(0.07);
-//   hFrame->GetYaxis()->SetTitleSize(0.07);
-//   hFrame->GetXaxis()->SetLabelSize(0.07);
-//   hFrame->GetYaxis()->SetLabelSize(0.07);
-//   hFrame->GetXaxis()->SetTitleOffset(0.9);
-//   hFrame->GetYaxis()->SetTitleOffset(0.9);
-//   lineHor->Draw();
-//   lineVert->Draw();
-//   gContour2Sigma[iPad]->Draw("cf");
-//   gContour1Sigma[iPad]->Draw("cf");
-//   lat->DrawLatex(0.2, 0.9, Form("#it{r}_{1} = %0.2f fm", rad1));
-//   lat->DrawLatex(0.2, 0.8, Form("#it{r}_{2} = %0.2f fm", rad2));
-//   lat->DrawLatex(0.2, 0.7, Form("#it{w}_{1} = %0.2f fm", wei));
-//   cContour->SaveAs("ContourPlot_Dpi_fit_allradii.pdf");
-
-//   // add some info to the output files
-//   auto fileToUpdate =
-//       TFile::Open(Form("LLSimFit_Dpi%s.root", suffix.data()), "update");
-//   fileToUpdate->cd();
-//   TDirectoryFile *dirScatt =
-//       new TDirectoryFile("scattering_length", "scattering_length");
-//   dirScatt->Write();
-//   dirScatt->cd();
-//   hScatterLenFirst->Write();
-//   hScatterLenSecond->Write();
-//   hScatterLenStatFirst->Write();
-//   hScatterLenStatSecond->Write();
-//   hChi2->Write();
-//   cScattLen->Write();
-//   cChi2->Write();
-//   dirScatt->Close();
-
-//   fileToUpdate->cd();
-//   TDirectoryFile *dirContour = new TDirectoryFile("contours", "contours");
-//   dirContour->Write();
-//   dirContour->cd();
-//   cContourAll->Write();
-//   cContour->Write();
-//   dirContour->Close();
-
-//   fileToUpdate->cd();
-//   TDirectoryFile *dirCoulomb = new TDirectoryFile("Coulomb", "Coulomb");
-//   dirCoulomb->Write();
-//   dirCoulomb->cd();
-//   gCoulombSCmin->Write();
-//   gCoulombSCmax->Write();
-//   gCoulombOCmin->Write();
-//   gCoulombOCmax->Write();
-//   dirCoulomb->Close();
-//   fileToUpdate->Close();
-// }
-
-void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIter, double sourceRelUnc = -1) {
+void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIter, double sourceRelUnc = -1,
+                          bool scalableLL = false) {
     gROOT->SetBatch(true);
 
     TFile *inFile = new TFile(inFileName);
     TFile *oFile = new TFile(Form("%s.root", oFileName), "create");
+    if (oFile->IsZombie()) {  // file already exists
+        return;
+    }
 
     for (auto uncType : {"tot", "stat"}) {
         oFile->mkdir(Form("%s/iters", uncType));
         oFile->cd(Form("%s/iters", uncType));
-        TNtuple *tResults = new TNtuple("tResults", "", "a0sin:a0tri:chi2ndf:r1:r2:w1");
+        TNtuple *tResults = new TNtuple("tResults", "", "a0sin:a0tri:chi2ndf:r1:r2:w1:normsin:normtri");
 
         TCanvas *cCombFit = new TCanvas("cCombFit", "", 1200, 600);
         cCombFit->Divide(3, 1);
@@ -715,7 +221,8 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
             radii2.push_back(radii2[0] * (1 + sourceRelUnc));
         }
 
-        std::vector<std::vector<double>> fitRanges = {{10, 450}, {10, 400}, {10, 500}};
+        // std::vector<std::vector<double>> fitRanges = {{10, 450}, {10, 400}, {10, 500}};
+        std::vector<std::vector<double>> fitRanges = {{10, 350}, {10, 300}};
 
         for (int iIter = 0; iIter < nIter; iIter++) {
             TGraphAsymmErrors *gSC =
@@ -731,11 +238,11 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
             int iFitRange = 0;
             if (uncType == "tot") {
                 iRadius = gRandom->Integer(3);
-                iFitRange = gRandom->Integer(3);
+                iFitRange = gRandom->Integer(fitRanges.size());
             }
 
             ROOT::Fit::FitResult result = fitSimultaneousLL(gSC, gOC, radii1[iRadius], radii2[iRadius],
-                                                            weights1[iRadius], fitRanges[iFitRange][1]);
+                                                            weights1[iRadius], fitRanges[iFitRange][1], scalableLL);
             const double *params = result.GetParams();
             const double *parErrors = result.GetErrors();
 
@@ -746,12 +253,13 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
 
             double chi2ndf = result.Chi2() / result.Ndf();
             if (std::abs(a0singlet) < 1 && std::abs(a0triplet) < 1 && chi2ndf < 10)
-                tResults->Fill(a0singlet, a0triplet, chi2ndf, radii1[iRadius], radii2[iRadius], weights1[iRadius]);
+                tResults->Fill(a0singlet, a0triplet, chi2ndf, radii1[iRadius], radii2[iRadius], weights1[iRadius],
+                               params[11], params[12]);
 
             // Draw
             TVirtualPad *pad1 = cCombFit->cd(1);
             pad1->DrawFrame(0, 0.8, 300, 1.4);
-            auto fSCSim = new TF1("fSCSim", GeneralCoulombLednickyTwoRadii, 0., 300, nParsSC);
+            auto fSCSim = new TF1("fSCSim", ScalableGeneralCoulombLednickyTwoRadii, 0., 300, nParsSC);
 
             fSCSim->FixParameter(0, params[0]);
             fSCSim->FixParameter(1, params[1]);
@@ -761,12 +269,11 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
             fSCSim->FixParameter(5, params[7]);
             fSCSim->FixParameter(6, params[8]);
             fSCSim->FixParameter(7, params[10]);
-            fSCSim->Draw("same");
-            gSC->Draw("same");
+            fSCSim->FixParameter(8, params[11]);
 
             TVirtualPad *pad2 = cCombFit->cd(2);
             pad2->DrawFrame(0, 0.8, 300, 1.4);
-            auto fOCSim = new TF1("fSCSim", GeneralCoulombLednickySecondTwoRadii, 0., 300, nParsOC);
+            auto fOCSim = new TF1("fSCSim", ScalableGeneralCoulombLednickySecondTwoRadii, 0., 300, nParsOC);
             fOCSim->FixParameter(0, params[0]);
             fOCSim->FixParameter(1, params[1]);
             fOCSim->FixParameter(2, params[2]);
@@ -777,6 +284,7 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
             fOCSim->FixParameter(7, params[7]);
             fOCSim->FixParameter(8, params[9]);
             fOCSim->FixParameter(9, params[10]);
+            fOCSim->FixParameter(10, params[12]);
             fOCSim->Draw("same");
             gOC->Draw("same");
 
@@ -799,4 +307,6 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
         delete tResults;
         delete cCombFit;
     }
+    oFile->Close();
+    printf(Form("Output saved in %s.root\n", oFileName));
 }
