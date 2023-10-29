@@ -21,3 +21,4 @@ max-locals=40
 
 [MESSAGES CONTROL]
 disable=wrong-import-position,missing-docstring,invalid-name
+disable=unspecified-encoding
