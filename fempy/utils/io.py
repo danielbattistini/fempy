@@ -85,8 +85,11 @@ def GetObjectFromFile(inFile, pathToObj):
 
 histClasses = [f'TH{n}{t}' for n in [1, 2, 3] for t in ['I', 'F', 'D']]
 graphClasses = ['TGraph', 'TGraphErrors', 'TGraphAsymErrors']
+
+
 def GetHistNamesInDir(rdir):
     return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetClassName() in histClasses]
+
 
 def GetHistsInDir(rdir):
     return [rdir.Get(key.GetName()) for key in list(rdir.GetListOfKeys()) if key.GetClassName() in histClasses]
@@ -98,6 +101,7 @@ def GetRegions(rdir):
 
 def GetGraphsInDir(rdir):
     return [rdir.Get(key.GetName()) for key in list(rdir.GetListOfKeys()) if key.GetClassName() in graphClasses]
+
 
 def GetObjNamesInDir(rdir):
     return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetClassName() != 'TDirectoryFile']
@@ -111,6 +115,7 @@ def GetSubdirsInDir(rdir):
     if rdir == None:
         return []
     return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetClassName() == 'TDirectoryFile']
+
 
 def GetCombs(rdir):
     if rdir == None:
@@ -134,6 +139,7 @@ def GetKeyNames(container):  # pylint: disable=inconsistent-return-statements
 
 def GetKeyNamesInDir(rdir):
     return [key.GetName() for key in list(rdir.GetListOfKeys())]
+
 
 def GetPairName(rdir):
     pairs = []
