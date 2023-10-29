@@ -73,6 +73,20 @@ def GetCombs(rdir):
     return [key.GetName() for key in list(rdir.GetListOfKeys()) if key.GetName() in ['sc', 'oc', 'pp', 'mm', 'pm', 'mp']]
 
 
+def GetKeyNames(container):  # pylint: disable=inconsistent-return-statements
+    if isinstance(container, TDirectoryFile):
+        return [key.GetName() for key in list(container.GetListOfKeys())]
+
+    if isinstance(container, TList):
+        it = container.MakeIterator()
+        names = []
+        while it.Next() != None:  # pylint: disable=singleton-comparison
+            names.append(it.Next().GetName())
+
+        return names
+    fempy.logger.critical('Unknown container type %s', type(container))
+
+
 def GetKeyNamesInDir(rdir):
     return [key.GetName() for key in list(rdir.GetListOfKeys())]
 
