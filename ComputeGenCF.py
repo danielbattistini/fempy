@@ -347,7 +347,7 @@ def ComputeScattPar(**kwargs):
     leg.AddEntry(fWeightedLL, 'Fit LL')
     leg.AddEntry(fCoulomb, 'Coulomb LL')
     leg.Draw()
-    if chi2ndf > 3 or abs(scattLen) > 0.99:
+    if chi2ndf > 5 or abs(scattLen) > 0.99:
         tl.DrawLatex(0.2, 0.85 - 3 * step, 'BAD FIT')
     else:
         tTrials.Fill(scattLen, scattLenUnc, status, chi2ndf, iVar, purityVar, weight1, radius1, radius2, fitRange[1], bkgFitRange[0], bkgFitRange[1], lamPar['flat'], lamPar['gen'], normLL)
