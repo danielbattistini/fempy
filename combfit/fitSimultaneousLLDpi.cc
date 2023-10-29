@@ -701,20 +701,20 @@ void fitSimultaneousLLDpi(const char *inFileName, const char *oFileName, int nIt
         std::vector<double> radii1 = {0.97};
         std::vector<double> radii2 = {2.52};
 
-        if (sourceRelUnc < 0) { // use normal uncertainties extracted from the source fit
+        if (sourceRelUnc < 0) {  // use normal uncertainties extracted from the source fit
             radii1.push_back(1.06);
             radii1.push_back(0.89);
 
             radii2.push_back(2.88);
             radii2.push_back(2.32);
-        } else { // use source from extrap of r_core(mult)
+        } else {  // use source from extrap of r_core(mult)
             radii1.push_back(radii1[0] * (1 - sourceRelUnc));
             radii1.push_back(radii1[0] * (1 + sourceRelUnc));
 
             radii2.push_back(radii2[0] * (1 - sourceRelUnc));
             radii2.push_back(radii2[0] * (1 + sourceRelUnc));
         }
-        
+
         std::vector<std::vector<double>> fitRanges = {{10, 450}, {10, 400}, {10, 500}};
 
         for (int iIter = 0; iIter < nIter; iIter++) {

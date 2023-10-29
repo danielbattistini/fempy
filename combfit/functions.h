@@ -169,7 +169,7 @@ double ScalableShifted300GeneralCoulombLednickyTwoRadii(double *x, double *pars)
     double res1 = GeneralCoulombLednicky(300, pars[0], pars[3], pars[4], static_cast<bool>(pars[5]), pars[6], pars[7]);
     double res2 = GeneralCoulombLednicky(300, pars[1], pars[3], pars[4], static_cast<bool>(pars[5]), pars[6], pars[7]);
     double residue = pars[8] * (pars[2] * res1 + (1 - pars[2]) * res2);
-    
+
     return cf - (residue - 1);
 }
 
