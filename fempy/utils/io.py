@@ -130,8 +130,11 @@ def GetKeyNames(container):  # pylint: disable=inconsistent-return-statements
     if isinstance(container, TList):
         it = container.MakeIterator()
         names = []
-        while it.Next() != None:  # pylint: disable=singleton-comparison
-            names.append(it.Next().GetName())
+        while True:
+            obj = it.Next()
+            if obj == None: # pylint: disable=singleton-comparison
+                break
+            names.append(obj.GetName())
 
         return names
     fempy.logger.critical('Unknown container type %s', type(container))
