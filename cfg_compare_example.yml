@@ -28,13 +28,18 @@
         leg:
             posx: [0.2, 0.5]
             posy: [0.7, 0.9]
-            header: 'tracklets'
+            sigma: false
+            mean: false
 
     ratio:
         enable: false
         rangey: [0, 3.5]
         rebin: 1
+        logx: false
+        logy: false
 
     relunc:
-        enable: false
-        rangey: [0, 10]
+        gridx: false
+        gridy: true
+        logx: false
+        logy: false
