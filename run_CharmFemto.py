@@ -6,7 +6,7 @@ from alive_progress import alive_bar
 import sys
 import os
 import fempy
-from CompareGraphs import CompareGraphs
+# from CompareGraphs import CompareGraphs
 
 luigi.interface.core.log_level="WARNING"
 
