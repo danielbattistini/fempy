@@ -1,0 +1,299 @@
+- plot:
+    output: CFPiPlusLambda
+
+    input:
+    -   file:  ../Trains/02_allpc/data/LambdaPionCorrelations.root
+        name: CFPiPlusLambda
+        legend: '#Lambda #pi^{  +}'
+        rebin: 1
+        color: kBlue
+        normalize: false
+        normrange: [0.42, 0.45]
+
+    opt:
+        rangex: [0.0, 0.5]
+        rangey: [0.98, 1.07]
+        rebin: 1
+        logx: false
+        logy: false
+        title: ';k* [GeV/c];C(k*)'
+        numoflines: 4
+        line1: 
+              coordinates: [0.2556709943373267,'min',0.2556709943373267,'max'] 
+              color: kRed
+              thickness: 2
+              legendtag: 'cch. p #bar{k}^{0}'
+              textcoordinates: false
+              textcontent: 'cch. p #bar{k}^{0}'
+        line2: 
+              coordinates: [0.1518473536589841,'min',0.1518473536589841,'max'] 
+              color: kGreen
+              thickness: 2
+              legendtag: 'cch. #Sigma^{0} #pi^{  +}'
+              textcoordinates: false
+              textcontent: 'cch. #Sigma^{0} #pi^{  +}'
+        line3: 
+              coordinates: [0.2054672947476211,'min',0.2054672947476211,'max'] 
+              color: kBlack
+              thickness: 2
+              legendtag: 'dec. #Sigma^{  +}(1385)'
+              textcoordinates: false
+              textcontent: 'dec. #Sigma^{  +}(1385)'
+        line4: 
+              coordinates: [0.1350059061033082,'min',0.1350059061033082,'max'] 
+              color: kViolet
+              thickness: 2
+              legendtag: 'M #approx 1318 MeV/c^{2}'
+              textcoordinates: false
+              textcontent: 'M #approx 1318 MeV/c^{2}'
+
+        ext: [pdf]
+
+        leg:
+            posx: [0.6, 0.85]
+            posy: [0.6, 0.9]
+            header: 'Resonances'
+            mean: false
+            sigma: false
+
+    ratio:
+        enable: false
+        rangey: [0.9, 1.1]
+        rebin: 1
+        logx: false
+        logy: false 
+
+    relunc:
+        enable: false
+        rangey: [0, 10]
+        logx: false
+        logy: false
+
+- plot:
+    output: CFPiMinusLambda
+
+    input:
+    -   file:  ../Trains/02_allpc/data/LambdaPionCorrelations.root
+        name: CFPiMinusLambda
+        legend: '#Lambda #pi^{  -}'
+        rebin: 1
+        color: kBlue
+        normalize: false
+      
+    opt:
+        rangex: [0.0, 0.5]
+        rangey: [0.98, 1.07]
+        rebin: 1
+        logx: false
+        logy: false
+        title: ';k* [GeV/c];C(k*)'
+        numoflines: 5
+        line1: 
+              coordinates: [0.253265499209542,'min',0.253265499209542,'max'] 
+              color: kRed
+              thickness: 2
+              legendtag: 'cch. nk^{  -}'
+              textcoordinates: false
+              textcontent: 'cch. nk^{  -}'
+        line2: 
+              coordinates: [0.1518473536589841,'min',0.1518473536589841,'max'] 
+              color: kGreen
+              thickness: 2
+              legendtag: 'cch. #Sigma^{0} #pi^{  -}'
+              textcoordinates: false
+              textcontent: 'cch. #Sigma^{0} #pi^{  -}'
+        line3: 
+              coordinates: [0.2097818027704657,'min',0.2097818027704657,'max'] 
+              color: kBlack
+              thickness: 2
+              legendtag: 'dec. #Sigma^{  -}(1385)'
+              textcoordinates: false
+              textcontent: 'dec. #Sigma^{  -}(1385)'
+        line4: 
+              coordinates: [0.13951236636396022,'min',0.13951236636396022,'max'] 
+              color: kViolet
+              thickness: 2
+              legendtag: 'dec. #Xi^{  -}'
+              textcoordinates: false
+              textcontent: 'dec. #Xi^{  -}'
+        line5: 
+              coordinates: [0.16835941297032025,'min',0.16835941297032025,'max'] 
+              color: kCyan
+              thickness: 2
+              legendtag: 'M #approx 1347 MeV/c^{2}'
+              textcoordinates: false
+              textcontent: 'M #approx 1347 MeV/c^{2}'
+
+        ext: [pdf]
+
+        leg:
+            posx: [0.6, 0.85]
+            posy: [0.6, 0.9]
+            header: 'Resonances'
+            mean: false
+            sigma: false
+
+    ratio:
+        enable: false
+        rangey: [0.9, 1.1]
+        rebin: 1
+        logx: false
+        logy: false 
+
+    relunc:
+        enable: false
+        rangey: [0, 10]
+        logx: false
+        logy: false
+
+- plot:
+    output: CFPiPlusAntiLambda
+
+    input:
+    -   file:  ../Trains/02_allpc/data/LambdaPionCorrelations.root
+        name: CFPiPlusAntiLambda
+        legend: '#bar{#Lambda} #pi^{  +}'
+        rebin: 1
+        color: kBlue
+        normalize: false
+
+    opt:
+        rangex: [0.0, 0.5]
+        rangey: [0.98, 1.07]
+        rebin: 1
+        logx: false
+        logy: false
+        title: ';k* [GeV/c];C(k*)'
+        numoflines: 5
+        line1: 
+              coordinates: [0.253265499209542,'min',0.253265499209542,'max'] 
+              color: kRed
+              thickness: 2
+              legendtag: 'cch. #bar{n} k^{ +}'
+              textcoordinates: false
+              textcontent: 'cch. #bar{n} k^{ +}'
+        line2: 
+              coordinates: [0.1518473536589841,'min',0.1518473536589841,'max'] 
+              color: kGreen
+              thickness: 2
+              legendtag: 'cch. #bar{#Sigma}^{0} #pi^{  +}'
+              textcoordinates: false
+              textcontent: 'cch. #bar{#Sigma}^{0} #pi^{  +}'
+        line3: 
+              coordinates: [0.2054672947476211,'min',0.2054672947476211,'max'] 
+              color: kBlack
+              thickness: 2
+              legendtag: 'dec. #bar{#Sigma}^{  +}(1385)'
+              textcoordinates: false
+              textcontent: 'dec. #bar{#Sigma}^{  +}(1385)'
+        line4: 
+              coordinates: [0.13951236636396022,'min',0.13951236636396022,'max'] 
+              color: kViolet
+              thickness: 2
+              legendtag: 'dec. #Xi^{  +}'
+              textcoordinates: false
+              textcontent: 'dec. #Xi^{  +}'
+        line5: 
+              coordinates: [0.16835941297032025,'min',0.16835941297032025,'max'] 
+              color: kCyan
+              thickness: 2
+              legendtag: 'M #approx 1347 MeV/c^{2}'
+              textcoordinates: false
+              textcontent: 'M #approx 1347 MeV/c^{2}'
+
+        ext: [pdf]
+
+        leg:
+            posx: [0.6, 0.85]
+            posy: [0.6, 0.9]
+            header: 'Resonances'
+            mean: false
+            sigma: false
+
+    ratio:
+        enable: false
+        rangey: [0.9, 1.1]
+        rebin: 1
+        logx: false
+        logy: false
+
+
+    relunc:
+        enable: false
+        rangey: [0, 10]
+        logx: false
+        logy: false 
+
+- plot:
+    output: CFPiMinusAntiLambda
+
+    input:
+    -   file:  ../Trains/02_allpc/data/LambdaPionCorrelations.root
+        name: CFPiMinusAntiLambda
+        legend: '#bar{#Lambda} #pi^{  -}'
+        rebin: 1
+        color: kBlue
+        normalize: false
+
+    opt:
+        rangex: [0.0, 0.5]
+        rangey: [0.98, 1.07]
+        rebin: 1
+        logx: false
+        logy: false
+        title: ';k* [GeV/c];C(k*)'
+        numoflines: 4
+        line1: 
+              coordinates: [0.2556709943373267,'min',0.2556709943373267,'max'] 
+              color: kRed
+              thickness: 2
+              legendtag: 'cch. #bar{p} k^{0}'
+              textcoordinates: false
+              textcontent: 'cch. #bar{p} k^{0}'
+        line2: 
+              coordinates: [0.1518473536589841,'min',0.1518473536589841,'max'] 
+              color: kGreen
+              thickness: 2
+              legendtag: 'cch. #bar{#Sigma}^{0} #pi^{  -}'
+              textcoordinates: false
+              textcontent: 'cch. #bar{#Sigma}^{0} #pi^{  -}'
+        line3: 
+              coordinates: [0.2097818027704657,'min',0.2097818027704657,'max'] 
+              color: kBlack
+              thickness: 2
+              legendtag: 'dec. #bar{#Sigma}^{  -}(1385)'
+              textcoordinates: false
+              textcontent: 'dec. #bar{#Sigma}^{  -}(1385)'
+        line4: 
+              coordinates: [0.13744589575855803,'min',0.13744589575855803,'max'] 
+              color: kViolet
+              thickness: 2
+              legendtag: 'M #approx 1320 MeV/c^{2}'
+              textcoordinates: false
+              textcontent: 'M #approx 1320 MeV/c^{2}'
+
+
+        ext: [pdf]
+
+        leg:
+            posx: [0.6, 0.85]
+            posy: [0.6, 0.9]
+            header: 'Resonances'
+            mean: false
+            sigma: false
+
+    ratio:
+        enable: false
+        rangey: [0.9, 1.1]
+        rebin: 1
+        logx: false
+        logy: false
+
+
+    relunc:
+        enable: false
+        rangey: [0, 10]
+        logx: false
+        logy: false
+  
+
