@@ -19,7 +19,7 @@ gInterpreter.ProcessLine('#include "combfit/functions.h"')
 from ROOT import GeneralCoulombLednickyTwoRadii, GeneralCoulombLednickySecondTwoRadii, GeneralCoulombLednicky
 
 from fempy.utils.io import GetGraphsInDir
-from fempy import TranslateToLatex
+from fempy.utils.format import TranslateToLatex
 
 
 def Setstyle():
