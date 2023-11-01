@@ -16,7 +16,7 @@ from ROOT import (
     kBlack
 )
 
-from fempy import TranslateToLatex
+from fempy.utils.format import TranslateToLatex
 
 
 def LoadObjects(pair, suffix):
