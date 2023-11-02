@@ -31,6 +31,12 @@
           thickness: 2
           legendtag: 'Example line'
 
+        lines:
+        - coordinates: ['min','min','max','max'] # min, max for all range, otherwise coordinates
+          color: kRed
+          thickness: 2
+          legendtag: 'Example line'
+
         ext: [pdf]
 
         leg:
