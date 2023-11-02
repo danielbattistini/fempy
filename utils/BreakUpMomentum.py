@@ -9,8 +9,10 @@ import argparse
 from ROOT import TDatabasePDG
 import math
 
-def ComputeSof2Particles(m1, k1, m2, k2):
-    return m1*m1 + m2*m2 + 2*math.sqrt(m1*m1 + k1*k1)*math.sqrt(m2*m2 + k2*k2) + 2*k1*k2
+def ComputeSof2Particles(m1, k1, m2, k2, theta=180):
+    '''Compute the s of scattering processes with two particles in the initial state having 
+       angle theta between their trimomentums'''
+    return m1*m1 + m2*m2 + 2*math.sqrt(m1*m1 + k1*k1)*math.sqrt(m2*m2 + k2*k2) - 2*math.cos(math.radians(theta))*k1*k2
 
 def kaellen(m1, m2, m3):
     '''Triangular Kaellen function'''

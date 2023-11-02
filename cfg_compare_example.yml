@@ -8,12 +8,14 @@
         rebin: 1
         color: kRed
         normalize: true
+        normalizecf: false  # false or numerical factor for rescaling
     -   file:  /data/DPi/merge_4849/AnalysisResults_4849.root
         name: HM_CharmFemto_DplusPion_EvtCuts0/HM_CharmFemto_DplusPion_EvtCuts0/fHistNtrackletsEventsWithD
         legend: 'Evts With D'
         rebin: 1
         color: kBlue
         normalize: true
+        normalizecf: false
 
     opt:
         rangex: [0, 150]
@@ -22,6 +24,12 @@
         logx: false
         logy: false
         title: ';#it{N}_{tracklets};Counts'
+
+        lines:
+        - coordinates: ['min','min','max','max'] # min, max for all range, otherwise coordinates
+          color: kRed
+          thickness: 2
+          legendtag: 'Example line'
 
         ext: [pdf]
 
