@@ -84,16 +84,31 @@ for plot in cfg:
         elif isinstance(inObj, TH1):
             inObj.Draw("same pe")
 
+        canvalines = []
+        for line in plot['opt']['lines']:
+            x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
+            y1 = plot['opt']['rangey'][0] if(line['coordinates'][1] == 'min') else line['coordinates'][1]
+            x2 = plot['opt']['rangex'][1] if(line['coordinates'][2] == 'max') else line['coordinates'][2]
+            y2 = plot['opt']['rangey'][1] if(line['coordinates'][3] == 'max') else line['coordinates'][3]
+            inputline = TLine(x1, y1, x2, y2)
+            inputline.SetLineColor(style.GetColor([line['color']]))
+            inputline.SetLineWidth(line['thickness'])
+            inputline.Draw("same")
+            leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
+            canvalines.append(inputline)
+
         # Compute statistics for hist in the displayed range
         if isinstance(inObj, TH1):
             firstBin = inObj.FindBin(plot['opt']['rangex'][0]*1.0001)
             lastBin = inObj.FindBin(plot['opt']['rangex'][1]*0.9999)
             inObj.GetXaxis().SetRange(firstBin, lastBin)
             print(f'{legend}: mean = {inObj.GetMean()} sigma = {inObj.GetStdDev()}')
+            print('Ciao1')
             if plot['opt']['leg']['mean']:
                 legend += f';  #mu={inObj.GetMean():.3f}'
             if plot['opt']['leg']['sigma']:
                 legend += f';  #sigma={inObj.GetStdDev():.3f}'
+            print('Ciao2')
         leg.AddEntry(inObj, legend, 'l')
 
     for line in plot['opt']['lines']:
@@ -109,9 +124,11 @@ for plot in cfg:
         
     leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
     leg.Draw()
+    print('Ciao3')
 
     # Compute ratio wrt the first obj
     if plot['ratio']['enable']:
+        print('Ciao3')
         pad = cPlot.cd(panels['ratio'])
         pad.SetLogx(plot['ratio']['logx'])
         pad.SetLogy(plot['ratio']['logy'])
@@ -119,13 +136,16 @@ for plot in cfg:
         y1 = plot['ratio']['rangey'][0]
         x2 = plot['opt']['rangex'][1]
         y2 = plot['ratio']['rangey'][1]
+        print('Ciao4')
         frame = pad.DrawFrame(x1, y1, x2, y2, TranslateToLatex(plot['opt']['title']))
         frame.GetYaxis().SetTitle('Ratio')
         hDen = inObjs[0].Clone()
         hDen.Rebin(plot['ratio']['rebin'])
         hDen.Sumw2()
+        print('Ciao6')
 
         if isinstance(inObj, TH1):
+            print('Ciao6')
             for inObj in inObjs[1:]:
                 hRatio = inObj.Clone()
                 hRatio.Rebin(plot['ratio']['rebin'])
