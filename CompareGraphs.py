@@ -83,69 +83,32 @@ for plot in cfg:
             inObj.Draw('same p')
         elif isinstance(inObj, TH1):
             inObj.Draw("same pe")
-            
-        graphlines = []
-        for lineidx in range(plot['opt']['numoflines']):
-            graphline = []
-            linename = plot['opt']['line' + str(lineidx+1)]
-            
-            x1 = 0.
-            y1 = 0.
-            x2 = 0.
-            y2 = 0.
-            
-            if(linename['coordinates'][0] == 'min'):
-                x1 = plot['opt']['rangex'][0]
-            else:
-                x1 = linename['coordinates'][0]
-            
-            if(linename['coordinates'][1] == 'min'):
-                y1 = plot['opt']['rangey'][0]
-            else:
-                y1 = linename['coordinates'][1]
-            
-            if(linename['coordinates'][2] == 'max'):
-                x2 = plot['opt']['rangex'][1]
-            else:
-                x2 = linename['coordinates'][2]
-                
-            if(linename['coordinates'][3] == 'max'):
-                y2 = plot['opt']['rangey'][1]
-            else:
-                y2 = linename['coordinates'][3]
-                
-            line = TLine(x1, y1, x2, y2)
-            line.SetLineColor(style.GetColor([linename['color']]))
-            line.SetLineWidth(linename['thickness'])
-            graphline.append(line)
-            graphline.append(linename['legendtag'])
-            graphline.append(linename['textcoordinates'])
-            graphline.append(linename['textcontent'])
-            graphline.append(linename['color'])
-            graphlines.append(graphline)
-            
-        for graphline in graphlines:
-            pad.Modified()
-            pad.Update()
-            graphline[0].Draw("same")
-            #textlines = TLatex()
-            #if(graphlines[lineidx][2]):
-            #    textlines.SetTextColor(style.GetColor([graphlines[lineidx][4]]))
-            #    textlines.DrawLatex(graphlines[lineidx][2][0],graphlines[lineidx][2][1],graphlines[lineidx][3])
-            #    pad.Modified()
-            #    pad.Update()
-            #    textlines.Draw("same")
-        
+
+        canvalines = []
+        for line in plot['opt']['lines']:
+            x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
+            y1 = plot['opt']['rangey'][0] if(line['coordinates'][1] == 'min') else line['coordinates'][1]
+            x2 = plot['opt']['rangex'][1] if(line['coordinates'][2] == 'max') else line['coordinates'][2]
+            y2 = plot['opt']['rangey'][1] if(line['coordinates'][3] == 'max') else line['coordinates'][3]
+            inputline = TLine(x1, y1, x2, y2)
+            inputline.SetLineColor(style.GetColor([line['color']]))
+            inputline.SetLineWidth(line['thickness'])
+            inputline.Draw("same")
+            leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
+            canvalines.append(inputline)
+
         # Compute statistics for hist in the displayed range
         if isinstance(inObj, TH1):
             firstBin = inObj.FindBin(plot['opt']['rangex'][0]*1.0001)
             lastBin = inObj.FindBin(plot['opt']['rangex'][1]*0.9999)
             inObj.GetXaxis().SetRange(firstBin, lastBin)
             print(f'{legend}: mean = {inObj.GetMean()} sigma = {inObj.GetStdDev()}')
+            print('Ciao1')
             if plot['opt']['leg']['mean']:
                 legend += f';  #mu={inObj.GetMean():.3f}'
             if plot['opt']['leg']['sigma']:
                 legend += f';  #sigma={inObj.GetStdDev():.3f}'
+            print('Ciao2')
         leg.AddEntry(inObj, legend, 'l')
     for line in plot['opt']['lines']:
         x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
@@ -160,9 +123,11 @@ for plot in cfg:
         
     leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
     leg.Draw()
+    print('Ciao3')
 
     # Compute ratio wrt the first obj
     if plot['ratio']['enable']:
+        print('Ciao3')
         pad = cPlot.cd(panels['ratio'])
         pad.SetLogx(plot['ratio']['logx'])
         pad.SetLogy(plot['ratio']['logy'])
@@ -170,13 +135,16 @@ for plot in cfg:
         y1 = plot['ratio']['rangey'][0]
         x2 = plot['opt']['rangex'][1]
         y2 = plot['ratio']['rangey'][1]
+        print('Ciao4')
         frame = pad.DrawFrame(x1, y1, x2, y2, TranslateToLatex(plot['opt']['title']))
         frame.GetYaxis().SetTitle('Ratio')
         hDen = inObjs[0].Clone()
         hDen.Rebin(plot['ratio']['rebin'])
         hDen.Sumw2()
+        print('Ciao6')
 
         if isinstance(inObj, TH1):
+            print('Ciao6')
             for inObj in inObjs[1:]:
                 hRatio = inObj.Clone()
                 hRatio.Rebin(plot['ratio']['rebin'])

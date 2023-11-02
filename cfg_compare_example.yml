@@ -31,7 +31,7 @@
           thickness: 2
           legendtag: 'Example line'
 
-        lines: # Use lines: [] if you don't want to draw lines
+        lines:
         - coordinates: ['min','min','max','max'] # min, max for all range, otherwise coordinates
           color: kRed
           thickness: 2
