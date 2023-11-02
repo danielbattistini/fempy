@@ -21,7 +21,7 @@ colors = {
 }
 
 
-def GetColor(color):
+def GetColor(color:str):
     '''
     Converts a color from string to ROOT.
 
@@ -52,8 +52,8 @@ def GetColor(color):
            f'-{abshade}' in color or f' - {abshade}' in color or f' -{abshade}' in color or f'- {abshade}' in color:
             return value + shade
 
-    fempy.logger.warn('Color %s could not be loaded. Using %s instead', color, name)
-    return value
+    fempy.logger.warn('Color %s could not be loaded. Using kBlack instead', color)
+    return EColor.kBlack
 
 
 def SetStyle():
