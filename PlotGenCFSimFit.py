@@ -292,6 +292,7 @@ def main():
     dgLLCoulombOnly = LoadRealCoulomb()
 
     oFileNameBase = '/home/daniel/an/DstarPi/20_luuksel/SimFitPlot_DstarPi_simfit_shift_2'
+    oFileNameBase = '/home/daniel/an/DstarPi/20_luuksel/SimFitPlot_nopc_kStarBW50MeV_bs10003syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen'
     oFile = TFile(f'{oFileNameBase}.root', 'create')
 
     Setstyle()
