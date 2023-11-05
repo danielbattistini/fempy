@@ -25,7 +25,7 @@
         logy: false
         title: ';#it{N}_{tracklets};Counts'
 
-        lines:
+        lines: # Use lines: [] if you don't want to draw lines
         - coordinates: ['min','min','max','max'] # min, max for all range, otherwise coordinates
           color: kRed
           thickness: 2
