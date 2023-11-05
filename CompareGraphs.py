@@ -84,19 +84,6 @@ for plot in cfg:
         elif isinstance(inObj, TH1):
             inObj.Draw("same pe")
 
-        canvalines = []
-        for line in plot['opt']['lines']:
-            x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
-            y1 = plot['opt']['rangey'][0] if(line['coordinates'][1] == 'min') else line['coordinates'][1]
-            x2 = plot['opt']['rangex'][1] if(line['coordinates'][2] == 'max') else line['coordinates'][2]
-            y2 = plot['opt']['rangey'][1] if(line['coordinates'][3] == 'max') else line['coordinates'][3]
-            inputline = TLine(x1, y1, x2, y2)
-            inputline.SetLineColor(style.GetColor([line['color']]))
-            inputline.SetLineWidth(line['thickness'])
-            inputline.Draw("same")
-            leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
-            canvalines.append(inputline)
-
         # Compute statistics for hist in the displayed range
         if isinstance(inObj, TH1):
             firstBin = inObj.FindBin(plot['opt']['rangex'][0]*1.0001)
@@ -108,7 +95,6 @@ for plot in cfg:
             if plot['opt']['leg']['sigma']:
                 legend += f';  #sigma={inObj.GetStdDev():.3f}'
         leg.AddEntry(inObj, legend, 'l')
-
     for line in plot['opt']['lines']:
         x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
         y1 = plot['opt']['rangey'][0] if(line['coordinates'][1] == 'min') else line['coordinates'][1]
