@@ -56,6 +56,7 @@ for comb in combs:
     iPart2 = int(comb[2])
     oFile.mkdir(comb)
     oFile.cd(comb)
+    
     hSE[comb] = {}
     hME[comb] = {}
     hMErew[comb] = {}
