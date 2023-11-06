@@ -189,8 +189,11 @@ def RedMass(m1, m2):
 
 def main():
     defInFile = '/home/daniel/an/DstarPi/20_luuksel/SimFit_nopc_kStarBW50MeV_bs10002syst_chi2lt10_radii.root'
+    oFileNameBase = '/home/daniel/an/DstarPi/20_luuksel/SimFitPlot_DstarPi_simfit_shift_2'
+    oFileNameBase = '/home/daniel/an/DstarPi/20_luuksel/SimFitPlot_nopc_kStarBW50MeV_bs10003syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen'
     parser = argparse.ArgumentParser()
-    parser.add_argument('inFile', nargs='?', default=defInFile)
+    parser.add_argument('inFile', default=defInFile)
+    parser.add_argument('oFile', default=oFileNameBase)
     args = parser.parse_args()
 
     lightMass = TDatabasePDG.Instance().GetParticle(211).Mass()
@@ -291,8 +294,7 @@ def main():
 
     dgLLCoulombOnly = LoadRealCoulomb()
 
-    oFileNameBase = '/home/daniel/an/DstarPi/20_luuksel/SimFitPlot_DstarPi_simfit_shift_2'
-    oFile = TFile(f'{oFileNameBase}.root', 'create')
+    oFile = TFile(f'{args.oFile}.root', 'create')
 
     Setstyle()
     cCF = TCanvas('cCF', '', 1000, 500)
@@ -365,7 +367,7 @@ def main():
             tl.DrawLatex(0.20, 0.25 - 0.05, a01_2)
 
     for ext in ['pdf', 'png', 'eps']:
-        cCF.SaveAs(f'{oFileNameBase}.{ext}')
+        cCF.SaveAs(f'{args.oFile}.{ext}')
     oFile.cd('/')
     cCF.Write()
 
