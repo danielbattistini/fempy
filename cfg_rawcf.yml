@@ -8,3 +8,6 @@ suffix: null
 runsuffix: 1001 # The last parameter of the AddTask macro
 binwidth: 20 # MeV/c
 norm: null
+
+domultrew: true
+multbinwidth: 4
