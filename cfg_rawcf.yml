@@ -7,6 +7,3 @@ suffix: null
 
 binwidth: 20 # MeV/c
 norm: null
-
-domultrew: true
-multbinwidth: 4
