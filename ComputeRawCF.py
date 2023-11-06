@@ -58,12 +58,26 @@ hME = {}
 for comb, fdcomb in combs.items():
     oFile.mkdir(comb)
     oFile.cd(comb)
-
+    
     hSE[comb] = {}
     hME[comb] = {}
     for region in regions:
-        hSE[comb][region] = Load(inFile, f'HMResults0/HMResults0/{fdcomb}/SEDist_{fdcomb}')
-        hME[comb][region] = Load(inFile, f'HMResults0/HMResults0/{fdcomb}/MEDist_{fdcomb}')
+        if(cfg['domultrew']):
+            binwidth = cfg['multbinwidth']
+            hSEmultk = Load(inFile, f'HMResults0/HMResults0/{fdcomb}/SEMultDist_{fdcomb}')
+            hSE[comb][region] = hSEmultk.ProjectionX()
+            hMEmultk = Load(inFile, f'HMResults0/HMResults0/{fdcomb}/MEMultDist_{fdcomb}')
+            hMEreweightk = (hMEmultk.ProjectionX()).Clone()
+            hMEreweightk.Reset('ICESM')
+            for binidx in range(0, (hMEmultk.ProjectionY()).GetNbinsX(), binwidth):
+                hSEbinmult = hSEmultk.ProjectionX(comb + 'SEdistr', binidx, binidx + binwidth)
+                hMEbinmult = hMEmultk.ProjectionX(comb + 'MEdistr', binidx, binidx + binwidth)
+                hMEbinmult.Scale(hSEbinmult.Integral()/hMEbinmult.Integral())
+                hMEreweightk.Add(hMEbinmult)
+            hME[comb][region] = hMEreweightk
+        else:
+            hSE[comb][region] = Load(inFile, f'HMResults0/HMResults0/{fdcomb}/SEDist_{fdcomb}')
+            hME[comb][region] = Load(inFile, f'HMResults0/HMResults0/{fdcomb}/MEDist_{fdcomb}')
 
 # Sum pair and antipair
 for comb in combs:
