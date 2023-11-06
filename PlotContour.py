@@ -7,7 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
-from ROOT import TFile, RDataFrame, TCanvas, TLegend, TColor, TLatex, TGraph, TGraphErrors, TLine, kGray, EColor, TGraphAsymmErrors, gStyle
+from ROOT import gROOT, TFile, RDataFrame, TCanvas, TLegend, TColor, TLatex, TGraph, TGraphErrors, TLine, kGray, EColor, TGraphAsymmErrors, gStyle
+gROOT.SetBatch(True)
 
 def rgb(color):
     return tuple(int(color.lstrip('#')[i:i+2], 16)/255 for i in (0, 2, 4))
@@ -72,8 +73,12 @@ def plot_cov_ellipse(cov, pos, nstd=2, ax=None, enlarge=None, **kwargs):
     width, height = 2 * nstd * np.sqrt(vals)
     if enlarge is not None:
         shiftx, shifty = enlarge
+        print(f'enlarging ellipse: {shiftx:.3f}, {shifty:.3f}')
+        print(f'enlarging ellipse: {width:.3f}, {height:.3f}')
+
         width = np.sqrt(width**2 + 4 * shiftx**2)
         height = np.sqrt(height**2 + 4 * shifty**2)
+        print(f'new: {width:.3f}, {height:.3f}')
     ellip = Ellipse(xy=pos, width=width, height=height, angle=theta, **kwargs)
 
     ax.add_artist(ellip)
@@ -131,6 +136,15 @@ def Setstyle():
     gStyle.SetLegendBorderSize(0)
     gStyle.SetErrorX(0.005)
 
+# DstarPi
+# python3 PlotContour.py /home/daniel/an/DstarPi/20_luuksel/SimFit_nopc_kStarBW50MeV_bs10002syst.root /home/daniel/an/DstarPi/20_luuksel/SimFitContour_DstarPi_nopc_kStarBW50MeV_bs10002syst_stat_and_shift_final.png  --central statbs --shift --pair DstarPi
+# python3 PlotContour.py /home/daniel/an/DstarPi/20_luuksel/SimFit_nopc_kStarBW50MeV_bs10002syst_source_and_fit_range_var_as_syst_Dstarmass_scalableLL.root /home/daniel/an/DstarPi/20_luuksel/SimFitContour_nopc_kStarBW50MeV_bs10002syst_source_and_fit_range_var_as_syst_Dstarmass_scalableLL.root --shift --pair DstarPi --central statbs
+# python3 PlotContour.py /home/daniel/an/DstarPi/20_luuksel/SimFit_nopc_kStarBW50MeV_bs10003syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen.root SimFitContour_nopc_kStarBW50MeV_bs10003syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen.root --shift --pair DstarPi --central statbs
+
+# DPi
+# python3 PlotContour.py /home/daniel/an/DPi/simfit/SimFit.root /home/daniel/an/DPi/simfit/SimFitContourPlot_DPi_check2.png  --central statbs --shift --pair DPi --emma
+# python3 PlotContour.py /home/daniel/an/DPi/simfit/SimFit2.root /home/daniel/an/DPi/simfit/SimFitContourPlot_DPi_scalableLL.png  --central statbs --shift --pair DPi
+# python3 PlotContour.py /home/daniel/an/DPi/simfit/SimFit2.root /home/daniel/an/DPi/simfit/SimFitContourPlot_DPi_scalableLL_yuki  --central statbs --shift --pair DPi --yuki ~/paper/CharmPaper/figures/final_D/simscan/SimScan_SimScan_fast_check3_trials.root
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -141,6 +155,7 @@ if __name__ == '__main__':
     parser.add_argument('--emma', action='store_true', default=False)
     parser.add_argument('--central', choices=('statbs', 'totbs'))
     parser.add_argument('--pair', choices=('DstarPi', 'DPi'), required=True)
+    parser.add_argument('--yuki', default=None, help='file with the trials of the CF a la yuki')
     args = parser.parse_args()
 
     Setstyle()
@@ -174,6 +189,12 @@ if __name__ == '__main__':
     a0sinUncStat = xStat.std()
     a0triUncStat = yStat.std()
 
+    # Load results a la yuki
+    if args.yuki:
+        inFileYuki = TFile(args.yuki)
+        tYuki = inFileYuki.Get('tResults')
+        pointsYuki = np.array(list(RDataFrame(tYuki).AsNumpy(['a0sin', 'a0tri']).values()))
+    
     # Make figure
     xlim = [-0.18, 0.38]
     ylim = [-0.34, 1.099]
@@ -209,6 +230,8 @@ if __name__ == '__main__':
     cCountour.SetBottomMargin(0.13)
     pairLatex = 'D#pi' if args.pair == 'DPi' else 'D*#pi'
     hFrame = cCountour.DrawFrame(xlim[0], ylim[0], xlim[1], ylim[1], f';#it{{a}}_{{0}}^{{{pairLatex}}} (#it{{I}} = 3/2) (fm);#it{{a}}_{{0}}^{{{pairLatex}}} (#it{{I}} = 1/2) (fm)')
+    hFrame.GetXaxis().CenterTitle(True)
+    hFrame.GetYaxis().CenterTitle(True)
     hFrame.GetXaxis().SetTitleSize(0.05)
     hFrame.GetYaxis().SetTitleSize(0.05)
     hFrame.GetXaxis().SetLabelSize(0.05)
@@ -390,6 +413,8 @@ if __name__ == '__main__':
         gScattParStatCentrTotPlusShift.SetLineWidth(2)
         gScattParStatCentrTotPlusShift.Draw('same lpe')
 
+        gScattParTot.Draw('same pe')
+
     else:
         leg.AddEntry(gContourToFill1, '68% CL', 'f')
         leg.AddEntry(gContourToFill2, '95% CL', 'f')
@@ -403,6 +428,23 @@ if __name__ == '__main__':
         gCountour2TotShiftedEnlarged.SetLineColorAlpha(0, 0)
         gCountour1TotShiftedEnlarged.Draw('same l')
         gCountour2TotShiftedEnlarged.Draw('same l')
+
+        if args.yuki:
+            ellip2Yuki = plot_point_cov(pointsYuki.T, nstd=2, label='95% CL')
+            ellip1Yuki = plot_point_cov(pointsYuki.T, nstd=1, label='68% CL')
+            gCountour2Yuki = EllipseToGraph(ellip2Yuki)
+            gCountour1Yuki = EllipseToGraph(ellip1Yuki)
+
+            gCountour2Yuki.SetLineStyle(7)
+            gCountour1Yuki.SetLineStyle(7)
+            gCountour2Yuki.SetLineColor(EColor.kAzure+2)
+            gCountour1Yuki.SetLineColor(EColor.kAzure+2)
+            gCountour2Yuki.SetLineWidth(1)
+            gCountour1Yuki.SetLineWidth(1)
+            
+            gCountour2Yuki.Draw('same')
+            gCountour1Yuki.Draw('same')
+            leg.AddEntry(gCountour1Yuki, 'Gaussian potential', 'l')
 
         gScattParStatCentrTotPlusShift.SetMarkerStyle(20)
         gScattParStatCentrTotPlusShift.SetMarkerSize(1)
@@ -423,58 +465,74 @@ if __name__ == '__main__':
         tl.DrawLatexNDC(0.23, 0.89-0.05, 'High-mult. (0#font[122]{-}0.17% INEL > 0)')
 
     if args.debug:
-        gScattParStat.Draw('same pe')
+        gScattParStat.Draw('same pez')
 
     if args.pair == 'DPi':
         lliu = TGraphAsymmErrors(1)
         lliu.SetPoint(0, -0.10, 0.37)
         lliu.SetPointError(0, 0.001, 0.001, 0.01, 0.01)
-        lliu.SetMarkerColor(EColor.kTeal - 6)
-        lliu.SetMarkerStyle(8)
-        lliu.SetLineColor(EColor.kTeal - 6)
+        lliu.SetMarkerColor(EColor.kRed - 7)
+        lliu.SetMarkerStyle(20)
+        lliu.SetMarkerSize(1.5)
+        lliu.SetLineColor(EColor.kRed - 7)
 
         xyguo = TGraphErrors(1)
         xyguo.SetPoint(0, -0.11, 0.33)
         xyguo.SetPointError(0, 0, 0)
-        xyguo.SetMarkerColor(EColor.kBlue)
-        xyguo.SetMarkerStyle(8)
-        xyguo.SetLineColor(EColor.kBlue)
+        xyguo.SetMarkerColor(EColor.kTeal - 9)
+        xyguo.SetMarkerStyle(29)
+        xyguo.SetMarkerSize(2)
+        xyguo.SetLineColor(EColor.kTeal - 9)
 
         zhguo1 = TGraphAsymmErrors(1)
         zhguo1.SetPoint(0, -0.101, 0.31)
         zhguo1.SetPointError(0, 0.005, 0.003, 0.01, 0.01)
-        zhguo1.SetMarkerColor(EColor.kAzure + 10)
-        zhguo1.SetMarkerStyle(8)
-        zhguo1.SetLineColor(EColor.kAzure + 10)
+        zhguo1.SetMarkerColor(EColor.kYellow - 6)
+        zhguo1.SetMarkerStyle(34)
+        zhguo1.SetMarkerSize(1.5)
+        zhguo1.SetLineColor(EColor.kYellow - 6)
 
         zhguo2 = TGraphAsymmErrors(1)
         zhguo2.SetPoint(0, -0.099, 0.34)
         zhguo2.SetPointError(0, 0.003, 0.004, 0.00, 0.03)
-        zhguo2.SetMarkerColor(EColor.kViolet + 1)
-        zhguo2.SetMarkerStyle(8)
-        zhguo2.SetLineColor(EColor.kViolet + 1)
+        zhguo2.SetMarkerColor(EColor.kMagenta - 8)
+        zhguo2.SetMarkerStyle(43)
+        zhguo2.SetMarkerSize(2)
+        zhguo2.SetLineColor(EColor.kMagenta - 8)
 
         blhuang = TGraphErrors(1)
         blhuang.SetPoint(0, -0.06, 0.61)
         blhuang.SetPointError(0, 0.02, 0.11)
-        blhuang.SetMarkerColor(EColor.kGreen + 1)
-        blhuang.SetMarkerStyle(8)
-        blhuang.SetLineColor(EColor.kGreen + 1)
+        blhuang.SetMarkerColor(EColor.kOrange + 6)
+        blhuang.SetMarkerStyle(33)
+        blhuang.SetMarkerSize(1.8)
+        blhuang.SetLineColor(EColor.kOrange + 6)
 
         lliu.Draw('same pe')
         xyguo.Draw('same pe')
         zhguo1.Draw('same pe')
         zhguo2.Draw('same pe')
         blhuang.Draw('same pe')
+
         leg.AddEntry(xyguo, "X. Y. Guo #it{et al.}", "p")
         leg.AddEntry(zhguo1, "Z. H. Guo (Fit-1B) #it{et al.}", "p")
         leg.AddEntry(zhguo2, "Z. H. Guo (Fit-2B) #it{et al.}", "p")
         leg.AddEntry(blhuang, "B. L. Huang #it{et al.}", "p")
         leg.AddEntry(lliu, "L. Liu #it{et al.}", "p")
 
+    # same scatt par for DstarPi and DPi
+    gTorres = TGraphAsymmErrors(1)
+    gTorres.SetPoint(0, -0.101, 0.423)
+    gTorres.SetMarkerColor(EColor.kAzure - 9)
+    gTorres.SetMarkerStyle(21)
+    gTorres.SetMarkerSize(1.5)
+    gTorres.SetLineColor(EColor.kAzure - 9)
+    leg.AddEntry(gTorres, "J.M. Torres-Rincon #it{et al.}", "p")
+    gTorres.Draw('same pe')
+
     for ext in ['png', 'pdf', 'eps', 'root']:
         if args.debug:
-            name = f'{path.splitext(args.oFile)[0]}_root_debug.{ext}'
+            name = f'{path.splitext(args.oFile)[0]}_debug.{ext}'
         else:
-            name = f'{path.splitext(args.oFile)[0]}_root.{ext}'
+            name = f'{path.splitext(args.oFile)[0]}.{ext}'
         cCountour.SaveAs(name)

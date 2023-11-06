@@ -38,6 +38,9 @@ void MakeDistr(
     std::string pair = "DstarPi",
     std::string suffix = "test",
     std::string treeDirName = "auto",
+    double nSigmaMass = 2.,
+    double nSigmaOffsetSideband = 5., 
+    double sidebandWidth = 0.2,
     bool uniq = false,
     bool doKStarSlices = false,
     double kStarBW = 50, // MeV/c
@@ -54,6 +57,9 @@ void MakeDistr(
     std::string pair,
     std::string suffix,
     std::string treeDirName,
+    double nSigmaMass,
+    double nSigmaOffsetSideband, 
+    double sidebandWidth,
     bool uniq,
     bool doKStarSlices,
     double kStarBW,
@@ -214,7 +220,7 @@ void MakeDistr(
             oFile->mkdir(Form("%s/%s", comb, event.data()));
             oFile->cd(Form("%s/%s", comb, event.data()));
             
-                for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
+            for (long unsigned int iSelection = 0; iSelection < selections.size(); iSelection++) {
                 if (!doKStarSlices) break;
                 auto dfSel = df.Filter(selections[iSelection].data());
 
@@ -236,7 +242,6 @@ void MakeDistr(
                     hCharmMassKStarBin->SetTitle(Form(";%s;Counts", heavy_mass_label.data()));
                     hCharmMassKStarBin->Write();
                 }
-                
             }
 
             for (const char *region : regions) {
@@ -254,8 +259,8 @@ void MakeDistr(
                 oFile->mkdir(Form("%s/%s/%s", comb, event.data(), region));
                 oFile->cd(Form("%s/%s/%s", comb, event.data(), region));
 
-                auto lamMassSelection = [hpdg, region](float mass, float pt) {
-                    return MassSelection(mass, pt, hpdg, region);
+                auto lamMassSelection = [hpdg, region, nSigmaMass, nSigmaOffsetSideband, sidebandWidth](float mass, float pt) {
+                    return MassSelection(mass, pt, hpdg, region, nSigmaMass, nSigmaOffsetSideband, sidebandWidth);
                 };
                 auto dfMass = df.Filter(lamMassSelection, {"heavy_invmass", "heavy_pt"});
 
@@ -268,7 +273,7 @@ void MakeDistr(
 
                     auto hCharmPtVsKStar = dfSel.Histo2D<float, float>({"hCharmPtVsKStar0",
                                                         ";#it{k}*;#it{p}_{T} (GeV/#it{c});Counts",
-                                                        3000u, 0., 3000., 1000u, 0, 10},
+                                                        3000u, 0., 3000., 100u, 0, 10},
                                                         "kStarMeV", "heavy_pt");
                     hCharmPtVsKStar->Write();
 

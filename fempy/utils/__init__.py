@@ -2,6 +2,7 @@ import fempy
 from .analysis import Pair
 from .io import *
 from .format import *
+from .style import *
 
 def Chunkyfy(array, nElemPerChunk=200):
     if len(array) == 0:
