@@ -1,9 +1,6 @@
 import sys
 import logging
 
-from .utils import *
-from .correlation_function import CorrelationFunction
-
 from ROOT import gROOT, gStyle
 
 

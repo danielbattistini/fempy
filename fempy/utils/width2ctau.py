@@ -1,4 +1,4 @@
-#!/home/daniel/alice/sw/ubuntu2004_x86-64/Python/v3.9.12-4/bin/python3
+#!/usr/bin/env python
 '''
 Computes the mean-proper decay lenght (ctau) in fm of a particle given the width in MeV
 '''
