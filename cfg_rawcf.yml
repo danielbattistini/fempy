@@ -1,4 +1,4 @@
-pair: dPi
+pairs: ['LPiplus', 'AntiLPiplus', 'LPiminus', 'AntiLPiminus'] # index 0-3 and 1-2 should be pair-antipair
 infile: /data/dPi/01_otonsel/data/AnalysisResults.root
 
 # where to save the output
