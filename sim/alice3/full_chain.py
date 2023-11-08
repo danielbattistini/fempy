@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 from acts.examples.reconstruction import (
     addSeeding,
-    TruthSeedRanges,
+    # TruthSeedRanges,
     SeedFinderConfigArg,
     SeedFinderOptionsArg,
     SeedFilterConfigArg,
     SpacePointGridConfigArg,
     SeedingAlgorithmConfigArg,
-    SeedingAlgorithm,
-    ParticleSmearingSigmas,
+    # SeedingAlgorithm,
+    # ParticleSmearingSigmas,
     addCKFTracks,
 #    CKFPerformanceConfig,
 TrackSelectorConfig,
-    addKalmanTracks,
+    # addKalmanTracks,
     addAmbiguityResolution,
     AmbiguityResolutionConfig,
 
@@ -36,8 +36,6 @@ import alice3
 
 u = acts.UnitConstants
 
-
-
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('oDir')
@@ -45,7 +43,6 @@ parser.add_argument('--evt', type=int, required=True)
 parser.add_argument('-B', default=1, type=float)
 parser.add_argument('--dipole', default=False, action='store_true')
 parser.add_argument('--pileup', type=int, default=1)
-parser.add_argument('--minHits', type=int, default=7)
 parser.add_argument('--forced-decays', action='store_true', default=False)
 parser.add_argument('--geom', default='20230731_fixed_endcaps')
 parser.add_argument('--seed', default=42, type=int)
@@ -53,7 +50,6 @@ args = parser.parse_args()
 
 oDir = args.oDir
 geo_dir = pathlib.Path(f'/home/ktas/ge86rim/phsw/fempy/sim/alice3/geom/{args.geom}')
-
 
 # IA: logging details
 myVerboseGen = acts.logging.INFO
@@ -63,22 +59,16 @@ myVerboseSeeding = acts.logging.INFO
 myVerboseCKFTracks = acts.logging.INFO
 myVerboseAmbiguityResolution = acts.logging.WARNING #INFO
 
-import sys
-
 IA_MF = args.B # magnetic field
 
-IA_nMeasurementsMin = args.minHits #9#11#9#10#11 #7#5 #4#7 #7
+IA_nMeasurementsMin = 5
 IA_maximumSharedHits = 1#3 #3
-
-
-
 
 IA_outputDirName = "output/"
 IA_outputDirName += f"evt-{args.evt}"
 IA_outputDirName += f"_B-{args.B:.1f}T"
 IA_outputDirName += f"_dipole" if args.dipole else ''
 IA_outputDirName += f"_geom-{args.geom[:8]}"
-IA_outputDirName += f"_minHits-{args.minHits}"
 IA_outputDirName += f"_pileup-{args.pileup}"
 IA_outputDirName += f"_forced-decays" if args.forced_decays else ''
 IA_outputDirName += f"_seed-{args.seed}"
@@ -133,8 +123,6 @@ s = addPythia8(
     # printPythiaEventListing='long'
 )
 
-
-
 # interaction w detector material like geant but simplified 
 s = addFatras(
     s,
@@ -148,8 +136,6 @@ s = addFatras(
 #        postSelectParticles=ParticleSelectorConfig(
 #    #        eta=(0.0, 4.0), pt=(500 * u.MeV, None), removeNeutral=False),
 #            eta=(0.0, 4.0), pt=(50 * u.MeV, None), removeNeutral=False),
-
-
     outputDirRoot=outputDir,
     logLevel = myVerboseFatras, #acts.logging.VERBOSE,
 )
@@ -268,8 +254,6 @@ s = addSeeding(
 #    initialVarInflation = (0.2,0.2,0.2,0.2,0.2,0.2)  # ADDED BY IA
 )
 
-
-
 s = addCKFTracks(
     s,
     trackingGeometry,
@@ -280,9 +264,6 @@ s = addCKFTracks(
     writeTrajectories=True,
     logLevel = myVerboseCKFTracks,
 )
-
-
-
 
 s = addAmbiguityResolution(
     s,
@@ -296,8 +277,6 @@ s = addAmbiguityResolution(
     writeTrajectories=True,
     logLevel = myVerboseAmbiguityResolution,
 )
-
-
 
 # trackFinder = acts.examples.TrackFindingAlgorithm(
 #       level=acts.logging.INFO,
@@ -335,17 +314,6 @@ s = addAmbiguityResolution(
 
 s.run()
 
-
-
-
-
-
-
 # import shutil
 # shutil.copyfile( 'full_chain_acts_27.py', IA_outputDirName+'/full_chain_IA_check_steps.py' )
 # shutil.copyfile( 'bashRunChainWithVariousParams.sh', IA_outputDirName+'/bashRunChainWithVariousParams.sh' )
-
-
-
-
-
