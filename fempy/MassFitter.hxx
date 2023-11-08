@@ -106,91 +106,92 @@ class MassFitter {
                 }
             },
             this->fitRangeMin, fitRangeMax, nBkgPars);
+    }
 
-        if (sgnFuncName == "gaus") {
-            this->fFit->SetParName(0, "norm");
-            this->fFit->SetParameter(0, 0.5);
-            this->fFit->SetParLimits(0, 0.0, 50);
-            this->fFit->SetParName(1, "mean");
-            if (bkgFuncName == "powex") {
-                this->fFit->SetParameter(1, 0.145);
-                this->fFit->SetParLimits(1, 0.144, 0.146);
-                this->fFit->SetParName(2, "sigma");
-                this->fFit->SetParLimits(2, 0.0003, 0.0009);
-                this->fFit->SetParameter(2, 0.0006);
-            } else {
-                this->fFit->SetParameter(1, 1.8);
-                this->fFit->SetParLimits(1, 1.84, 1.9);
-                this->fFit->SetParName(2, "sigma");
-                this->fFit->SetParameter(2, 0.006);
-                this->fFit->SetParLimits(2, 0.0001, 0.01);
-            }
-        } else if (sgnFuncName == "hat") {
-            // g1
-            this->fFit->SetParName(0, "norm");
-            this->fFit->SetParameter(0, 0.1);
-            this->fFit->SetParLimits(0, 0, 50);
-            this->fFit->SetParName(1, "mean");
-            this->fFit->SetParameter(1, 0.145);
-            this->fFit->SetParLimits(1, 0.144, 0.146);
-            this->fFit->SetParName(2, "sigma");
-            this->fFit->SetParameter(2, 0.001);
-            this->fFit->SetParLimits(2, 0.0002, 0.002);
+    /*
+    Set the fit parameters. Signal parameters first, then background.
+    format: {index_of_parameter, {init_value, lower_lim, upper_lim}}
 
-            // g2
-            this->fFit->SetParName(3, "Yfrac");
-            this->fFit->SetParameter(3, 0.5);
-            this->fFit->SetParLimits(3, 0.1, 1);
-            this->fFit->SetParName(4, "sigmaFrac");
-            this->fFit->SetParameter(4, 1.5);
-            this->fFit->SetParLimits(4, 1, 5);
-        }
+    Parameters:
+        - name: unique identifier of the set of parameters. Format: pdg_signal-func_bkg-func_suffix
+    */
+    void SetFitSettings(std::string name) {
+        if (name == "421_gaus_exp_alice3_siblings") {
+            fFitPars = {
+                // gaussian
+                {0, {"norm", 1000, 0, 1.e6}},
+                {1, {"mean", 1.86484, 1.86484*0.98, 1.86484*1.02}},
+                {2, {"sigma", 10, 0.005, 0.05}},
+                
+                // exp
+                {3, {"norm", 10, 0.01, 1.e4}},
+                {4, {"slope", -0.5, -10, 10}},
+            };
+        } else if (name == "431_gaus_powex_DstarFemto") {
+            fFitPars = {
+                // gaussian
+                {0, {"norm", 0.5, 0, 50}},
+                {1, {"mean", 0.145, 0.144, 0.146}},
+                {2, {"sigma", 0.0006, 0.0003, 0.0009}},
+                
+                // powex
+                {3, {"norm", 0.5, 200, 3000}},
+                {4, {"slope", 0.1, 0, 100}},
+            };
+        } else if (name == "411_gaus_exp_DstarFemto") {
+            fFitPars = { {0, {"norm", 0.5, 0, 50}},
+                {0, {"mean", 1.87, 1.84, 1.9}},
+                {2, {"sigma", 0.006, 0.0001, 0.01}},
+                
+                // exp
+                {3, {"norm", 10, 0, 1.e6}},
+                {4, {"slope", -0.5, -10, 0}},
+            };
+        } else if (name == "411_hat_exp_DstarFemto") {
+            fFitPars = {    // gauss1
+                {0, {"norm", 0.1, 0, 50}},
+                {1, {"mean", 0.145, 0.144, 0.146}},
+                {2, {"sigma", 0.001, 0.0002, 0.002}},
 
-        if (bkgFuncName == "powex") {
-            this->fFit->SetParName(this->nSgnPars + 0, "norm");
-            this->fFit->SetParameter(this->nSgnPars + 0, 0.5);
-            this->fFit->SetParLimits(this->nSgnPars + 0, 200, 3000);
-            this->fFit->SetParName(this->nSgnPars + 1, "slope");
-            this->fFit->SetParameter(this->nSgnPars + 1, 0.1);
-            this->fFit->SetParLimits(this->nSgnPars + 1, 0, 100);
-        } else if (bkgFuncName == "exp") {
-            this->fFit->SetParName(this->nSgnPars + 0, "norm");
-            this->fFit->SetParameter(this->nSgnPars + 0, 1);
-            this->fFit->SetParLimits(this->nSgnPars + 0, 0, 1e6);
-            this->fFit->SetParName(this->nSgnPars + 1, "slope");
-            this->fFit->SetParameter(this->nSgnPars + 1, 0.1);
-            this->fFit->SetParLimits(this->nSgnPars + 1, -100, 100);
-        } else if (bkgFuncName == "pol1") {
-            bkgFunc = Pol1;
+                // gauss2
+                {3, {"Yfrac", 0.5, 0.1, 1}},
+                {4, {"sigmaFrac", 1.5, 1, 5}},
+
+                // exp
+                {5, {"norm", 1, 0, 1e6}},
+                {6, {"slope", 0.1, -100, 100}},
+            };
+        } else {
+            std::cout << "The set of parameters '" << name << "' is not valid. Exit!" << std::endl;
+            exit(1);
         }
     }
 
-    void Fit() {
+    int Fit() {
+        
         // printf("---> %s\n", this->bkg.data());
         // prefit
         // this->fPrefit = new TF1("fPrefit", [&, this](double *x, double * par) {
         //     if (std::abs(x[0] - 0.145) < 0.001)
         //         TF1::RejectPoint();
         //         return 0;
-        //     return this->bkgFunc.EvalPar(x, par);cc
+        //     return this->bkgFunc.;EvalPar(x, par);cc
 
         // }, this->fitRangeMin, fitRangeMax, nBkgPars);
         // printf("\n\n\nPerfomring the prefit to the background:\n");
-        hist->Fit(this->fPrefit, "QMR0+", "");
+        // hist->Fit(this->fPrefit, "QMR0+", "");
 
-        // set the bkg parameters based on prefit
-        for (int iPar = 0; iPar < this->nBkgPars; iPar++) {
-            fFit->SetParameter(this->nSgnPars + iPar, fPrefit->GetParameter(iPar));
-            if (fPrefit->GetParameter(iPar) > 0)
-                fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) / 3,
-                                   fPrefit->GetParameter(iPar) * 3);
-            else
-                fFit->SetParLimits(this->nSgnPars + iPar, fPrefit->GetParameter(iPar) * 3,
-                                   fPrefit->GetParameter(iPar) / 3);
+        for (int iPar = 0; iPar < this->nSgnPars + this->nBkgPars; iPar++) {
+            auto pars = fFitPars[iPar];
+            std::cout << iPar <<" "<< std::get<0>(pars) <<" "<< std::get<1>(pars) <<" "<< std::get<2>(pars) <<" "<< std::get<3>(pars) << std::endl;
+
+            this->fFit->SetParName(iPar, std::get<0>(pars).data());
+            this->fFit->SetParameter(iPar, std::get<1>(pars));
+            this->fFit->SetParLimits(iPar, std::get<2>(pars), std::get<3>(pars));
         }
 
         // printf("\n\n\nPerfomring the full fit:\n");
-        int status = hist->Fit(this->fFit, "QSMRL+0", "")->Status();
+        int status = hist->Fit(this->fFit, "SMRL+0", "")->Status();
 
         // decompose the fit function in its contributions
         if (this->bkgFuncName == "pol1") {
@@ -235,13 +236,15 @@ class MassFitter {
         return status;
     }
 
+    /*
+    Define a canvas before calling this function and pass gPad as TVirtualPad
+    */
     void Draw(TVirtualPad *pad, std::string method) {
         pad->cd();
         hist->GetYaxis()->SetRangeUser(0, 1.3 * hist->GetMaximum());
         gPad->DrawFrame(fitRangeMin, 0, fitRangeMax, 1.3 * hist->GetMaximum(),
                         Form("%s;%s;%s", this->hist->GetTitle(), this->hist->GetXaxis()->GetTitle(),
                              this->hist->GetYaxis()->GetTitle()));
-
         if (this->bkgFuncName == "pol1") {
             this->fBkg->SetNpx(300);
             this->fBkg->SetLineColor(kGray + 2);
@@ -306,6 +309,12 @@ class MassFitter {
     double GetMean() {
         if (!fFit) return -1;
         if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParameter(1);
+        return -1;
+    }
+
+    double GetMeanUnc() {
+        if (!fFit) return -1;
+        if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParError(1);
         return -1;
     }
 
@@ -420,6 +429,8 @@ class MassFitter {
     int nBkgPars;
     double fitRangeMin;
     double fitRangeMax;
+    std::map<int, std::tuple<std::string, double, double, double>> fFitPars;
+
 };
 
 #endif  // FEMPY_MASSFITTER_HXX_
