@@ -33,6 +33,9 @@ with open(args.cfg, "r") as stream:
 regions = ['sgn']
 combs = ['p02', 'p03', 'p12', 'p13']
 
+firstpair = cfg['pairs'][0] + cfg['pairs'][3]
+secondpair = cfg['pairs'][1] + cfg['pairs'][2]
+
 # Load input file with same- and mixed-event distributions
 inFile = TFile(cfg['infile'])
 
