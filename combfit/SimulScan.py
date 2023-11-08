@@ -41,11 +41,19 @@ parser = argparse.ArgumentParser()
 # parser.add_argument('inFile', help='input file without extension')
 parser.add_argument('oFileWoExt', help='output file without extension')
 parser.add_argument('--pair', choices=('DPi', 'DstarPi'), help='DPi or DstarPi')
+parser.add_argument('--source', choices=('centr', 'upper', 'lower'), help='Source variation', default='centr')
 args = parser.parse_args()
 
-
-sourceRadii = [0.97, 2.52]
-weightSource = 0.66
+if args.source == 'centr':
+    sourceRadii = [0.97, 2.52]
+    weightSource = 0.66
+elif args.source == 'lower':
+    sourceRadii = [0.89, 2.32]
+    weightSource = 0.69
+elif args.source == 'upper':
+    sourceRadii = [1.06, 2.88]
+    weightSource = 0.64
+    
 baseDir = '../theory/cf/yuki/DPi_correlation'
 
 gCFTheoSC = {}
@@ -55,8 +63,8 @@ fitRange = [0, 300]
 
 for vq in range(-1000, 3000, 100):
     try:
-        dfsc_small = pd.read_csv(f'{baseDir}/fast_check3/corr_Dp_pip/0.97fm/corr_0.97fm_{vq}.dat', header=None, delim_whitespace=True)
-        dfsc_large = pd.read_csv(f'{baseDir}/fast_check3/corr_Dp_pip/2.52fm/corr_2.52fm_{vq}.dat', header=None, delim_whitespace=True)
+        dfsc_small = pd.read_csv(f'{baseDir}/1sigma/corr_Dp_pip/{sourceRadii[0]}fm/corr_{sourceRadii[0]}fm_{vq}.dat', header=None, delim_whitespace=True)
+        dfsc_large = pd.read_csv(f'{baseDir}/1sigma/corr_Dp_pip/{sourceRadii[1]}fm/corr_{sourceRadii[1]}fm_{vq}.dat', header=None, delim_whitespace=True)
     except FileNotFoundError:
         print(f'File not found for vq = {vq}')
         continue
@@ -69,8 +77,8 @@ for vq in range(-1000, 3000, 100):
     # Load opposite charge CFs
     for vd in range(-2000, 3000, 100):
         try:
-            dfsc_small = pd.read_csv(f'{baseDir}/fast_check3/corr_Dp_pim/0.97fm/corr_0.97fm_Vq_{vq}_Vd_{vd}.dat', header=None, delim_whitespace=True)
-            dfsc_large = pd.read_csv(f'{baseDir}/fast_check3/corr_Dp_pim/2.52fm/corr_2.52fm_Vq_{vq}_Vd_{vd}.dat', header=None, delim_whitespace=True)
+            dfsc_small = pd.read_csv(f'{baseDir}/1sigma/corr_Dp_pim/{sourceRadii[0]}fm/corr_{sourceRadii[0]}fm_Vq_{vq}_Vd_{vd}.dat', header=None, delim_whitespace=True)
+            dfsc_large = pd.read_csv(f'{baseDir}/1sigma/corr_Dp_pim/{sourceRadii[1]}fm/corr_{sourceRadii[1]}fm_Vq_{vq}_Vd_{vd}.dat', header=None, delim_whitespace=True)
         except FileNotFoundError:
             print(f'File not found for vq = {vq} and vd = {vd}')
             continue
@@ -151,13 +159,18 @@ gStyle.SetOptStat(0)
 
 tResults = TNtuple("tResults", "", "vq:vd:chi2ndf:a0sin:a0tri")
 
-cChi2Ndf = TCanvas('cChi2Ndf', '', 600, 600)
-cChi2Ndf.SetLeftMargin(0.15)
-cChi2Ndf.SetRightMargin(0.21)
+cChi2Ndf = TCanvas('cChi2Ndf', '', 1800, 600)
+cChi2Ndf.Divide(3, 1)
+pad = cChi2Ndf.cd(1)
+pad.SetLeftMargin(0.15)
+pad.SetRightMargin(0.02)
+pad = cChi2Ndf.cd(2)
+pad.SetLeftMargin(0.15)
+pad.SetRightMargin(0.02)
+pad = cChi2Ndf.cd(3)
+pad.SetLeftMargin(0.15)
+pad.SetRightMargin(0.21)
 cChi2Ndf.SaveAs(f'{args.oFileWoExt}_Chi2Ndf.pdf[')
-
-
-
 
 if args.pair == 'DPi':
     inFileSC = TFile("/home/daniel/paper/CharmPaper/figures/final_D/simscan/DPiPlusOutput_tot.root")
@@ -167,6 +180,8 @@ if args.pair == 'DPi':
     ndf = CountPoints(gCFGenSC, fitRange[0], fitRange[1]) + CountPoints(gCFGenOC, fitRange[0], fitRange[1]) - 2
 elif args.pair == 'DstarPi':
     inFile = TFile('~/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs10002syst.root')
+    inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs1000_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange300-600.root')
+    inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs50_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root')
     gCFGenSC = inFile.Get('sc/stat/gCFGen0')
     gCFGenOC = inFile.Get('oc/stat/gCFGen0')
     ndf = CountPoints(gCFGenSC, fitRange[0], fitRange[1]) + CountPoints(gCFGenOC, fitRange[0], fitRange[1]) - 2
@@ -200,48 +215,6 @@ for iIter in range(1000000):
             chi2OC = ComputeChi2(gCFGenOC, gOC, fitRange[0], fitRange[1])
             chi2 = chi2SC + chi2OC
 
-            # if iIter == 0:
-            #     pad = cFits.cd(1)
-            #     frame = pad.DrawFrame(0, 0, 300, 3, ';#it{k}* (MeV/#it{c});#it{C}(#it{k}*)')
-            #     gSC.SetMarkerColor(kRed)
-            #     gSC.SetLineColor(kRed)
-            #     gSC.Draw('same l')
-            #     gCFGenSC.Draw('same pe')
-            #     gCFTheoSC[0].SetMarkerColor(kGray+2)
-            #     gCFTheoSC[0].SetLineColor(kGray+2)
-            #     gCFTheoSC[0].SetLineStyle(9)
-            #     gCFTheoSC[0].Draw('same l')
-
-            #     legSC = TLegend(0.3, 0.7, 0.88, 0.88, f'Vq = {vq} MeV')
-
-            #     legSC.AddEntry(gCFGenSC, titleSC)
-            #     legSC.AddEntry(gSC, f'theory (#chi^{{2}} = {chi2SC:.1f})')
-            #     legSC.AddEntry(gCFTheoSC[0], f'Coulomb (#chi^{{2}} = {chi2SC:.1f})')
-            #     legSC.Draw()
-
-            #     pad = cFits.cd(2)
-            #     frame = pad.DrawFrame(0, fitRange[0], fitRange[1], 3, ';#it{k}* (MeV/#it{c});#it{C}(#it{k}*)')
-            #     gOC.SetLineColor(kRed)
-            #     gOC.Draw('same l')
-            #     gCFGenOC.Draw('same pe')
-
-            #     gCFTheoOC[0][0].SetMarkerColor(kGray+2)
-            #     gCFTheoOC[0][0].SetLineColor(kGray+2)
-            #     gCFTheoOC[0][0].SetLineStyle(9)
-            #     gCFTheoOC[0][0].Draw('same l')
-
-            #     legOC = TLegend(0.3, 0.7, 0.88, 0.88, f'Vq = {vq} MeV; Vd = {vd} MeV')
-            #     legOC.AddEntry(gCFGenOC, titleOC)
-            #     legOC.AddEntry(gOC, f'theory (#chi^{{2}} = {chi2OC:.1f})')
-            #     legOC.AddEntry(gCFTheoOC[0][0], f'Coulomb (#chi^{{2}} = {chi2OC:.1f})')
-            #     legOC.Draw()
-
-            #     cFits.SaveAs(f'{args.oFileWoExt}_fits.pdf')
-
-            #     binx = hhChi2.GetXaxis().FindBin(vq)
-            #     biny = hhChi2.GetYaxis().FindBin(vd)
-            #     hhChi2.SetBinContent(binx, biny, chi2)
-
             binx = hhChi2.GetXaxis().FindBin(vq)
             biny = hhChi2.GetYaxis().FindBin(vd)
             hhChi2Ndf.SetBinContent(binx, biny, chi2/ndf)
@@ -249,12 +222,42 @@ for iIter in range(1000000):
             if chi2 < minChi2:
                 minChi2 = chi2
                 bestPot = (vq, vd)
-        # cFits.SaveAs(f'{args.oFileWoExt}_fits.pdf]')
 
     tResults.Fill(bestPot[0], bestPot[1], minChi2 / ndf, gPot2ScatLen.Eval(bestPot[0]), gPot2ScatLen.Eval(bestPot[1]))
 
     if iIter < 50:
-        cChi2Ndf.cd()
+        # Draw best-fit CF (same-charge)
+        pad = cChi2Ndf.cd(1)
+        frame = pad.DrawFrame(0, 0.7, 300, 1.3, 'same-charge;#it{k}* (MeV/#it{c});#it{C}(#it{k}*)')
+        gCFTheoSC[0].SetLineColor(EColor.kGray+2)
+        gCFTheoSC[0].SetLineStyle(7)
+        gCFTheoSC[0].Draw('same')
+        gCFTheoSC[bestPot[0]].SetLineColor(EColor.kAzure + 2)
+        gCFTheoSC[bestPot[0]].Draw('same')
+        gCFGenSC.Draw('same')
+        legScanSC = TLegend(0.4, 0.7, 0.9, 0.9)
+        legScanSC.AddEntry(gCFGenSC, 'Data')
+        legScanSC.AddEntry(gCFTheoSC[0], f'Coulomb', 'l')
+        legScanSC.AddEntry(gCFTheoSC[bestPot[0]], f'Best fit: V_{{q}} = {bestPot[0]} MeV', 'l')
+        legScanSC.Draw('same')
+
+        # Draw best-fit CF (opposite-charge)
+        pad = cChi2Ndf.cd(2)
+        frame = pad.DrawFrame(0, 0.7, 300, 1.3, 'opposite-charge;#it{k}* (MeV/#it{c});#it{C}(#it{k}*)')
+        gCFTheoOC[0][0].SetLineColor(EColor.kGray+2)
+        gCFTheoOC[0][0].SetLineStyle(7)
+        gCFTheoOC[0][0].Draw('same')
+        gCFTheoOC[bestPot[0]][bestPot[1]].SetLineColor(EColor.kAzure + 2)
+        gCFTheoOC[bestPot[0]][bestPot[1]].Draw('same')
+        gCFGenOC.Draw('same')
+        legScanOC = TLegend(0.4, 0.7, 0.9, 0.9)
+        legScanOC.AddEntry(gCFGenOC, 'Data')
+        legScanOC.AddEntry(gCFTheoOC[0][0], f'Coulomb', 'l')
+        legScanOC.AddEntry(gCFTheoOC[bestPot[0]][bestPot[1]], f'Best fit: V_{{q}} = {bestPot[0]} MeV, V_{{d}} = {bestPot[1]} MeV', 'l')
+        legScanOC.Draw('same')
+
+        # Draw Chi2/ndf plot
+        pad = cChi2Ndf.cd(3)
         hhChi2Ndf.SetTitle(f'iIter = {iIter};Vq (MeV);Vd (MeV);#chi^{{2}}/ndf')
         hhChi2Ndf.SetNdivisions(510, 'xy')
         hhChi2Ndf.Draw('colz')
@@ -262,7 +265,6 @@ for iIter in range(1000000):
         hContour.SetContour(2, np.array([(minChi2 + 2.30) / ndf, (minChi2 + 6.18) / ndf], 'd'))
         hContour.SetLineColor(EColor.kRed)
         hContour.Draw('same cont3')
-
 
         gBestPot = TGraph(1)
         print(bestPot, minChi2, minChi2/ndf)

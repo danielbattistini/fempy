@@ -358,6 +358,8 @@ def ComputeScattPar(**kwargs):
     cFit.Write()
     return scattLen, scattLenUnc, normLL, chi2ndf, hCFGen
 
+normRange = [1500, 2000]
+bkgFitRanges = [[300, 1000], [350, 1100], [250, 900]]
 
 def ComputeGenCF(args):
     gStyle.SetOptStat(0)
@@ -388,6 +390,8 @@ def ComputeGenCF(args):
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5.root'
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile.root'
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen.root'
+        oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange{normRange[0]}-{normRange[1]}.root'
+        oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange{normRange[0]}-{normRange[1]}_bkgfitrange{bkgFitRanges[0][0]}-{bkgFitRanges[0][1]}.root'
         if False:
             inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/sbsyst/Distr_mass_2_7_0.20.root')
             oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_sbsyst_mass_2_7_0.20_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}.root'
@@ -407,8 +411,6 @@ def ComputeGenCF(args):
 
     fitRanges = [[10, 450], [10, 400], [10, 500]]
     fitRanges = [[10, 700], [10, 800], [10, 600]]
-    bkgFitRanges = [[300, 1000], [350, 1100], [250, 900]]
-    normRange = [1500, 2000]
     heavyMass = TDatabasePDG.Instance().GetParticle(411).Mass()
 
     # load yaml file with lambda parameter
