@@ -5,7 +5,7 @@ import numpy as np
 import sys
 
 from fempy.utils import Pair
-from fempy import CorrelationFunction
+from fempy.correlation_function import CorrelationFunction
 import fempy
 
 from ROOT import TFile, AliHFInvMassFitter, TDatabasePDG, TH1F, AliVertexingHFUtils, TH1D, TCanvas, gPad, gROOT, TF1, gInterpreter, TGraphErrors

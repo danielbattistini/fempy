@@ -16,7 +16,7 @@ from ROOT import (
     kBlack
 )
 
-from fempy import TranslateToLatex
+from fempy.utils.format import TranslateToLatex
 
 
 def LoadObjects(pair, suffix):
@@ -184,6 +184,9 @@ def main():
         objs['lltot'].SetFillColorAlpha(kBlue+1, 0.7)
         objs['lltot'].SetLineColorAlpha(0, 0)
         objs['lltot'].Draw('same e3')
+        objs['fit'] = objs['lltot'].Clone()
+        objs['fit'].SetName('gFit')
+        objs['fit'].Write('gFit')
 
         # objs['llstat'].SetFillColorAlpha(kBlue+1, 0.7)
         # objs['llstat'].SetLineColorAlpha(0, 0)
@@ -222,7 +225,7 @@ def main():
             leg.SetFillStyle(0)
             leg.AddEntry(objs['stat'], 'Genuine CF', 'pel')
             leg.AddEntry(objs['coulomb'], 'Coulomb only', 'l')
-            leg.AddEntry(objs['lltot'], 'Lednick#acute{y}-Lyuboshits model', 'f')
+            leg.AddEntry(objs['lltot'], 'Lednický-Lyuboshits model', 'f')
             leg.Draw()
 
             if not args.simfit:

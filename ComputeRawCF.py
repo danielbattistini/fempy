@@ -62,6 +62,7 @@ hMErew = {}
 for comb, fdcomb in combs.items():
     oFile.mkdir(comb)
     oFile.cd(comb)
+    
     hSE[comb] = {}
     hME[comb] = {}
     hMErew[comb] = {}
