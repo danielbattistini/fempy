@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
    name='fempy',
@@ -6,6 +6,6 @@ setup(
    description='Package for femtoscopic studies',
    author='Daniel Battistini',
    author_email='daniel.battistini@cern.ch',
-   packages=['fempy'],  #same as name
-   install_requires=['pyyaml'], #external packages as dependencies
+   packages=find_packages(),  # To load all the submodules automatically
+   install_requires=['pyyaml'], # External packages as dependencies
 )

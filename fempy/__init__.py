@@ -3,6 +3,8 @@ import logging
 
 from ROOT import gROOT, gStyle
 
+from . import utils
+from . import sim
 
 # Create logging formatter for beautiful log messages
 class CustomFormatter(logging.Formatter):
