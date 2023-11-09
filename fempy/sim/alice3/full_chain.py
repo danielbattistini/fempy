@@ -32,7 +32,7 @@ from acts.examples.simulation import (
 import pathlib
 import acts
 import acts.examples
-import alice3
+from fempy.sim.alice3 import alice3
 
 u = acts.UnitConstants
 
@@ -43,6 +43,7 @@ parser.add_argument('--evt', type=int, required=True)
 parser.add_argument('-B', default=1, type=float)
 parser.add_argument('--dipole', default=False, action='store_true')
 parser.add_argument('--pileup', type=int, default=1)
+parser.add_argument('--hf', action='store_true', default=False)
 parser.add_argument('--forced-decays', action='store_true', default=False)
 parser.add_argument('--geom', default='20230731_fixed_endcaps')
 parser.add_argument('--seed', default=42, type=int)
@@ -70,6 +71,7 @@ IA_outputDirName += f"_B-{args.B:.1f}T"
 IA_outputDirName += f"_dipole" if args.dipole else ''
 IA_outputDirName += f"_geom-{args.geom[:8]}"
 IA_outputDirName += f"_pileup-{args.pileup}"
+IA_outputDirName += f"_hf" if args.hf else ''
 IA_outputDirName += f"_forced-decays" if args.forced_decays else ''
 IA_outputDirName += f"_seed-{args.seed}"
 
@@ -85,17 +87,25 @@ else:
     field = acts.ConstantBField(acts.Vector3(0.0, 0.0, IA_MF * u.T))
 rnd = acts.examples.RandomNumbers(seed=args.seed)
 
-s = acts.examples.Sequencer(events=args.evt, numThreads=-1)
+s = acts.examples.Sequencer(events=args.evt, numThreads=1)
 s.trackFpes=False
 
+
+# Monash tune
 settings = [
-    # hard qcd
-    # "HardQCD:all = on",
-    "HardQCD:gg2ccbar = on",
-    "HardQCD:qqbar2ccbar = on",
-    "HardQCD:gg2bbbar = on",
-    "HardQCD:qqbar2bbbar = on",
+    'Tune:pp = 14',
+    'SoftQCD:nonDiffractive = on'
 ]
+
+# override the monash tune and activate only the processes that lead to charm production
+if args.hf:
+    settings = [
+        "HardQCD:gg2ccbar = on",
+        "HardQCD:qqbar2ccbar = on",
+        "HardQCD:gg2bbbar = on",
+        "HardQCD:qqbar2bbbar = on",
+    ]
+
 if args.forced_decays:
     settings += [
         "421:onMode = off",
