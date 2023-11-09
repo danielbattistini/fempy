@@ -92,8 +92,7 @@ for plot in cfg:
             if plot['opt']['leg']['sigma']:
                 legend += f';  #sigma={inObj.GetStdDev():.3f}'
         leg.AddEntry(inObj, legend, 'l')
-    
-    canvalines = []
+
     for line in plot['opt']['lines']:
         x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
         y1 = plot['opt']['rangey'][0] if(line['coordinates'][1] == 'min') else line['coordinates'][1]
@@ -104,7 +103,6 @@ for plot in cfg:
         inputline.SetLineWidth(line['thickness'])
         inputline.Draw("same")
         leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
-        canvalines.append(inputline)
         
     leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
     leg.Draw()
