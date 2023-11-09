@@ -242,6 +242,11 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
         title = ";#eta;#varphi (rad);Counts";
         hPartProp[abspdg].insert({"hPhiVsEta", new TH2F(name, title, 200, -5, 5, 200, -Pi, Pi)});
 
+        // phi vs rProd
+        name = Form("hPhiVsRprod_%s", pdg2name[abspdg]);
+        title = ";#it{r}_{prod} (mm);#varphi (rad);Counts";
+        hPartProp[abspdg].insert({"hPhiVsRprod", new TH2F(name, title, 200, 0, 5, 200, -Pi, Pi)});
+
         // P resolution
         name = Form("hResolutionP_%s", pdg2name[abspdg]);
         title = ";#it{p}^{true} (GeV/#it{c});#it{p}^{reco} (GeV/#it{c});Counts";
@@ -364,10 +369,13 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             auto p = ROOT::Math::PxPyPzMVector(ppx, ppy, ppz, pm);
             auto t_p = ROOT::Math::PxPyPzMVector(t_ppx, t_ppy, t_ppz, pm);
 
-            double x = (*t_vx)[iPart];
-            double y = (*t_vy)[iPart];
-            double z = (*t_vz)[iPart];
+            double x = (*t_vx)[iPart]; // u. m. = mm (should be)
+            double y = (*t_vy)[iPart]; // u. m. = mm (should be)
+            double z = (*t_vz)[iPart]; // u. m. = mm (should be)
 
+            // reject decay products of strange decays. This selection also removes the peak in eta-phi for pions
+            double rProd = pow(x*x + y*y + z*z, 0.5); 
+           
             int m1idx = (*mother1_particle_id)[iPart];
             int m2idx = (*mother2_particle_id)[iPart];
 
@@ -381,6 +389,7 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             hPartProp[abspdg]["hEta"]->Fill(p.Eta());
             hPartProp[abspdg]["hPhi"]->Fill(p.Phi());
             hPartProp[abspdg]["hPhiVsEta"]->Fill(p.Eta(), p.Phi());
+            hPartProp[abspdg]["hPhiVsRprod"]->Fill(rProd, p.Phi());
 
             hPartProp[abspdg]["hResolutionEta"]->Fill(t_p.Eta(), p.Eta());
             hPartProp[abspdg]["hResolutionDeltaEta"]->Fill(t_p.Eta(), p.Eta() - t_p.Eta());
@@ -455,60 +464,60 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             }
         }
 
-        for (size_t iK = 0; iK < kaons.size(); iK++) {
-            auto K = kaons[iK];
+        // for (size_t iK = 0; iK < kaons.size(); iK++) {
+        //     auto K = kaons[iK];
 
-            for (size_t iPi1 = 0; iPi1 < pions.size(); iPi1++) {
-                auto Pi1 = pions[iPi1];
+        //     for (size_t iPi1 = 0; iPi1 < pions.size(); iPi1++) {
+        //         auto Pi1 = pions[iPi1];
 
-                for (size_t iPi2 = iPi1 + 1; iPi2 < pions.size(); iPi2++) {
-                    auto Pi2 = pions[iPi2];
+        //         for (size_t iPi2 = iPi1 + 1; iPi2 < pions.size(); iPi2++) {
+        //             auto Pi2 = pions[iPi2];
 
-                    auto Dstar = BuildMother3Prong(413, K, Pi1, Pi2);
-                    if (Dstar.pdg != 413) continue;
-                    particles[413].push_back(Dstar);
+        //             auto Dstar = BuildMother3Prong(413, K, Pi1, Pi2);
+        //             if (Dstar.pdg != 413) continue;
+        //             particles[413].push_back(Dstar);
 
-                    double m = Dstar.p.M();
-                    double eta = Dstar.p.Eta();
-                    double phi = Dstar.p.Phi();
-                    double p = Dstar.p.P();
-                    double pt = Dstar.p.Pt();
+        //             double m = Dstar.p.M();
+        //             double eta = Dstar.p.Eta();
+        //             double phi = Dstar.p.Phi();
+        //             double p = Dstar.p.P();
+        //             double pt = Dstar.p.Pt();
 
-                    double t_eta = Dstar.t_p.Eta();
-                    double t_phi = Dstar.t_p.Phi();
-                    double t_p = Dstar.t_p.P();
-                    double t_pt = Dstar.t_p.Pt();
+        //             double t_eta = Dstar.t_p.Eta();
+        //             double t_phi = Dstar.t_p.Phi();
+        //             double t_p = Dstar.t_p.P();
+        //             double t_pt = Dstar.t_p.Pt();
 
-                    // kinematics
-                    hPartProp[413]["hP"]->Fill(p);
-                    hPartProp[413]["hPt"]->Fill(pt);
-                    hPartProp[413]["hEta"]->Fill(eta);
-                    hPartProp[413]["hPhi"]->Fill(phi);
-                    hPartProp[413]["hPhiVsEta"]->Fill(eta, phi);
+        //             // kinematics
+        //             hPartProp[413]["hP"]->Fill(p);
+        //             hPartProp[413]["hPt"]->Fill(pt);
+        //             hPartProp[413]["hEta"]->Fill(eta);
+        //             hPartProp[413]["hPhi"]->Fill(phi);
+        //             hPartProp[413]["hPhiVsEta"]->Fill(eta, phi);
 
-                    // Invariant mass
-                    hPartProp[413]["hInvMass"]->Fill(m);
-                    hPartProp[413]["hInvMassVsPt"]->Fill(pt, m);
+        //             // Invariant mass
+        //             hPartProp[413]["hInvMass"]->Fill(m);
+        //             hPartProp[413]["hInvMassVsPt"]->Fill(pt, m);
 
-                    // Resolution
-                    hPartProp[413]["hResolutionEta"]->Fill(t_eta, eta);
-                    hPartProp[413]["hResolutionDeltaEta"]->Fill(t_eta, eta - t_eta);
-                    hPartProp[413]["hResolutionPercEta"]->Fill(t_eta, (eta - t_eta) / t_eta * 100);
+        //             // Resolution
+        //             hPartProp[413]["hResolutionEta"]->Fill(t_eta, eta);
+        //             hPartProp[413]["hResolutionDeltaEta"]->Fill(t_eta, eta - t_eta);
+        //             hPartProp[413]["hResolutionPercEta"]->Fill(t_eta, (eta - t_eta) / t_eta * 100);
 
-                    hPartProp[413]["hResolutionPhi"]->Fill(t_phi, phi);
-                    hPartProp[413]["hResolutionDeltaPhi"]->Fill(t_phi, phi - t_phi);
-                    hPartProp[413]["hResolutionPercPhi"]->Fill(t_phi, (phi - t_phi) / t_phi * 100);
+        //             hPartProp[413]["hResolutionPhi"]->Fill(t_phi, phi);
+        //             hPartProp[413]["hResolutionDeltaPhi"]->Fill(t_phi, phi - t_phi);
+        //             hPartProp[413]["hResolutionPercPhi"]->Fill(t_phi, (phi - t_phi) / t_phi * 100);
 
-                    hPartProp[413]["hResolutionP"]->Fill(t_p, p);
-                    hPartProp[413]["hResolutionDeltaP"]->Fill(t_p, p - t_p);
-                    hPartProp[413]["hResolutionPercP"]->Fill(t_p, (p - t_p) / t_p * 100);
+        //             hPartProp[413]["hResolutionP"]->Fill(t_p, p);
+        //             hPartProp[413]["hResolutionDeltaP"]->Fill(t_p, p - t_p);
+        //             hPartProp[413]["hResolutionPercP"]->Fill(t_p, (p - t_p) / t_p * 100);
 
-                    hPartProp[413]["hResolutionPt"]->Fill(t_pt, pt);
-                    hPartProp[413]["hResolutionDeltaPt"]->Fill(t_pt, pt - t_pt);
-                    hPartProp[413]["hResolutionPercPt"]->Fill(t_pt, (pt - t_pt) / t_pt * 100);
-                }
-            }
-        }
+        //             hPartProp[413]["hResolutionPt"]->Fill(t_pt, pt);
+        //             hPartProp[413]["hResolutionDeltaPt"]->Fill(t_pt, pt - t_pt);
+        //             hPartProp[413]["hResolutionPercPt"]->Fill(t_pt, (pt - t_pt) / t_pt * 100);
+        //         }
+        //     }
+        // }
     }  // event loop
 
     // Write histograms
@@ -522,6 +531,5 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             hist->Write();
         }
     }
-
     oFile->Close();
 }

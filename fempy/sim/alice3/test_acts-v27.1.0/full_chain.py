@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/scratch5/ge86rim/alice3/sw/slc8_x86-64/Python/v3.9.16-5/bin/python3.9
+## !/usr/bin/env python3
 from acts.examples.reconstruction import (
     addSeeding,
     TruthSeedRanges,
@@ -49,11 +50,11 @@ myVerboseAmbiguityResolution = acts.logging.WARNING #INFO
 
 import sys
 
-heavyion = False
+generator = 'pythia'
 
 # ### IA: params by hand
 IA_MF = 1.0 #float(sys.argv[1]) #T
-IA_nEvents = 200 #int(sys.argv[2]) #200
+IA_nEvents = 2000 #int(sys.argv[2]) #200
 IA_mult = 7 #8000#7#12 #7#1 #7 #12 #5
 #    IA_ptMin = 0.05 #0.7
 #    IA_ptMax = 5.0
@@ -96,8 +97,9 @@ rnd = acts.examples.RandomNumbers(seed=42)
 
 
 s = acts.examples.Sequencer(events=IA_nEvents, numThreads=1)
+s.trackFpes=False
 
-if not heavyion:
+if generator == 'gun':
     addParticleGun(
         s,
         MomentumConfig( IA_ptMin * u.GeV, IA_ptMax * u.GeV, transverse=True ),
@@ -127,7 +129,7 @@ if not heavyion:
         outputDirRoot=outputDir,
     )
 
-else:
+elif generator == 'pythia':
     s = addPythia8(
         s,
         npileup=IA_nPileupPYTHIA,
@@ -204,122 +206,121 @@ s = addDigitization(
 
 
 
-# s = addSeeding(
-#     s,
-#     trackingGeometry,
-#     field,
-# #    TruthSeedRanges(pt=(0.5 * u.GeV, None), eta=(0, 4.0), nHits=(7, None)),
-# #    TruthSeedRanges(pt=(0.045 * u.GeV, None), eta=(-4.0, 4.0), nHits=(4, None)),
-#     SeedFinderConfigArg(
-#         r=(None, 200 * u.mm),
-#         deltaR=(1 * u.mm, 60 * u.mm),  # deltaR=(1. * u.mm, 60 * u.mm),
-# #        collisionRegion=(-250 * u.mm, 250 * u.mm),
-#         collisionRegion=(-100 * u.mm, 100 * u.mm),
-#         z=(-2000 * u.mm, 2000 * u.mm),
-#         maxSeedsPerSpM=1,
-#         sigmaScattering=3,#3, #1.,#5.,
-#         radLengthPerSeed=0.01,#0.008,  #0.005,  # default: float radLengthPerSeed = 0.05; (https://github.com/acts-project/acts/blob/main/Core/include/Acts/Seeding/SeedFinderConfig.hpp)
-#         minPt=50* u.MeV, #60 * u.MeV, # GOOD IA! was: 500 * u.MeV,
-#         impactMax=1. * u.mm, #1. * u.mm,
-#         cotThetaMax=27.2899,
-#         seedConfirmation=True,
-#         centralSeedConfirmationRange=acts.SeedConfirmationRangeConfig(
-#             zMinSeedConf=-620 * u.mm,
-#             zMaxSeedConf=620 * u.mm,
-#             rMaxSeedConf=4.9 * u.mm, #36 * u.mm,  # IA: dramatically affects acceptance at eta ~4! <5 * u.mm  gives best results
-#             nTopForLargeR=1,
-#             nTopForSmallR=2,
-#         ),
-#         forwardSeedConfirmationRange=acts.SeedConfirmationRangeConfig(
-#             zMinSeedConf=-1220 * u.mm,
-#             zMaxSeedConf=1220 * u.mm,
-#             rMaxSeedConf=15 * u.mm,  #36 * u.mm,
-#             nTopForLargeR=1,
-#             nTopForSmallR=2,
-#         ),
-# #        skipPreviousTopSP=True,
-#         useVariableMiddleSPRange=True,
-#         # deltaRMiddleMinSPRange=10 * u.mm,
-#         # deltaRMiddleMaxSPRange=10 * u.mm,
-#         deltaRMiddleSPRange=(1 * u.mm, 10 * u.mm),
-#     ),
-#     SeedFinderOptionsArg(bFieldInZ= IA_MF * u.T, beamPos=(0 * u.mm, 0 * u.mm)),
-#     SeedFilterConfigArg(
-#         seedConfirmation=True,
-#         maxSeedsPerSpMConf=1,
-#         maxQualitySeedsPerSpMConf=1,
-#     ),
-#     SpacePointGridConfigArg(
-#         # zBinEdges=[
-#         # -4000.0,
-#         # -2500.0,
-#         # -2000.0,
-#         # -1320.0,
-#         # -625.0,
-#         # -350.0,
-#         # -250.0,
-#         # 250.0,
-#         # 350.0,
-#         # 625.0,
-#         # 1320.0,
-#         # 2000.0,
-#         # 2500.0,
-#         # 4000.0,
-#         # ],
-#         impactMax=1. * u.mm,
-#         phiBinDeflectionCoverage=3,
-#     ),
-#     SeedingAlgorithmConfigArg(
-#         # zBinNeighborsTop=[
-#         # [0, 0],
-#         # [-1, 0],
-#         # [-1, 0],
-#         # [-1, 0],
-#         # [-1, 0],
-#         # [-1, 0],
-#         # [-1, 1],
-#         # [0, 1],
-#         # [0, 1],
-#         # [0, 1],
-#         # [0, 1],
-#         # [0, 1],
-#         # [0, 0],
-#         # ],
-#         # zBinNeighborsBottom=[
-#         # [0, 1],
-#         # [0, 1],
-#         # [0, 1],
-#         # [0, 1],
-#         # [0, 1],
-#         # [0, 1],
-#         # [0, 0],
-#         # [-1, 0],
-#         # [-1, 0],
-#         # [-1, 0],
-#         # [-1, 0],
-#         # [-1, 0],
-#         # [-1, 0],
-#         # ],
-#         # numPhiNeighbors=1,
-#     ),
-#     geoSelectionConfigFile=geo_dir /
-#     "geoSelection-alice3-cfg10.json",
-# #    seedingAlgorithm=SeedingAlgorithm.TruthSmeared, # ADDED BY IA
-#     outputDirRoot=outputDir,
-# #    initialVarInflation = (50,50,50,50,50,50)  # ADDED BY IA
-# #    initialVarInflation = (0.2,0.2,0.2,0.2,0.2,0.2)  # ADDED BY IA
-# )
-
-
-
 s = addSeeding(
     s,
     trackingGeometry,
     field,
+#    TruthSeedRanges(pt=(0.5 * u.GeV, None), eta=(0, 4.0), nHits=(7, None)),
+#    TruthSeedRanges(pt=(0.045 * u.GeV, None), eta=(-4.0, 4.0), nHits=(4, None)),
+    SeedFinderConfigArg(
+        r=(None, 200 * u.mm),
+        deltaR=(1 * u.mm, 60 * u.mm),  # deltaR=(1. * u.mm, 60 * u.mm),
+#        collisionRegion=(-250 * u.mm, 250 * u.mm),
+        collisionRegion=(-100 * u.mm, 100 * u.mm),
+        z=(-2000 * u.mm, 2000 * u.mm),
+        maxSeedsPerSpM=1,
+        sigmaScattering=3,#3, #1.,#5.,
+        radLengthPerSeed=0.01,#0.008,  #0.005,  # default: float radLengthPerSeed = 0.05; (https://github.com/acts-project/acts/blob/main/Core/include/Acts/Seeding/SeedFinderConfig.hpp)
+        minPt=50* u.MeV, #60 * u.MeV, # GOOD IA! was: 500 * u.MeV,
+        impactMax=1. * u.mm, #1. * u.mm,
+        cotThetaMax=27.2899,
+        seedConfirmation=True,
+        centralSeedConfirmationRange=acts.SeedConfirmationRangeConfig(
+            zMinSeedConf=-620 * u.mm,
+            zMaxSeedConf=620 * u.mm,
+            rMaxSeedConf=4.9 * u.mm, #36 * u.mm,  # IA: dramatically affects acceptance at eta ~4! <5 * u.mm  gives best results
+            nTopForLargeR=1,
+            nTopForSmallR=2,
+        ),
+        forwardSeedConfirmationRange=acts.SeedConfirmationRangeConfig(
+            zMinSeedConf=-1220 * u.mm,
+            zMaxSeedConf=1220 * u.mm,
+            rMaxSeedConf=15 * u.mm,  #36 * u.mm,
+            nTopForLargeR=1,
+            nTopForSmallR=2,
+        ),
+#        skipPreviousTopSP=True,
+        useVariableMiddleSPRange=True,
+        # deltaRMiddleMinSPRange=10 * u.mm,
+        # deltaRMiddleMaxSPRange=10 * u.mm,
+        deltaRMiddleSPRange=(1 * u.mm, 10 * u.mm),
+    ),
+    SeedFinderOptionsArg(bFieldInZ= IA_MF * u.T, beamPos=(0 * u.mm, 0 * u.mm)),
+    SeedFilterConfigArg(
+        seedConfirmation=True,
+        maxSeedsPerSpMConf=1,
+        maxQualitySeedsPerSpMConf=1,
+    ),
+    SpacePointGridConfigArg(
+        # zBinEdges=[
+        # -4000.0,
+        # -2500.0,
+        # -2000.0,
+        # -1320.0,
+        # -625.0,
+        # -350.0,
+        # -250.0,
+        # 250.0,
+        # 350.0,
+        # 625.0,
+        # 1320.0,
+        # 2000.0,
+        # 2500.0,
+        # 4000.0,
+        # ],
+        impactMax=1. * u.mm,
+        phiBinDeflectionCoverage=3,
+    ),
+    SeedingAlgorithmConfigArg(
+        # zBinNeighborsTop=[
+        # [0, 0],
+        # [-1, 0],
+        # [-1, 0],
+        # [-1, 0],
+        # [-1, 0],
+        # [-1, 0],
+        # [-1, 1],
+        # [0, 1],
+        # [0, 1],
+        # [0, 1],
+        # [0, 1],
+        # [0, 1],
+        # [0, 0],
+        # ],
+        # zBinNeighborsBottom=[
+        # [0, 1],
+        # [0, 1],
+        # [0, 1],
+        # [0, 1],
+        # [0, 1],
+        # [0, 1],
+        # [0, 0],
+        # [-1, 0],
+        # [-1, 0],
+        # [-1, 0],
+        # [-1, 0],
+        # [-1, 0],
+        # [-1, 0],
+        # ],
+        # numPhiNeighbors=1,
+    ),
     geoSelectionConfigFile=geo_dir /
     "geoSelection-alice3-cfg10.json",
+#    seedingAlgorithm=SeedingAlgorithm.TruthSmeared, # ADDED BY IA
     outputDirRoot=outputDir,
+#    initialVarInflation = (50,50,50,50,50,50)  # ADDED BY IA
+#    initialVarInflation = (0.2,0.2,0.2,0.2,0.2,0.2)  # ADDED BY IA
 )
+
+
+# s = addSeeding(
+#     s,
+#     trackingGeometry,
+#     field,
+#     geoSelectionConfigFile=geo_dir /
+#     "geoSelection-alice3-cfg10.json",
+#     outputDirRoot=outputDir,
+# )
 
 s.run()
 
