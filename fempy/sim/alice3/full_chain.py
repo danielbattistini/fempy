@@ -50,7 +50,7 @@ parser.add_argument('--seed', default=42, type=int)
 args = parser.parse_args()
 
 oDir = args.oDir
-geo_dir = pathlib.Path(f'/home/ktas/ge86rim/phsw/fempy/sim/alice3/geom/{args.geom}')
+geo_dir = pathlib.Path(f'/home/ktas/ge86rim/phsw/fempy/fempy/sim/alice3/geom/{args.geom}')
 
 # IA: logging details
 myVerboseGen = acts.logging.INFO
