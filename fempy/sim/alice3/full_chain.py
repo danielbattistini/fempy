@@ -32,7 +32,7 @@ from acts.examples.simulation import (
 import pathlib
 import acts
 import acts.examples
-from fempy.sim.alice3 import alice3
+import alice3
 
 u = acts.UnitConstants
 
