@@ -1,11 +1,10 @@
-pairs: ['LPiplus', 'AntiLPiplus', 'LPiminus', 'AntiLPiminus'] # index 0-3 and 1-2 should be pair-antipair
+pair: dPi
 infile: /data/dPi/01_otonsel/data/AnalysisResults.root
 
 # where to save the output
 odir: ~/an/dPi/01_otonsel/cf
 suffix: null
 
+pcsuffix: '1001' # '0' for NoPC, '1000' for OldPC, '1001' for NewPC
 binwidth: 20 # MeV/c
 norm: null
-
-multbinwidth: 4
