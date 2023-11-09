@@ -1,8 +1,7 @@
-import fempy
-from .analysis import Pair
-from .io import *
-from .format import *
-from .style import *
+# import fempy
+# from fempy.analysis import Pair
+# from fempy.io import *
+# from fempy.format import *
 
 def Chunkyfy(array, nElemPerChunk=200):
     if len(array) == 0:
