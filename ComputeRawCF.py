@@ -64,17 +64,18 @@ for comb, fdcomb in combs.items():
     hME[comb] = {}
     hMErew[comb] = {}
     for region in regions:
-        pcsuffix = cfg['pcsuffix']
-        hSE[comb][region] = Load(inFile, f'HMResults{pcsuffix}/HMResults{pcsuffix}/{fdcomb}/SEDist_{fdcomb}')
-        hME[comb][region] = Load(inFile, f'HMResults{pcsuffix}/HMResults{pcsuffix}/{fdcomb}/MEDist_{fdcomb}')
-        hSEmultk = Load(inFile, f'HMResults{pcsuffix}/HMResults{pcsuffix}/{fdcomb}/SEMultDist_{fdcomb}')
-        hMEmultk = Load(inFile, f'HMResults{pcsuffix}/HMResults{pcsuffix}/{fdcomb}/MEMultDist_{fdcomb}')
+        runSuffix = cfg['runsuffix']
+        hSE[comb][region] = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEDist_{fdcomb}')
+        hME[comb][region] = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEDist_{fdcomb}')
+        hSEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEMultDist_{fdcomb}')
+        hMEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEMultDist_{fdcomb}')
         nbins = hMEmultk.ProjectionX().GetNbinsX()
         hMEreweightk = TH1F("MErewdistr", "MErewdistr", nbins, hMEmultk.GetXaxis().GetXmin(), hMEmultk.GetXaxis().GetXmax())
-        for iBin in range(hMEmultk.ProjectionY().GetNbinsX()):
-            hSEbinmult = hSEmultk.ProjectionX(f'{comb}SEdistr', iBin, iBin+1)
-            hMEbinmult = hMEmultk.ProjectionX(f'{comb}MEdistr', iBin, iBin+1)
-            hMEreweightk.Add(hMEbinmult, hSEbinmult.Integral()/hMEbinmult.Integral())
+        for iBin in range(hMEmultk.ProjectionY().GetNbinsX() + 2): # Loop over underflow, all bins, and overflow
+            hSEbinmult = hSEmultk.ProjectionX(f'{comb}SEdistr', iBin, iBin)
+            hMEbinmult = hMEmultk.ProjectionX(f'{comb}MEdistr', iBin, iBin)
+            if(hMEbinmult.Integral()>0):
+                hMEreweightk.Add(hMEbinmult, hSEbinmult.Integral()/hMEbinmult.Integral())
         hMErew[comb][region] = hMEreweightk
    
 # Sum pair and antipair
@@ -99,7 +100,6 @@ for comb in combs:
 for comb in list(combs.keys()) + ['p02_13', 'p03_12']:
     for region in regions:
         rebin = round(float(cfg['binwidth']) / (hSE[comb][region].GetBinWidth(1) * 1000))
-        print(rebin)
         hSE[comb][region].Rebin(rebin)
         hME[comb][region].Rebin(rebin)
         hMErew[comb][region].Rebin(rebin)
