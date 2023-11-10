@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+import os
+import sys
+
 from acts.examples.reconstruction import (
     addSeeding,
     # TruthSeedRanges,
@@ -32,6 +35,8 @@ from acts.examples.simulation import (
 import pathlib
 import acts
 import acts.examples
+
+sys.path.append(os.path.expanduser('~/phsw/fempy/fempy/sim/alice3/'))
 import alice3
 
 u = acts.UnitConstants
@@ -50,7 +55,7 @@ parser.add_argument('--seed', default=42, type=int)
 args = parser.parse_args()
 
 oDir = args.oDir
-geo_dir = pathlib.Path(f'/home/ktas/ge86rim/phsw/fempy/fempy/sim/alice3/geom/{args.geom}')
+geo_dir = pathlib.Path(os.path.expanduser(f'~/phsw/fempy/fempy/sim/alice3/geom/{args.geom}'))
 
 # IA: logging details
 myVerboseGen = acts.logging.INFO
@@ -65,8 +70,7 @@ IA_MF = args.B # magnetic field
 IA_nMeasurementsMin = 5
 IA_maximumSharedHits = 1#3 #3
 
-IA_outputDirName = "output/"
-IA_outputDirName += f"evt-{args.evt}"
+IA_outputDirName = f"evt-{args.evt}"
 IA_outputDirName += f"_B-{args.B:.1f}T"
 IA_outputDirName += f"_dipole" if args.dipole else ''
 IA_outputDirName += f"_geom-{args.geom[:8]}"
@@ -82,7 +86,7 @@ if not outputDir.exists():
 
 detector, trackingGeometry, decorators = alice3.buildALICE3Geometry(geo_dir, True, False, acts.logging.INFO)
 if args.dipole:
-    field = acts.examples.MagneticFieldMapXyz('geom/fieldMap_solenoid_dipoles_4-10-21_xyz_in_mm.txt')
+    field = acts.examples.MagneticFieldMapXyz(os.path.expanduser('~/phsw/fempy/fempy/sim/alice3/geom/fieldMap_solenoid_dipoles_4-10-21_xyz_in_mm.txt'))
 else:
     field = acts.ConstantBField(acts.Vector3(0.0, 0.0, IA_MF * u.T))
 rnd = acts.examples.RandomNumbers(seed=args.seed)
@@ -100,22 +104,23 @@ settings = [
 # override the monash tune and activate only the processes that lead to charm production
 if args.hf:
     settings = [
-        "HardQCD:gg2ccbar = on",
-        "HardQCD:qqbar2ccbar = on",
-        "HardQCD:gg2bbbar = on",
-        "HardQCD:qqbar2bbbar = on",
+        'Tune:pp = 14',
+        'HardQCD:gg2ccbar = on',
+        'HardQCD:qqbar2ccbar = on',
+        'HardQCD:gg2bbbar = on',
+        'HardQCD:qqbar2bbbar = on',
     ]
 
 if args.forced_decays:
     settings += [
-        "421:onMode = off",
-        "411:onMode = off",
-        "413:onMode = off",
-        "423:onMode = off",
-        "421:onIfMatch = 211 321",
-        "411:onIfMatch = 211 211 321",
-        "413:onIfMatch = 211 421",
-        "423:onIfMatch = 22 421",
+        '421:onMode = off',
+        '411:onMode = off',
+        '413:onMode = off',
+        '423:onMode = off',
+        '421:onIfMatch = 211 321',
+        '411:onIfMatch = 211 211 321',
+        '413:onIfMatch = 211 421',
+        '423:onIfMatch = 22 421',
     ]
 
 s = addPythia8(
@@ -323,6 +328,8 @@ s = addAmbiguityResolution(
 # )
 
 s.run()
+
+print('Simulation completed!')
 
 # import shutil
 # shutil.copyfile( 'full_chain_acts_27.py', IA_outputDirName+'/full_chain_IA_check_steps.py' )
