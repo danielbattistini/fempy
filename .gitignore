@@ -22,3 +22,5 @@ cats/**/bin
 
 *test*
 *.zip
+build/**
+fempy.egg-info/**
