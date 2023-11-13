@@ -120,6 +120,7 @@ particle BuildMother3Prong(int pdg, particle p1, particle p2, particle p3) {
 void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int pdg2) {
     // consts
     const double Pi = TMath::Pi();
+    int minNHits = 7;
 
     TFile *inFile = new TFile(inFileName);
 
@@ -134,6 +135,7 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
     std::vector<int> *mother2_particle_id = 0;
     std::vector<int> *mother1_pdg = 0;
     std::vector<int> *mother2_pdg = 0;
+    std::vector<int> *nMeasurements = 0;
     std::vector<double> *px = 0;
     std::vector<double> *py = 0;
     std::vector<double> *pz = 0;
@@ -168,6 +170,7 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
     tree->SetBranchAddress("mother2_particle_id", &mother2_particle_id);
     tree->SetBranchAddress("mother1_pdg", &mother1_pdg);
     tree->SetBranchAddress("mother2_pdg", &mother2_pdg);
+    tree->SetBranchAddress("nMeasurements", &nMeasurements);
     tree->SetBranchAddress("t_vx", &t_vx);
     tree->SetBranchAddress("t_vy", &t_vy);
     tree->SetBranchAddress("t_vz", &t_vz);
@@ -350,6 +353,9 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             int abspdg = std::abs(pdg);
             if (abspdg != 211 && abspdg != 321) continue;
 
+            int nHits = (*nMeasurements)[iPart];
+            if (nHits < minNHits) continue;
+
             double t_ppx = (*t_px)[iPart];
             double t_ppy = (*t_py)[iPart];
             double t_ppz = (*t_pz)[iPart];
@@ -419,8 +425,6 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
                 auto Pi = pions[iPi];
                 auto Dzero = BuildMother2Daus(421, K, Pi);
                 if (Dzero.pdg != 421) continue;
-                particles[412].push_back(Dzero);
-
                 particles[421].push_back(Dzero);
 
                 double m = Dzero.p.M();
