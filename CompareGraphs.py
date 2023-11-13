@@ -92,7 +92,7 @@ for plot in cfg:
             if plot['opt']['leg']['sigma']:
                 legend += f';  #sigma={inObj.GetStdDev():.3f}'
         leg.AddEntry(inObj, legend, 'l')
-    
+
     for line in plot['opt']['lines']:
         x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
         y1 = plot['opt']['rangey'][0] if(line['coordinates'][1] == 'min') else line['coordinates'][1]
