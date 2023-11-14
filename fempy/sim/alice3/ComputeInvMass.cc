@@ -323,6 +323,7 @@ void ComputeInvMass(const char *configFile) {
             hPartProp[abspdg].insert({"hInvMassVsPt", new TH2F(name, title, 100, 0, 10, nMassBins, massMin, massMax)});
         }
     }
+    bool pairOnlyPrim = cfg["pair_only_prim"].as<bool>();
 
     // SE
     hFemto["p02_13"].insert({"hSE", new TH1D("hSE_02_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
@@ -514,6 +515,17 @@ void ComputeInvMass(const char *configFile) {
             }      // loop over pions
         }          // loop over kaons
 
+        if (pairOnlyPrim) {
+            for (auto abspdg : {211, 321}) {
+                particles[abspdg].erase(std::remove_if(
+                    particles[abspdg].begin(),
+                    particles[abspdg].end(),
+                    [](const particle &p) {
+                        return p.mother1idx <= 0 || p.mother2idx <= 0 || p.mother1idx > p.mother2idx;
+                    }), particles[abspdg].end());
+            }
+        }
+
         // Same event
         for (size_t i1 = 0; i1 < particles[pdg1].size(); i1++) {
             const auto p1 = particles[pdg1][i1];
@@ -521,13 +533,9 @@ void ComputeInvMass(const char *configFile) {
             // Don't pair twice in case of same-particle femto
             int start = pdg1 == pdg2 ? i1 + 1 : 0;
             for (size_t i2 = start; i2 < particles[pdg2].size(); i2++) {
-                const auto p2 =  particles[pdg2][i2];
+                const auto p2 = particles[pdg2][i2];
 
-                // Use only primary particles. Emulates the pair cleaner
-                if (p2.mother1idx <= 0 ||
-                    p2.mother2idx <= 0 ||
-                    p2.mother1idx > p2.mother2idx)
-                    continue;
+                // todo implement pair cleaner here
 
                 double kStar = ComputeKstar(p1.p, p2.p);
                 std::string pair = p1.pdg * p2.pdg > 0 ? "p02_13" : "p12_23";
