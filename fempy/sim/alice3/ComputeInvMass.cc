@@ -11,6 +11,7 @@
 #include "TTree.h"
 
 #include "ActsFatras/EventData/Barcode.hpp"
+#include "/home/ktas/ge86rim/phsw/fempy/fempy/sim/functions.hxx"
 
 std::map<int, double> masses = {
     {211, TDatabasePDG::Instance()->GetParticle(211)->Mass()},  //  pion+
@@ -73,7 +74,7 @@ particle BuildMother(int pdg, particle p1, particle p2) {
     return particle({});
 }
 
-void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int pdg2) {
+void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int pdg2) {   
     // consts
     const double Pi = TMath::Pi();
     int minNHits = 7;
@@ -171,6 +172,11 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
         {211, {}},
         {421, {}},
         {413, {}},
+    };
+
+    std::map<std::string, std::map<std::string, TH1 *>> hFemto = {
+        {"p02_13", {}},
+        {"p12_23", {}},
     };
 
     TString name;
@@ -306,6 +312,14 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
         }
     }
 
+    // SE
+    hFemto["p02_13"].insert({"hSE", new TH1D("hSE_02_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p02_13"].insert({"hME", new TH1D("hME_02_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    
+    // ME
+    hFemto["p12_23"].insert({"hSE", new TH1D("hSE_12_23", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p12_23"].insert({"hME", new TH1D("hME_12_23", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    
     for (int iEvent = 0; iEvent < tree->GetEntries(); iEvent++) {
         tree->GetEntry(iEvent);
 
@@ -487,6 +501,24 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
                 }  // loop over pions2
             }      // loop over pions
         }          // loop over kaons
+
+        // Same event
+        for (size_t i1 = 0; i1 < particles[pdg1].size(); i1++) {
+            const auto p1 = particles[pdg1][i1];
+
+            // don't pair twice in case of same-particle femto
+            int start = pdg1 == pdg2 ? i1 + 1 : 0;
+            for (size_t i2 = start; i2 < particles[pdg2].size(); i2++) {
+                const auto p2 =  particles[pdg2][i2];
+
+                //todo: Implement pair cleaner
+                // if (false && !IsPairClean(p1, p2)) continue;
+
+                double kStar = ComputeKstar(p1.p, p2.p);
+                std::string pair = p1.pdg * p2.pdg > 0 ? "p02_13" : "p12_23";
+                hFemto[pair]["hSE"]->Fill(kStar);
+            }
+        }
     }              // event loop
 
     // Write histograms
@@ -500,5 +532,14 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             hist->Write();
         }
     }
+
+    for (auto const &[name, hist] : hFemto) {
+        oFile->mkdir(name.data());
+        oFile->cd(name.data());
+
+        hFemto[name]["hSE"]->SetName("hSE");
+        hFemto[name]["hSE"]->Write();
+    }
+
     oFile->Close();
 }
