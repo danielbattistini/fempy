@@ -179,6 +179,10 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
         {"p12_23", {}},
     };
 
+    // Mixing buffer
+    std::deque<std::vector<particle>> partBuffer2{};
+    int md = 10;
+
     TString name;
     TString title;
     double massBinWidth = 0.1;  // MeV/c2
@@ -506,7 +510,7 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
         for (size_t i1 = 0; i1 < particles[pdg1].size(); i1++) {
             const auto p1 = particles[pdg1][i1];
 
-            // don't pair twice in case of same-particle femto
+            // Don't pair twice in case of same-particle femto
             int start = pdg1 == pdg2 ? i1 + 1 : 0;
             for (size_t i2 = start; i2 < particles[pdg2].size(); i2++) {
                 const auto p2 =  particles[pdg2][i2];
@@ -519,6 +523,24 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
                 hFemto[pair]["hSE"]->Fill(kStar);
             }
         }
+
+        // Mixed event
+        for (size_t i1 = 0; i1 < particles[pdg1].size(); i1++) {
+            const auto p1 = particles[pdg1][i1];
+
+            for (size_t iME = 0; iME < partBuffer2.size(); iME++) {
+                for (size_t i2 = 0; i2 < partBuffer2[iME].size(); i2++) {
+                    const auto p2 = partBuffer2[iME][i2];
+
+                    double kStar = ComputeKstar(p1.p, p2.p);
+                    std::string pair = p1.pdg * p2.pdg > 0 ? "p02_13" : "p12_23";
+
+                    hFemto[pair]["hME"]->Fill(kStar);
+                }
+            }
+        }
+        partBuffer2.push_back(particles[pdg2]);
+        if (partBuffer2.size() > md) partBuffer2.pop_front();
     }              // event loop
 
     // Write histograms
@@ -539,6 +561,8 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
 
         hFemto[name]["hSE"]->SetName("hSE");
         hFemto[name]["hSE"]->Write();
+        hFemto[name]["hME"]->SetName("hME");
+        hFemto[name]["hME"]->Write();
     }
 
     oFile->Close();
