@@ -515,8 +515,11 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             for (size_t i2 = start; i2 < particles[pdg2].size(); i2++) {
                 const auto p2 =  particles[pdg2][i2];
 
-                //todo: Implement pair cleaner
-                // if (false && !IsPairClean(p1, p2)) continue;
+                // Use only primary particles. Emulates the pair cleaner
+                if (p2.mother1idx <= 0 ||
+                    p2.mother2idx <= 0 ||
+                    p2.mother1idx > p2.mother2idx)
+                    continue;
 
                 double kStar = ComputeKstar(p1.p, p2.p);
                 std::string pair = p1.pdg * p2.pdg > 0 ? "p02_13" : "p12_23";
