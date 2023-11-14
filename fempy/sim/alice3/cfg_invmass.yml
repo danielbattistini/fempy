@@ -1,0 +1,7 @@
+ofile: ~/an/alice3/femto/distr/AnalysisResults_B-1.0T_dipole_geom-20230731_pileup-1_hf_forced-decays_pairPrim.root
+infile: /scratch3/ge86rim/alice3/prod/evt-10000_B-1.0T_geom-20230731_pileup-1_hf_forced-decays_seed-1/tracksummary_ambi.root
+pdg1: 421 # the heavier particle
+pdg2: 211 # the lighter particle
+
+min_hits: 7
+mixing_depth: 10
