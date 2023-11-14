@@ -12,6 +12,14 @@
 
 #include "ActsFatras/EventData/Barcode.hpp"
 
+std::map<int, double> masses = {
+    {211, TDatabasePDG::Instance()->GetParticle(211)->Mass()},  //  pion+
+    {321, TDatabasePDG::Instance()->GetParticle(321)->Mass()},  //  kaon+
+    {411, TDatabasePDG::Instance()->GetParticle(411)->Mass()},  //  D+
+    {421, TDatabasePDG::Instance()->GetParticle(421)->Mass()},  //  D0
+    {413, TDatabasePDG::Instance()->GetParticle(413)->Mass()},  //  D*+(2010)
+};
+
 struct particle {
     int pdg;                        // pdg code
     uint64_t id;                    // index of the particle in the event
@@ -25,95 +33,43 @@ struct particle {
     int mother1pdg;                 // pdg code of mother 1
 };
 
+// Returns true if the particles have adjacent indeces.
 bool AreSiblings(particle p1, particle p2) { return std::abs(static_cast<int>(p1.id - p2.id)) == 1; }
 
-particle BuildMother2Daus(int pdg, particle p1, particle p2) {
+// Returns true if the mass is compatible with a given hypothesis. The precision is in GeV.
+bool IsMassCorrect(int pdg, double mass, double precision = 0.0001) { return std::abs(mass - masses[pdg]) < precision; }
+
+/*Build the mother of the particles p1 and p2.
+It is assumed that the particles are ordered in descending mass order and that the PDG codes are correct.*/
+particle BuildMother(int pdg, particle p1, particle p2) {
     // Check if particles have the same mother. Only check for weak decays. In this case m1>0 and and m2=0
     // see: https://pythia.org/latest-manual/ParticleProperties.html
     int abspdg = std::abs(pdg);
-    double targetMass = TDatabasePDG::Instance()->GetParticle(abspdg)->Mass();
-    particle mother({});
 
     if (abspdg == 421) {
-        if (std::abs(p1.mother1pdg) != pdg || std::abs(p2.mother1pdg) != pdg) return particle({});
-
-        if (p1.pdg * p2.pdg >= 0) return particle({});
-
-        if (p1.mother1idx != p2.mother1idx || p1.mother1idx <= 0 || p2.mother1idx <= 0 || p1.mother2idx != 0 ||
-            p2.mother2idx != 0)
-            return particle({});
-
-        mother = particle({p1.mother1pdg, (u_int64_t)p1.mother1idx, 0, 0, 0, p1.p + p2.p, p1.t_p + p2.t_p, 0, 0, 0});
-
-        if (std::abs(mother.t_p.M() - targetMass) / targetMass > 1.e-4) return particle({});
-        if (!AreSiblings(p1, p2)) return particle({});
+        if (std::abs(p1.mother1pdg) == abspdg &&
+            std::abs(p2.mother1pdg) == abspdg &&
+            p1.pdg * p2.pdg < 0 &&
+            p1.mother1idx == p2.mother1idx &&
+            p1.mother1idx > 0 &&
+            p2.mother1idx > 0 &&
+            p1.mother2idx == 0 &&
+            p2.mother2idx == 0 &&
+            AreSiblings(p1, p2)) {
+            particle mother({p1.mother1pdg, (u_int64_t)p1.mother1idx, 0, 0, 0, p1.p + p2.p, p1.t_p + p2.t_p, 0, 0, 0});
+            return mother;
+        }
     } else if (abspdg == 413) {
-        particle Dzero, piSoft;
-        if (std::abs(p1.pdg) == 421 && std::abs(p2.pdg) == 211) {
-            Dzero = p1;
-            piSoft = p2;
-        } else if (std::abs(p1.pdg) == 211 && std::abs(p2.pdg) == 421) {
-            piSoft = p1;
-            Dzero = p2;
-        } else
-            return particle({});
+        particle Dzero = p1;
+        particle piSoft = p2;
 
-        if (std::abs(piSoft.mother1pdg) != 413 || piSoft.mother1idx <= 0 || piSoft.mother2idx != 0) return particle({});
-
-        mother =
-            particle({413, (u_int64_t)piSoft.mother1idx, 0, 0, 0, Dzero.p + piSoft.p, Dzero.t_p + piSoft.t_p, 0, 0, 0});
-        if (std::abs(mother.t_p.M() - targetMass) / targetMass > 1.e-4) return particle({});
+        if (std::abs(piSoft.mother1pdg) == 413 || piSoft.mother1idx > 0 || piSoft.mother2idx == 0) {
+            particle mother(
+                {413, (u_int64_t)piSoft.mother1idx, 0, 0, 0, Dzero.p + piSoft.p, Dzero.t_p + piSoft.t_p, 0, 0, 0});
+            return mother;
+        }
     }
 
-    return mother;
-}
-
-particle BuildMother3Prong(int pdg, particle p1, particle p2, particle p3) {
-    if (pdg == 413) {
-        particle K, pi1, pi2;
-        if (std::abs(p1.pdg) == 321 && std::abs(p2.pdg) == 211 && std::abs(p3.pdg)) {
-            K = p1;
-            pi1 = p2;
-            pi2 = p3;
-        } else if (std::abs(p2.pdg) == 321 && std::abs(p3.pdg) == 211 && std::abs(p1.pdg)) {
-            K = p2;
-            pi1 = p1;
-            pi2 = p3;
-        } else if (std::abs(p3.pdg) == 321 && std::abs(p1.pdg) == 211 && std::abs(p2.pdg)) {
-            K = p3;
-            pi1 = p1;
-            pi2 = p2;
-        } else
-            return particle({});
-
-        particle Dzero, piSoft;
-        if (K.pdg * pi1.pdg < 0) {
-            Dzero = BuildMother2Daus(421, K, pi1);
-            piSoft = pi2;
-        } else if (K.pdg * pi2.pdg < 0) {
-            Dzero = BuildMother2Daus(421, K, pi2);
-            piSoft = pi1;
-        } else
-            return particle({});
-
-        if (Dzero.pdg != 421) return particle({});
-
-        // Check if particles have the same mother. Only check for weak decays. In this case m1>0 and and m2=0
-        // see: https://pythia.org/latest-manual/ParticleProperties.html
-        if (piSoft.mother1idx <= 0 || piSoft.mother2idx != 0 || piSoft.mother1pdg != 413) return particle({});
-
-        // id from acts and the motherId from pythia don't match => don't check if the D0 and piSoft are siblings
-        particle mother(
-            {pdg, (u_int64_t)piSoft.mother1idx, 0, 0, 0, Dzero.p + piSoft.p, Dzero.t_p + piSoft.t_p, 0, 0, 0});
-
-        double targetMass = TDatabasePDG::Instance()->GetParticle(std::abs(413))->Mass();
-        if (std::abs(mother.t_p.M() - targetMass) / targetMass > 1.e-4) return particle({});
-
-        return mother;
-    } else {
-        printf("Error: pdg code %d not implemented. Exit\n", pdg);
-        exit(1);
-    }
     return particle({});
 }
 
@@ -181,8 +137,10 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
     tree->SetBranchAddress("majorityParticleId", &t_majorityParticleId);
 
     TFile *oFile = new TFile(oFileName, "recreate");
-    double massMin = 0.4;
-    double massMax = 2.5;
+    double massMin;
+    double massMax;
+    double trueMassMin;
+    double trueMassMax;
     TString titleMassDzero = "#it{M}(K,#pi) (GeV/#it{c}^{2})";
     TString titleMassDstar = "#it{M}(K,#pi,#pi) (GeV/#it{c}^{2})";
     TString titlePt = "#it{p}_{T} (GeV/#it{c})";
@@ -317,11 +275,15 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
                 titleMass = titleMassDzero;
                 massMin = 1.5;
                 massMax = 2.2;
+                trueMassMin = 1.860;
+                trueMassMax = 1.870;
                 nMassBins = (int)std::round((massMax - massMin) * 1000 / massBinWidth);
             } else if (abspdg == 413) {
                 titleMass = titleMassDstar;
                 massMin = 1.6;
                 massMax = 2.4;
+                trueMassMin = 2.005;
+                trueMassMax = 2.015;
                 nMassBins = (int)std::round((massMax - massMin) * 1000 / massBinWidth);
             } else {
                 exit(1);
@@ -331,6 +293,11 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             name = Form("hInvMass_%s", pdg2name[abspdg]);
             title = ";" + titleMass + ";Counts";
             hPartProp[abspdg].insert({"hInvMass", new TH1D(name, title, nMassBins, massMin, massMax)});
+
+            // True invariant mass
+            name = Form("hTrueInvMass_%s", pdg2name[abspdg]);
+            title = ";" + titleMass + ";Counts";
+            hPartProp[abspdg].insert({"hTrueInvMass", new TH1D(name, title, nMassBins, trueMassMin, trueMassMax)});
 
             // invariant mass vs pt
             name = Form("hInvMassVsPt_%s", pdg2name[abspdg]);
@@ -368,20 +335,20 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             double ppx = 1. / std::abs(pqop) * sin(ptheta) * cos(pphi);
             double ppy = 1. / std::abs(pqop) * sin(ptheta) * sin(pphi);
             double ppz = 1. / std::abs(pqop) * cos(ptheta);
-            double pm = TDatabasePDG::Instance()->GetParticle(abspdg)->Mass();
+            double pm = masses[abspdg];
 
             uint64_t id = ActsFatras::Barcode(t_pmajorityParticleId).particle();
 
             auto p = ROOT::Math::PxPyPzMVector(ppx, ppy, ppz, pm);
             auto t_p = ROOT::Math::PxPyPzMVector(t_ppx, t_ppy, t_ppz, pm);
 
-            double x = (*t_vx)[iPart]; // u. m. = mm (should be)
-            double y = (*t_vy)[iPart]; // u. m. = mm (should be)
-            double z = (*t_vz)[iPart]; // u. m. = mm (should be)
+            double x = (*t_vx)[iPart];  // u. m. = mm (should be)
+            double y = (*t_vy)[iPart];  // u. m. = mm (should be)
+            double z = (*t_vz)[iPart];  // u. m. = mm (should be)
 
             // reject decay products of strange decays. This selection also removes the peak in eta-phi for pions
-            double rProd = pow(x*x + y*y + z*z, 0.5); 
-           
+            double rProd = pow(x * x + y * y + z * z, 0.5);
+
             int m1idx = (*mother1_particle_id)[iPart];
             int m2idx = (*mother2_particle_id)[iPart];
 
@@ -414,7 +381,7 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
             hPartProp[abspdg]["hResolutionPercPt"]->Fill(t_p.Pt(), (p.Pt() - t_p.Pt()) / t_p.Pt() * 100);
         }
 
-        // reconstruct Dzero
+        // Reconstruct Dzero
         auto kaons = particles[321];
         auto pions = particles[211];
 
@@ -423,8 +390,8 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
 
             for (size_t iPi = 0; iPi < pions.size(); iPi++) {
                 auto Pi = pions[iPi];
-                auto Dzero = BuildMother2Daus(421, K, Pi);
-                if (Dzero.pdg != 421) continue;
+                auto Dzero = BuildMother(421, K, Pi);
+                if (std::abs(Dzero.pdg) != 421 || !IsMassCorrect(421, Dzero.t_p.M())) continue;
                 particles[421].push_back(Dzero);
 
                 double m = Dzero.p.M();
@@ -433,6 +400,7 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
                 double p = Dzero.p.P();
                 double pt = Dzero.p.Pt();
 
+                double t_m = Dzero.t_p.M();
                 double t_eta = Dzero.t_p.Eta();
                 double t_phi = Dzero.t_p.Phi();
                 double t_p = Dzero.t_p.P();
@@ -447,6 +415,7 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
 
                 // Invariant mass
                 hPartProp[421]["hInvMass"]->Fill(m);
+                hPartProp[421]["hTrueInvMass"]->Fill(t_m);
                 hPartProp[421]["hInvMassVsPt"]->Fill(pt, m);
 
                 // Resolution
@@ -465,64 +434,60 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
                 hPartProp[421]["hResolutionPt"]->Fill(t_pt, pt);
                 hPartProp[421]["hResolutionDeltaPt"]->Fill(t_pt, pt - t_pt);
                 hPartProp[421]["hResolutionPercPt"]->Fill(t_pt, (pt - t_pt) / t_pt * 100);
-            }
-        }
 
-        // for (size_t iK = 0; iK < kaons.size(); iK++) {
-        //     auto K = kaons[iK];
+                // Reconstruct D*(2010)
+                for (size_t iPi2 = iPi + 1; iPi2 < pions.size(); iPi2++) {
+                    auto Pi2 = pions[iPi2];
 
-        //     for (size_t iPi1 = 0; iPi1 < pions.size(); iPi1++) {
-        //         auto Pi1 = pions[iPi1];
+                    auto Dstar = BuildMother(413, Dzero, Pi2);
+                    if (std::abs(Dstar.pdg) != 413 || !IsMassCorrect(413, Dstar.t_p.M())) continue;
 
-        //         for (size_t iPi2 = iPi1 + 1; iPi2 < pions.size(); iPi2++) {
-        //             auto Pi2 = pions[iPi2];
+                    particles[413].push_back(Dstar);
 
-        //             auto Dstar = BuildMother3Prong(413, K, Pi1, Pi2);
-        //             if (Dstar.pdg != 413) continue;
-        //             particles[413].push_back(Dstar);
+                    double m = Dstar.p.M();
+                    double eta = Dstar.p.Eta();
+                    double phi = Dstar.p.Phi();
+                    double p = Dstar.p.P();
+                    double pt = Dstar.p.Pt();
 
-        //             double m = Dstar.p.M();
-        //             double eta = Dstar.p.Eta();
-        //             double phi = Dstar.p.Phi();
-        //             double p = Dstar.p.P();
-        //             double pt = Dstar.p.Pt();
+                    double t_m = Dstar.t_p.M();
+                    double t_eta = Dstar.t_p.Eta();
+                    double t_phi = Dstar.t_p.Phi();
+                    double t_p = Dstar.t_p.P();
+                    double t_pt = Dstar.t_p.Pt();
 
-        //             double t_eta = Dstar.t_p.Eta();
-        //             double t_phi = Dstar.t_p.Phi();
-        //             double t_p = Dstar.t_p.P();
-        //             double t_pt = Dstar.t_p.Pt();
+                    // kinematics
+                    hPartProp[413]["hP"]->Fill(p);
+                    hPartProp[413]["hPt"]->Fill(pt);
+                    hPartProp[413]["hEta"]->Fill(eta);
+                    hPartProp[413]["hPhi"]->Fill(phi);
+                    hPartProp[413]["hPhiVsEta"]->Fill(eta, phi);
 
-        //             // kinematics
-        //             hPartProp[413]["hP"]->Fill(p);
-        //             hPartProp[413]["hPt"]->Fill(pt);
-        //             hPartProp[413]["hEta"]->Fill(eta);
-        //             hPartProp[413]["hPhi"]->Fill(phi);
-        //             hPartProp[413]["hPhiVsEta"]->Fill(eta, phi);
+                    // Invariant mass
+                    hPartProp[413]["hInvMass"]->Fill(m);
+                    hPartProp[413]["hTrueInvMass"]->Fill(t_m);
+                    hPartProp[413]["hInvMassVsPt"]->Fill(pt, m);
 
-        //             // Invariant mass
-        //             hPartProp[413]["hInvMass"]->Fill(m);
-        //             hPartProp[413]["hInvMassVsPt"]->Fill(pt, m);
+                    // Resolution
+                    hPartProp[413]["hResolutionEta"]->Fill(t_eta, eta);
+                    hPartProp[413]["hResolutionDeltaEta"]->Fill(t_eta, eta - t_eta);
+                    hPartProp[413]["hResolutionPercEta"]->Fill(t_eta, (eta - t_eta) / t_eta * 100);
 
-        //             // Resolution
-        //             hPartProp[413]["hResolutionEta"]->Fill(t_eta, eta);
-        //             hPartProp[413]["hResolutionDeltaEta"]->Fill(t_eta, eta - t_eta);
-        //             hPartProp[413]["hResolutionPercEta"]->Fill(t_eta, (eta - t_eta) / t_eta * 100);
+                    hPartProp[413]["hResolutionPhi"]->Fill(t_phi, phi);
+                    hPartProp[413]["hResolutionDeltaPhi"]->Fill(t_phi, phi - t_phi);
+                    hPartProp[413]["hResolutionPercPhi"]->Fill(t_phi, (phi - t_phi) / t_phi * 100);
 
-        //             hPartProp[413]["hResolutionPhi"]->Fill(t_phi, phi);
-        //             hPartProp[413]["hResolutionDeltaPhi"]->Fill(t_phi, phi - t_phi);
-        //             hPartProp[413]["hResolutionPercPhi"]->Fill(t_phi, (phi - t_phi) / t_phi * 100);
+                    hPartProp[413]["hResolutionP"]->Fill(t_p, p);
+                    hPartProp[413]["hResolutionDeltaP"]->Fill(t_p, p - t_p);
+                    hPartProp[413]["hResolutionPercP"]->Fill(t_p, (p - t_p) / t_p * 100);
 
-        //             hPartProp[413]["hResolutionP"]->Fill(t_p, p);
-        //             hPartProp[413]["hResolutionDeltaP"]->Fill(t_p, p - t_p);
-        //             hPartProp[413]["hResolutionPercP"]->Fill(t_p, (p - t_p) / t_p * 100);
-
-        //             hPartProp[413]["hResolutionPt"]->Fill(t_pt, pt);
-        //             hPartProp[413]["hResolutionDeltaPt"]->Fill(t_pt, pt - t_pt);
-        //             hPartProp[413]["hResolutionPercPt"]->Fill(t_pt, (pt - t_pt) / t_pt * 100);
-        //         }
-        //     }
-        // }
-    }  // event loop
+                    hPartProp[413]["hResolutionPt"]->Fill(t_pt, pt);
+                    hPartProp[413]["hResolutionDeltaPt"]->Fill(t_pt, pt - t_pt);
+                    hPartProp[413]["hResolutionPercPt"]->Fill(t_pt, (pt - t_pt) / t_pt * 100);
+                }  // loop over pions2
+            }      // loop over pions
+        }          // loop over kaons
+    }              // event loop
 
     // Write histograms
     for (auto pdg : allPdg) {
