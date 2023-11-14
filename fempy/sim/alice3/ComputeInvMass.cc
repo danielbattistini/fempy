@@ -87,6 +87,8 @@ void ComputeInvMass(const char *configFile) {
     int pdg2 = cfg["pdg2"].as<int>();
     int minNHits = cfg["min_hits"].as<int>();
     int md = cfg["mixing_depth"].as<int>();
+    bool useMCTruth = cfg["use_mc_truth"].as<bool>();
+    bool pairOnlyPrim = cfg["pair_only_prim"].as<bool>();
 
     TFile *inFile = new TFile(inFileName.data());
 
@@ -323,7 +325,6 @@ void ComputeInvMass(const char *configFile) {
             hPartProp[abspdg].insert({"hInvMassVsPt", new TH2F(name, title, 100, 0, 10, nMassBins, massMin, massMax)});
         }
     }
-    bool pairOnlyPrim = cfg["pair_only_prim"].as<bool>();
 
     // SE
     hFemto["p02_13"].insert({"hSE", new TH1D("hSE_02_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
@@ -537,7 +538,7 @@ void ComputeInvMass(const char *configFile) {
 
                 // todo implement pair cleaner here
 
-                double kStar = ComputeKstar(p1.p, p2.p);
+                double kStar = useMCTruth ? ComputeKstar(p1.t_p, p2.t_p) : ComputeKstar(p1.p, p2.p);
                 std::string pair = p1.pdg * p2.pdg > 0 ? "p02_13" : "p12_23";
                 hFemto[pair]["hSE"]->Fill(kStar);
             }
@@ -551,7 +552,7 @@ void ComputeInvMass(const char *configFile) {
                 for (size_t i2 = 0; i2 < partBuffer2[iME].size(); i2++) {
                     const auto p2 = partBuffer2[iME][i2];
 
-                    double kStar = ComputeKstar(p1.p, p2.p);
+                    double kStar = useMCTruth ? ComputeKstar(p1.t_p, p2.t_p) : ComputeKstar(p1.p, p2.p);
                     std::string pair = p1.pdg * p2.pdg > 0 ? "p02_13" : "p12_23";
 
                     hFemto[pair]["hME"]->Fill(kStar);
