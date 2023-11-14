@@ -6,3 +6,4 @@ pdg2: 211 # the lighter particle
 min_hits: 7
 mixing_depth: 10
 pair_only_prim: true
+use_mc_truth: true
