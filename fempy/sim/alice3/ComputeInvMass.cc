@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "yaml-cpp/yaml.h"
+
 #include "Riostream.h"
 #include "TDatabasePDG.h"
 #include "TFile.h"
@@ -74,12 +76,19 @@ particle BuildMother(int pdg, particle p1, particle p2) {
     return particle({});
 }
 
-void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int pdg2) {   
+void ComputeInvMass(const char *configFile) {
     // consts
     const double Pi = TMath::Pi();
-    int minNHits = 7;
 
-    TFile *inFile = new TFile(inFileName);
+    YAML::Node cfg = YAML::LoadFile(configFile);
+    std::string inFileName = cfg["infile"].as<std::string>();
+    std::string oFileName = cfg["ofile"].as<std::string>();
+    int pdg1 = cfg["pdg1"].as<int>();
+    int pdg2 = cfg["pdg2"].as<int>();
+    int minNHits = cfg["min_hits"].as<int>();
+    int md = cfg["mixing_depth"].as<int>();
+
+    TFile *inFile = new TFile(inFileName.data());
 
     TList *keys = (TList *)inFile->GetListOfKeys();
     if (keys->GetEntries() > 1) {
@@ -137,7 +146,7 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
     tree->SetBranchAddress("t_charge", &t_charge);
     tree->SetBranchAddress("majorityParticleId", &t_majorityParticleId);
 
-    TFile *oFile = new TFile(oFileName, "recreate");
+    TFile *oFile = new TFile(oFileName.data(), "recreate");
     double massMin;
     double massMax;
     double trueMassMin;
@@ -181,7 +190,6 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
 
     // Mixing buffer
     std::deque<std::vector<particle>> partBuffer2{};
-    int md = 10;
 
     TString name;
     TString title;
@@ -319,11 +327,11 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
     // SE
     hFemto["p02_13"].insert({"hSE", new TH1D("hSE_02_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
     hFemto["p02_13"].insert({"hME", new TH1D("hME_02_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    
+
     // ME
     hFemto["p12_23"].insert({"hSE", new TH1D("hSE_12_23", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
     hFemto["p12_23"].insert({"hME", new TH1D("hME_12_23", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    
+
     for (int iEvent = 0; iEvent < tree->GetEntries(); iEvent++) {
         tree->GetEntry(iEvent);
 
@@ -544,7 +552,7 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
         }
         partBuffer2.push_back(particles[pdg2]);
         if (partBuffer2.size() > md) partBuffer2.pop_front();
-    }              // event loop
+    }  // event loop
 
     // Write histograms
     for (auto pdg : allPdg) {
@@ -569,4 +577,5 @@ void ComputeInvMass(const char *inFileName, const char *oFileName, int pdg1, int
     }
 
     oFile->Close();
+    printf("Output saved in %s\n", oFileName.data());
 }
