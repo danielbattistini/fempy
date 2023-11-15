@@ -1,32 +1,32 @@
 - plot:
-    output: ~/an/DPi/14_mult/CompareMultEvt
+    output: CompareExample
 
     input:
-    -   file:  /data/DPi/merge_4849/AnalysisResults_4849.root
-        name: HM_CharmFemto_DplusPion_EvtCuts0/HM_CharmFemto_DplusPion_EvtCuts0/fHistNtrackletsAllEvents
-        legend: 'All evts'
+    -   file:  AnalysisResultsExample.root
+        name: very/complicated/path/h1
+        legend: 'Distr1'
         rebin: 1
         color: kRed
-        normalize: true
+        normalize: false
         normalizecf: false  # false or numerical factor for rescaling
-    -   file:  /data/DPi/merge_4849/AnalysisResults_4849.root
-        name: HM_CharmFemto_DplusPion_EvtCuts0/HM_CharmFemto_DplusPion_EvtCuts0/fHistNtrackletsEventsWithD
-        legend: 'Evts With D'
+    -   file:  AnalysisResultsExample.root
+        name: very/complicated/path/h2
+        legend: 'Distr2'
         rebin: 1
         color: kBlue
-        normalize: true
+        normalize: false
         normalizecf: false
 
     opt:
-        rangex: [0, 150]
-        rangey: [0, 0.05]
+        rangex: [0, 10]
+        rangey: [800, 1600]
         rebin: 1
         logx: false
         logy: false
-        title: ';#it{N}_{tracklets};Counts'
+        title: ';variable (units);variable (units)'
 
         lines: # Use lines: [] if you don't want to draw lines
-        - coordinates: ['min','min','max','max'] # min, max for all range, otherwise coordinates
+        - coordinates: [3,'min',3,'max'] # min, max for all range, otherwise coordinates
           color: kRed
           thickness: 2
           legendtag: 'Example line'
@@ -34,19 +34,22 @@
         ext: [pdf]
 
         leg:
-            posx: [0.2, 0.5]
+            header: 'Legend header'
+            posx: [0.5, 0.9]
             posy: [0.7, 0.9]
             sigma: false
             mean: false
 
     ratio:
-        enable: false
-        rangey: [0, 3.5]
+        enable: true
+        rangey: [0.5, 1.5]
         rebin: 1
         logx: false
         logy: false
 
     relunc:
+        rangey: [0, 5]
+        enable: true
         gridx: false
         gridy: true
         logx: false
