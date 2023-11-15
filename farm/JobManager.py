@@ -58,7 +58,8 @@ while True:
                     ['Their jobs', theirRunningJobs, theirPendingJobs, theirHeldJobs]],
                     headers=['', 'running', 'pending', 'held']))
     if myPendingJobs == 0 and nFreeCPU > nAlwaysFree - theirRunningJobs:
-        cmd = 'squeue -h --me -t PD | grep JobHeldUser | awk \'{print $1}\' | head | tr \'\n\' \',\''
+        nSubmit = nCpu - nAlwaysFree - nRunningJobs
+        cmd = f'squeue -h --me -t PD | grep JobHeldUser | awk \'{{print $1}}\' | head -n {nSubmit} | tr \'\n\' \',\''
         myHeldJobIDs = str(subprocess.check_output(cmd, shell=True, universal_newlines='\n'))[:-1]
 
         print('Releasing the following jobs jobs: ', myHeldJobIDs)
