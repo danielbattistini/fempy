@@ -2,6 +2,7 @@
 #define FEMPY_MASSFITTER_HXX_
 
 #include <map>
+#include <tuple>
 #include <string>
 
 #include "TLatex.h"
@@ -122,7 +123,7 @@ class MassFitter {
                 {0, {"norm", 1000, 0, 1.e6}},
                 {1, {"mean", 1.86484, 1.86484*0.98, 1.86484*1.02}},
                 {2, {"sigma", 10, 0.005, 0.05}},
-                
+
                 // exp
                 {3, {"norm", 10, 0.01, 1.e4}},
                 {4, {"slope", -0.5, -10, 10}},
@@ -133,7 +134,7 @@ class MassFitter {
                 {0, {"norm", 0.5, 0, 50}},
                 {1, {"mean", 0.145, 0.144, 0.146}},
                 {2, {"sigma", 0.0006, 0.0003, 0.0009}},
-                
+
                 // powex
                 {3, {"norm", 0.5, 200, 3000}},
                 {4, {"slope", 0.1, 0, 100}},
@@ -142,7 +143,7 @@ class MassFitter {
             fFitPars = { {0, {"norm", 0.5, 0, 50}},
                 {0, {"mean", 1.87, 1.84, 1.9}},
                 {2, {"sigma", 0.006, 0.0001, 0.01}},
-                
+
                 // exp
                 {3, {"norm", 10, 0, 1.e6}},
                 {4, {"slope", -0.5, -10, 0}},
@@ -168,7 +169,6 @@ class MassFitter {
     }
 
     int Fit() {
-        
         // printf("---> %s\n", this->bkg.data());
         // prefit
         // this->fPrefit = new TF1("fPrefit", [&, this](double *x, double * par) {
@@ -183,7 +183,12 @@ class MassFitter {
 
         for (int iPar = 0; iPar < this->nSgnPars + this->nBkgPars; iPar++) {
             auto pars = fFitPars[iPar];
-            std::cout << iPar <<" "<< std::get<0>(pars) <<" "<< std::get<1>(pars) <<" "<< std::get<2>(pars) <<" "<< std::get<3>(pars) << std::endl;
+            std::cout << iPar << " " 
+                      << std::get<0>(pars)
+                      << " " << std::get<1>(pars)
+                      << " " << std::get<2>(pars)
+                      << " " << std::get<3>(pars)
+                      << std::endl;
 
             this->fFit->SetParName(iPar, std::get<0>(pars).data());
             this->fFit->SetParameter(iPar, std::get<1>(pars));
@@ -430,7 +435,6 @@ class MassFitter {
     double fitRangeMin;
     double fitRangeMax;
     std::map<int, std::tuple<std::string, double, double, double>> fFitPars;
-
 };
 
 #endif  // FEMPY_MASSFITTER_HXX_
