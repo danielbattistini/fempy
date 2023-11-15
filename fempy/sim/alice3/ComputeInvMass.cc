@@ -104,30 +104,28 @@ void ComputeInvMass(const char *configFile) {
     std::vector<int> *mother1_pdg = 0;
     std::vector<int> *mother2_pdg = 0;
     std::vector<int> *nMeasurements = 0;
-    std::vector<double> *px = 0;
-    std::vector<double> *py = 0;
-    std::vector<double> *pz = 0;
+    std::vector<float> *px = 0;
+    std::vector<float> *py = 0;
+    std::vector<float> *pz = 0;
 
-    std::vector<double> *qop = 0;  // charge over momentum
-    std::vector<double> *phi = 0;
-    std::vector<double> *theta = 0;
+    std::vector<float> *qop = 0;  // charge over momentum
+    std::vector<float> *phi = 0;
+    std::vector<float> *theta = 0;
 
-    std::vector<double> *vx = 0;
-    std::vector<double> *vy = 0;
-    std::vector<double> *vz = 0;
+    std::vector<float> *vx = 0;
+    std::vector<float> *vy = 0;
+    std::vector<float> *vz = 0;
 
     // MC truth variables
-    std::vector<double> *t_vx = 0;
-    std::vector<double> *t_vy = 0;
-    std::vector<double> *t_vz = 0;
-    std::vector<double> *t_px = 0;
-    std::vector<double> *t_py = 0;
-    std::vector<double> *t_pz = 0;
+    std::vector<float> *t_vx = 0;
+    std::vector<float> *t_vy = 0;
+    std::vector<float> *t_vz = 0;
+    std::vector<float> *t_px = 0;
+    std::vector<float> *t_py = 0;
+    std::vector<float> *t_pz = 0;
     std::vector<int> *t_charge = 0;
     std::vector<uint64_t> *t_majorityParticleId = 0;
 
-    auto treeName = std::string(keys->At(0)->GetName());
-    TTree *tree = (TTree *)inFile->Get(treeName.data());
     tree->SetBranchAddress("eQOP_fit", &qop);
     tree->SetBranchAddress("ePHI_fit", &phi);
     tree->SetBranchAddress("eTHETA_fit", &theta);
