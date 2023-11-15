@@ -228,9 +228,9 @@ if __name__ == '__main__':
                     oFile.cd(f'{comb}')
 
                     massHistname = f'hCharmMassUniq{syst}_' if args.uniq else f'hCharmMass{syst}_'
-                    hMasses = [h for h in fempy.utils.GetObjsInDir(inFile.Get(f'{comb}/{event}')) if massHistname in h.GetName()]
+                    hMasses = [h for h in fempy.utils.io.GetObjsInDir(inFile.Get(f'{comb}/{event}')) if massHistname in h.GetName()]
                     print(hMasses)
-                    print([h for h in fempy.utils.GetObjNamesInDir(inFile.Get(f'{comb}/{event}')) if massHistname in h])
+                    print([h for h in fempy.utils.io.GetObjNamesInDir(inFile.Get(f'{comb}/{event}')) if massHistname in h])
                     nKStarBins = len(hMasses)
                     kStarBW = round(3000/nKStarBins)
 

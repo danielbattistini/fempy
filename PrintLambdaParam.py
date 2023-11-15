@@ -396,7 +396,7 @@ def ComputeGenCF(args):
         hCFMC = hSEMC/hMEMC
         hCFMC.SetName('hCFMC')
 
-        regions = fempy.utils.GetRegions(inFileData.Get('sc/SE'))
+        regions = fempy.utils.io.GetRegions(inFileData.Get('sc/SE'))
         nVar = 1
         dCFData = [{} for _ in range(nVar)]
         dSEData = [{} for _ in range(nVar)]

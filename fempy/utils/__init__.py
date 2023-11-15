@@ -1,7 +1,5 @@
-# import fempy
-# from fempy.analysis import Pair
-# from fempy.io import *
-# from fempy.format import *
+import os
+import sys
 
 def Chunkyfy(array, nElemPerChunk=200):
     if len(array) == 0:
@@ -44,8 +42,7 @@ def DivideCanvas(canvas, n):
         canvas.Divide((n+1)//5, 4)
         return canvas
     else:
-        fempy.error("too many pads")
-        return None
+        sys.exit()
 
 
 def GetNPanels(n):
@@ -60,5 +57,4 @@ def GetNPanels(n):
     elif n <= 20:
         return ((n+1)//5, 4)
     else:
-        fempy.error("too many pads")
-    
+        sys.exit()

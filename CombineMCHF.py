@@ -41,8 +41,8 @@ if __name__ == '__main__':
                 hQuark.Add(hBeauty, (1. - args.charmFraction)/hBeauty.GetEntries()*hCharm.GetEntries())
                 hQuark.Write()
 
-            regionsCharm = fempy.utils.GetRegions(inFileCharm.Get(f'{comb}/{event}'))
-            regionsBeauty = fempy.utils.GetRegions(inFileBeauty.Get(f'{comb}/{event}'))
+            regionsCharm = fempy.utils.io.GetRegions(inFileCharm.Get(f'{comb}/{event}'))
+            regionsBeauty = fempy.utils.io.GetRegions(inFileBeauty.Get(f'{comb}/{event}'))
             print(regionsCharm, regionsBeauty)
             if set(regionsCharm) != set(regionsBeauty):
                 fempy.error("not the same regions")

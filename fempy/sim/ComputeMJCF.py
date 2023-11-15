@@ -10,7 +10,7 @@ from ROOT import TFile, TCanvas, kRed, TLegend, gStyle, gPad, TLatex, SetOwnersh
 
 sys.path.append('../')
 from fempy.utils.format import GetNormRangeFromPDG, GetNormRangeFromPDG, dPDG2Label, TranslateToLatex, FigInit
-from fempy import CorrelationFunction
+from correlation_function import CorrelationFunction
 
 parser = argparse.ArgumentParser(description='Arguments')
 parser.add_argument('inFileName')

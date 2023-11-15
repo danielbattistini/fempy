@@ -307,14 +307,14 @@ void ComputeInvMass(const char *configFile) {
                 massMax = 2.2;
                 trueMassMin = 1.860;
                 trueMassMax = 1.870;
-                nMassBins = (int)std::round((massMax - massMin) * 1000 / massBinWidth);
+                nMassBins = static_cast<int>(std::round((massMax - massMin) * 1000 / massBinWidth));
             } else if (abspdg == 413) {
                 titleMass = titleMassDstar;
                 massMin = 1.6;
                 massMax = 2.4;
                 trueMassMin = 2.005;
                 trueMassMax = 2.015;
-                nMassBins = (int)std::round((massMax - massMin) * 1000 / massBinWidth);
+                nMassBins = static_cast<int>(std::round((massMax - massMin) * 1000 / massBinWidth));
             } else {
                 exit(1);
             }
