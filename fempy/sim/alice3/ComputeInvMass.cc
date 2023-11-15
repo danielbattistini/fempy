@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <fstream>
 
 #include "yaml-cpp/yaml.h"
 
@@ -11,7 +12,7 @@
 #include "TLorentzVector.h"
 #include "TMath.h"
 #include "TTree.h"
-
+#include "TChain.h"
 #include "ActsFatras/EventData/Barcode.hpp"
 #include "/home/ktas/ge86rim/phsw/fempy/fempy/sim/functions.hxx"
 
@@ -90,11 +91,22 @@ void ComputeInvMass(const char *configFile) {
     bool useMCTruth = cfg["use_mc_truth"].as<bool>();
     bool pairOnlyPrim = cfg["pair_only_prim"].as<bool>();
 
-    TFile *inFile = new TFile(inFileName.data());
+    TChain *tree;
+    if (inFileName.find(".chain") != std::string::npos) {
+        std::cout << "Loading the TChain..." << std::endl;
 
-    TList *keys = (TList *)inFile->GetListOfKeys();
-    if (keys->GetEntries() > 1) {
-        printf("Warning: more than 1 tree found. Check\n");
+        tree = new TChain("tracksummary");
+
+        std::ifstream fileList(inFileName.data());
+        std::string file;
+        while (fileList >> file) {
+            std::cout << file << std::endl;
+            tree->Add(file.data());
+        }
+        std::cout << "Done!" << std::endl;
+    } else {
+        tree = new TChain("tracksummary");
+        tree->AddFile(inFileName.data());
     }
 
     // init to 0 otherwise it breaks
