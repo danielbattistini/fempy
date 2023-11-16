@@ -55,6 +55,7 @@ for plot in cfg:
         inObj.SetMarkerColor(style.GetColor(inputCfg['color']))
         inObj.SetLineWidth(inputCfg.get('thickness', 1))
         drawOpts.append(inputCfg.get('drawopt', 'p' if isinstance(inObj, TH1) else 'pe'))
+        inObj.SetMarkerStyle(inputCfg['markerstyle'])
         inObjs.append(inObj)
         legends.append(inputCfg['legend'])
 
@@ -94,8 +95,8 @@ for plot in cfg:
                 legend += f';  #mu={inObj.GetMean():.3f}'
             if plot['opt']['leg']['sigma']:
                 legend += f';  #sigma={inObj.GetStdDev():.3f}'
-        leg.AddEntry(inObj, legend, 'l')
-
+        leg.AddEntry(inObj, legend, 'lp')
+    
     for line in plot['opt']['lines']:
         x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
         y1 = plot['opt']['rangey'][0] if(line['coordinates'][1] == 'min') else line['coordinates'][1]

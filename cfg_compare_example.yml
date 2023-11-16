@@ -7,14 +7,16 @@
         legend: 'Distr1'
         rebin: 1
         color: kRed
-        normalize: false
+        markerstyle: 4
+        normalize: true
         normalizecf: false  # false or numerical factor for rescaling
     -   file:  AnalysisResultsExample.root
         name: very/complicated/path/h2
         legend: 'Distr2'
         rebin: 1
         color: kBlue
-        normalize: false
+        markerstyle: 4
+        normalize: true
         normalizecf: false
 
     opt:
