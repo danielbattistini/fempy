@@ -1,0 +1,10 @@
+pair: LPi
+infiledata: ~/an/LPi/Trains/02_allpc/data/data/AnalysisResultsAllPC.root
+infilemc: ~/an/LPi/Trains/02_allpc/mc/data/AnalysisResultsAllPC.root
+
+# where to save the output
+odir: ~/an/LPi/Trains/02_allpc/data/histos
+suffix: null
+
+runsuffix: 1001 # The last parameter of the AddTask macro
+
