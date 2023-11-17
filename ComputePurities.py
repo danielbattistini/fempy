@@ -70,6 +70,27 @@ for cpart, fdcpart in chargedpart.items():
     hIDratio.SetTitle('CorrectIdentifRatio')
     hIDratio.SetName('CorrectIdentifRatio')
     hIDratio.Write()
+    for npart, fdnpart in neutralpart.items():
+        oFile.mkdir(f'{cpart}/{npart}')
+        oFile.cd(f'{cpart}/{npart}')
+        kstarPt = Load(inFileMC, f'HMResultsQA{runSuffix}/HMResultsQA{runSuffix}/PairQA/QA_{fdcpart[0]}_{fdnpart[0]}/KstarPtSEPartOne_{fdcpart[0]}_{fdnpart[0]}')
+        lowbin = kstarPt.ProjectionX().FindBin(0)
+        uppbin = kstarPt.ProjectionX().FindBin(0.2)
+        hpTdistr = kstarPt.ProjectionY('femto{fdcpart[0]}', lowbin, uppbin)
+        hpTdistr.Scale(1/hpTdistr.Integral())
+        hpTdistr.SetTitle(f'pTdistr_0_200_{fdcpart[0]}')
+        hpTdistr.SetName(f'pTdistr_0_200_{fdcpart[0]}')
+        hpTdistr.Write()
+        weights = []
+        purity = 0
+        for iBin in range(hIDratio.GetNbinsX()):
+            weight = hpTdistr.Interpolate(hIDratio.GetBinCenter(iBin))
+            weights.append(weight)
+            purity += weight * hIDratio.GetBinContent(iBin)
+        purity = purity/sum(weights) 
+        hPurity = TH1F('Purity', 'Purity', 1, 0, 1)
+        hPurity.Fill(0, purity)
+        hPurity.Write()
 
 oFile.Close()
 print(f'output saved in {oFileName}')
