@@ -10,10 +10,10 @@ import os
 import argparse
 import yaml
 
-from ROOT import TFile, TH1F
+from ROOT import TFile, TH2F, TH1D
 
 from fempy import logger as log
-from fempy.utils.io import Load
+from fempy.utils.io import Load, GetKeyNames
 
 parser = argparse.ArgumentParser()
 parser.add_argument('cfg', default='')
@@ -31,12 +31,7 @@ with open(args.cfg, "r") as stream:
         log.critical('Yaml configuration could not be loaded. Is it properly formatted?')
 
 regions = ['sgn']
-combs = {
-    'p02': 'Particle0_Particle2',
-    'p03': 'Particle0_Particle3',
-    'p12': 'Particle1_Particle2',
-    'p13': 'Particle1_Particle3'
-}
+combs = ['p02', 'p03', 'p12', 'p13']
 
 # Load input file with same- and mixed-event distributions
 inFile = TFile(cfg['infile'])
@@ -56,28 +51,55 @@ except OSError:
 hSE = {}
 hME = {}
 hMErew = {}
-for comb, fdcomb in combs.items():
+for comb in combs:
+    iPart1 = int(comb[1])
+    iPart2 = int(comb[2])
     oFile.mkdir(comb)
     oFile.cd(comb)
-    
     hSE[comb] = {}
     hME[comb] = {}
     hMErew[comb] = {}
     for region in regions:
         runSuffix = cfg['runsuffix']
-        hSE[comb][region] = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEDist_{fdcomb}')
-        hME[comb][region] = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEDist_{fdcomb}')
-        hSEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEMultDist_{fdcomb}')
-        hMEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEMultDist_{fdcomb}')
+        if f'HMResults{runSuffix}' in GetKeyNames(inFile): # Make correlation functions from FemtoDream
+            fdcomb = f'Particle{iPart1}_Particle{iPart2}'
+            # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
+            hSE[comb][region] = TH1D()
+            Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEDist_{fdcomb}').Copy(hSE[comb][region])
+
+            # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
+            hME[comb][region] = TH1D()
+            Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEDist_{fdcomb}').Copy(hME[comb][region])
+
+            # No need to cast the these because the projection of TH2D and TH2F is always TH1D
+            hSEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEMultDist_{fdcomb}')
+            hMEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEMultDist_{fdcomb}')
+
+        elif comb in GetKeyNames(inFile): # Make correlation functions from ALICE3 simulations
+            # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
+            hSE[comb][region] = TH1D()
+            Load(inFile, f'{comb}/hSE').Copy(hSE[comb][region])
+
+            # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
+            hME[comb][region] = TH1D()
+            Load(inFile, f'{comb}/hME').Copy(hME[comb][region])
+
+            # Mult reweighting not implemented. Keep dummy histogram for now
+            nbins = hSE[comb][region].GetNbinsX()
+            xMin = hSE[comb][region].GetXaxis().GetXmin()
+            xMax = hSE[comb][region].GetXaxis().GetXmax()
+            hSEmultk = TH2F('hSEMult', '', nbins, xMin, xMax, 200, 0, 200)
+            hMEmultk = TH2F('hMEMult', '', nbins, xMin, xMax, 200, 0, 200)
+
         nbins = hMEmultk.ProjectionX().GetNbinsX()
-        hMEreweightk = TH1F("MErewdistr", "MErewdistr", nbins, hMEmultk.GetXaxis().GetXmin(), hMEmultk.GetXaxis().GetXmax())
+        hMEreweightk = TH1D("MErewdistr", "MErewdistr", nbins, hMEmultk.GetXaxis().GetXmin(), hMEmultk.GetXaxis().GetXmax())
         for iBin in range(hMEmultk.ProjectionY().GetNbinsX() + 2): # Loop over underflow, all bins, and overflow
             hSEbinmult = hSEmultk.ProjectionX(f'{comb}SEdistr', iBin, iBin)
             hMEbinmult = hMEmultk.ProjectionX(f'{comb}MEdistr', iBin, iBin)
-            if(hMEbinmult.Integral()>0):
+            if(hMEbinmult.Integral() > 0):
                 hMEreweightk.Add(hMEbinmult, hSEbinmult.Integral()/hMEbinmult.Integral())
         hMErew[comb][region] = hMEreweightk
-   
+
 # Sum pair and antipair
 for comb in combs:
     hSE['p02_13'] = {}
@@ -97,7 +119,7 @@ for comb in combs:
         hMErew['p03_12'][region] = hMErew['p03'][region] + hMErew['p12'][region]
 
 # Compute the CF and write to file
-for comb in list(combs.keys()) + ['p02_13', 'p03_12']:
+for comb in combs + ['p02_13', 'p03_12']:
     for region in regions:
         rebin = round(float(cfg['binwidth']) / (hSE[comb][region].GetBinWidth(1) * 1000))
         hSE[comb][region].Rebin(rebin)
@@ -111,6 +133,7 @@ for comb in list(combs.keys()) + ['p02_13', 'p03_12']:
             log.critical('Normalization method not implemented')
 
         hSE[comb][region].Sumw2()
+        hME[comb][region].Sumw2() # Just to trigger the same draw option as for hSE
         
         hCF = norm * hSE[comb][region] / hME[comb][region]
         hCFrew = normrew * hSE[comb][region] / hMErew[comb][region]
@@ -120,9 +143,11 @@ for comb in list(combs.keys()) + ['p02_13', 'p03_12']:
 
         hSE[comb][region].SetName('hSE')
         hSE[comb][region].SetTitle(';#it{k}* (GeV/#it{c});Counts')
+        hSE[comb][region].Write()
 
         hME[comb][region].SetName('hME')
         hME[comb][region].SetTitle(';#it{k}* (GeV/#it{c});Counts')
+        hME[comb][region].Write()
         
         hMErew[comb][region].SetName('hMErew')
         hMErew[comb][region].SetTitle(';#it{k}* (GeV/#it{c});Counts')
