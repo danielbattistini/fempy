@@ -197,8 +197,10 @@ void ComputeInvMass(const char *configFile) {
     };
 
     std::map<std::string, std::map<std::string, TH1 *>> hFemto = {
-        {"p02_13", {}},
-        {"p12_23", {}},
+        {"p02", {}},
+        {"p13", {}},
+        {"p03", {}},
+        {"p12", {}},
     };
 
     // Mixing buffer
@@ -338,12 +340,16 @@ void ComputeInvMass(const char *configFile) {
     }
 
     // SE
-    hFemto["p02_13"].insert({"hSE", new TH1D("hSE_02_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    hFemto["p02_13"].insert({"hME", new TH1D("hME_02_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p02"].insert({"hSE", new TH1D("hSE_02", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p13"].insert({"hSE", new TH1D("hSE_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p03"].insert({"hSE", new TH1D("hSE_03", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p12"].insert({"hSE", new TH1D("hSE_12", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
 
     // ME
-    hFemto["p12_23"].insert({"hSE", new TH1D("hSE_12_23", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    hFemto["p12_23"].insert({"hME", new TH1D("hME_12_23", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p02"].insert({"hME", new TH1D("hME_02", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p13"].insert({"hME", new TH1D("hME_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p03"].insert({"hME", new TH1D("hME_03", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    hFemto["p12"].insert({"hME", new TH1D("hME_12", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
 
     for (int iEvent = 0; iEvent < tree->GetEntries(); iEvent++) {
         float progress = (float) iEvent / tree->GetEntries();
@@ -563,7 +569,9 @@ void ComputeInvMass(const char *configFile) {
                 // todo implement pair cleaner here
 
                 double kStar = useMCTruth ? ComputeKstar(p1.t_p, p2.t_p) : ComputeKstar(p1.p, p2.p);
-                std::string pair = p1.pdg * p2.pdg > 0 ? "p02_13" : "p12_23";
+                std::string pair = "p";
+                pair += p1.pdg > 0 ? "0" : "1";
+                pair += p2.pdg > 0 ? "2" : "3";
                 hFemto[pair]["hSE"]->Fill(kStar);
             }
         }
@@ -577,8 +585,9 @@ void ComputeInvMass(const char *configFile) {
                     const auto p2 = partBuffer2[iME][i2];
 
                     double kStar = useMCTruth ? ComputeKstar(p1.t_p, p2.t_p) : ComputeKstar(p1.p, p2.p);
-                    std::string pair = p1.pdg * p2.pdg > 0 ? "p02_13" : "p12_23";
-
+                    std::string pair = "p";
+                    pair += p1.pdg > 0 ? "0" : "1";
+                    pair += p2.pdg > 0 ? "2" : "3";
                     hFemto[pair]["hME"]->Fill(kStar);
                 }
             }
