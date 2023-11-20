@@ -24,3 +24,5 @@ cats/**/bin
 *.zip
 build/**
 fempy.egg-info/**
+
+fempy/sim/alice3/geom/*
