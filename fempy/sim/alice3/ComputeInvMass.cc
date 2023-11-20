@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fstream>
+#include <deque>
 
 #include "yaml-cpp/yaml.h"
 
@@ -345,6 +346,19 @@ void ComputeInvMass(const char *configFile) {
     hFemto["p12_23"].insert({"hME", new TH1D("hME_12_23", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
 
     for (int iEvent = 0; iEvent < tree->GetEntries(); iEvent++) {
+        float progress = (float) iEvent / tree->GetEntries();
+        int barWidth = 70;
+
+        std::cout << "[";
+        int pos = barWidth * progress;
+        for (int i = 0; i < barWidth; ++i) {
+            if (i < pos) std::cout << "=";
+            else if (i == pos) std::cout << ">";
+            else std::cout << " ";
+        }
+        std::cout << "] " << int(progress * 100.0) << " %\r";
+        std::cout.flush();
+        
         tree->GetEntry(iEvent);
 
         particles[321].clear();
