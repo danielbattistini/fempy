@@ -93,22 +93,23 @@ rnd = acts.examples.RandomNumbers(seed=args.seed)
 
 s = acts.examples.Sequencer(events=args.evt, numThreads=1)
 s.trackFpes=False
-
-
-# Monash tune
 settings = [
     'Tune:pp = 14',
-    'SoftQCD:nonDiffractive = on'
+    'Random:setSeed = on',
+    f'Random:seed {args.seed}'
 ]
 
 # override the monash tune and activate only the processes that lead to charm production
 if args.hf:
     settings = [
-        'Tune:pp = 14',
         'HardQCD:gg2ccbar = on',
         'HardQCD:qqbar2ccbar = on',
         'HardQCD:gg2bbbar = on',
         'HardQCD:qqbar2bbbar = on',
+    ]
+else:
+    settings = [
+        'SoftQCD:nonDiffractive = on',
     ]
 
 if args.forced_decays:
