@@ -88,7 +88,7 @@ void ComputeInvMass(const char *configFile) {
     int pdg1 = cfg["pdg1"].as<int>();
     int pdg2 = cfg["pdg2"].as<int>();
     int minNHits = cfg["min_hits"].as<int>();
-    int md = cfg["mixing_depth"].as<int>();
+    unsigned int md = cfg["mixing_depth"].as<unsigned int>();
     bool useMCTruth = cfg["use_mc_truth"].as<bool>();
     bool pairOnlyPrim = cfg["pair_only_prim"].as<bool>();
 
