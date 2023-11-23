@@ -70,7 +70,7 @@ particle BuildMother(int pdg, particle p1, particle p2) {
 
         if (std::abs(piSoft.mother1pdg) == 413 || piSoft.mother1idx > 0 || piSoft.mother2idx == 0) {
             particle mother(
-                {413, (u_int64_t)piSoft.mother1idx, 0, 0, 0, Dzero.p + piSoft.p, Dzero.t_p + piSoft.t_p, 0, 0, 0});
+                {piSoft.mother1pdg, (u_int64_t)piSoft.mother1idx, 0, 0, 0, Dzero.p + piSoft.p, Dzero.t_p + piSoft.t_p, 0, 0, 0});
             return mother;
         }
     }
