@@ -17,13 +17,9 @@
 #include "ActsFatras/EventData/Barcode.hpp"
 #include "/home/ktas/ge86rim/phsw/fempy/fempy/sim/functions.hxx"
 
-std::map<int, double> masses = {
-    {211, TDatabasePDG::Instance()->GetParticle(211)->Mass()},  //  pion+
-    {321, TDatabasePDG::Instance()->GetParticle(321)->Mass()},  //  kaon+
-    {411, TDatabasePDG::Instance()->GetParticle(411)->Mass()},  //  D+
-    {421, TDatabasePDG::Instance()->GetParticle(421)->Mass()},  //  D0
-    {413, TDatabasePDG::Instance()->GetParticle(413)->Mass()},  //  D*+(2010)
-};
+double Mass(int pdg) {
+    return TDatabasePDG::Instance()->GetParticle(std::abs(pdg))->Mass();
+}
 
 struct particle {
     int pdg;                        // pdg code
@@ -42,7 +38,7 @@ struct particle {
 bool AreSiblings(particle p1, particle p2) { return std::abs(static_cast<int>(p1.id - p2.id)) == 1; }
 
 // Returns true if the mass is compatible with a given hypothesis. The precision is in GeV.
-bool IsMassCorrect(int pdg, double mass, double precision = 0.0001) { return std::abs(mass - masses[pdg]) < precision; }
+bool IsMassCorrect(int pdg, double mass, double precision = 0.0001) { return std::abs(mass - Mass(pdg)) < precision; }
 
 /*Build the mother of the particles p1 and p2.
 It is assumed that the particles are ordered in descending mass order and that the PDG codes are correct.*/
@@ -91,6 +87,49 @@ void ComputeInvMass(const char *configFile) {
     unsigned int md = cfg["mixing_depth"].as<unsigned int>();
     bool useMCTruth = cfg["use_mc_truth"].as<bool>();
     bool pairOnlyPrim = cfg["pair_only_prim"].as<bool>();
+
+    // Save metadata of the simulation
+    TH1D *hInfo = new TH1D("hInfo", "", 10, 0, 10);
+    hInfo->GetXaxis()->SetBinLabel(1, "pdg1");
+    hInfo->SetBinContent(1, pdg1);
+    hInfo->GetXaxis()->SetBinLabel(2, "pdg2");
+    hInfo->SetBinContent(2, pdg2);
+    hInfo->GetXaxis()->SetBinLabel(3, "Mixing depth");
+    hInfo->SetBinContent(3, md);
+    hInfo->GetXaxis()->SetBinLabel(4, "Use MC truth");
+    hInfo->SetBinContent(4, useMCTruth);
+    hInfo->GetXaxis()->SetBinLabel(5, "pairOnlyPrim");
+    hInfo->SetBinContent(5, pairOnlyPrim);
+    hInfo->GetXaxis()->SetBinLabel(6, "min hits");
+    hInfo->SetBinContent(6, minNHits);
+    hInfo->Write();
+
+    // Find out which particles need to be saved
+    std::set<int> decaysPdg = {421, 413};
+    std::set<int> trackablePdgs = {};
+    std::set<int> particlePdgs = {};
+    for (const auto pdg : {pdg1, pdg2}) {
+        if (pdg == 211 || pdg == 321 || pdg == 2212) {
+            trackablePdgs.insert(pdg);
+            particlePdgs.insert(pdg);
+        } else if (pdg == 421) {  // Reconstruct via D0 -> K pi
+            trackablePdgs.insert(211);
+            trackablePdgs.insert(321);
+
+            particlePdgs.insert(421);
+        } else if (pdg == 413) {  // Reconstruct via D*+ -> D0 pi -> (K pi) pi
+            trackablePdgs.insert(211);
+            trackablePdgs.insert(321);
+
+            particlePdgs.insert(421);
+            particlePdgs.insert(413);
+        } else {
+            printf("Error: pdg code %d not implemented ---> Exit!", pdg);
+            exit(1);
+        }
+    }
+    std::set<int> allPdg = trackablePdgs;
+    allPdg.insert(particlePdgs.begin(), particlePdgs.end());
 
     TChain *tree;
     if (inFileName.find(".chain") != std::string::npos) {
@@ -168,10 +207,6 @@ void ComputeInvMass(const char *configFile) {
     TString titleMassDstar = "#it{M}(K,#pi,#pi) (GeV/#it{c}^{2})";
     TString titlePt = "#it{p}_{T} (GeV/#it{c})";
 
-    std::vector<int> lightPdg = {211, 321};
-    std::vector<int> charmPdg = {421, 413};
-    std::vector<int> allPdg = lightPdg;
-    allPdg.insert(allPdg.end(), charmPdg.begin(), charmPdg.end());
 
     // names
     std::map<int, const char *> pdg2name = {
@@ -181,20 +216,12 @@ void ComputeInvMass(const char *configFile) {
         {413, "Dstar"},
     };
 
-    std::map<int, std::vector<particle>> particles = {
-        {321, std::vector<particle>()},
-        {211, std::vector<particle>()},
-        {421, std::vector<particle>()},
-        {413, std::vector<particle>()},
-    };
-
-    // this map also includes TH2*
-    std::map<int, std::map<std::string, TH1 *>> hPartProp = {
-        {321, {}},
-        {211, {}},
-        {421, {}},
-        {413, {}},
-    };
+    std::map<int, std::vector<particle>> particles;
+    std::map<int, std::map<std::string, TH1 *>> hPartProp;
+    for (const int &pdg : allPdg) {
+        particles.insert({pdg, std::vector<particle>()});
+        hPartProp.insert({321, {}});
+    }
 
     std::map<std::string, std::map<std::string, TH1 *>> hFemto = {
         {"p02", {}},
@@ -210,7 +237,7 @@ void ComputeInvMass(const char *configFile) {
     TString title;
     double massBinWidth = 0.1;  // MeV/c2
 
-    for (auto abspdg : {211, 321, 421, 413}) {
+    for (auto abspdg : allPdg) {
         // p
         name = Form("hP_%s", pdg2name[abspdg]);
         title = ";#it{p} (GeV/#it{c});Counts";
@@ -301,7 +328,7 @@ void ComputeInvMass(const char *configFile) {
         title = ";#phi^{true};(#phi^{reco} - #phi^{true})/#phi^{true} (%);Counts";
         hPartProp[abspdg].insert({"hResolutionPercPhi", new TH2F(name, title, 200, -Pi, Pi, 200, -Pi, Pi)});
 
-        if (std::find(charmPdg.begin(), charmPdg.end(), abspdg) != charmPdg.end()) {
+        if (decaysPdg.find(abspdg) != decaysPdg.end()) {
             TString titleMass;
             int nMassBins;
             if (abspdg == 421) {
@@ -367,16 +394,15 @@ void ComputeInvMass(const char *configFile) {
         
         tree->GetEntry(iEvent);
 
-        particles[321].clear();
-        particles[211].clear();
-        particles[421].clear();
-        particles[413].clear();
+        for (auto &[_, parts] : particles) {
+            parts.clear();
+        }
 
         size_t nPart = particle_type->size();
         for (size_t iPart = 0; iPart < nPart; iPart++) {
             int pdg = (*particle_type)[iPart];
             int abspdg = std::abs(pdg);
-            if (abspdg != 211 && abspdg != 321) continue;
+            if (trackablePdgs.find(abspdg) == trackablePdgs.end()) continue;
 
             int nHits = (*nMeasurements)[iPart];
             if (nHits < minNHits) continue;
@@ -393,7 +419,7 @@ void ComputeInvMass(const char *configFile) {
             double ppx = 1. / std::abs(pqop) * sin(ptheta) * cos(pphi);
             double ppy = 1. / std::abs(pqop) * sin(ptheta) * sin(pphi);
             double ppz = 1. / std::abs(pqop) * cos(ptheta);
-            double pm = masses[abspdg];
+            double pm = Mass(abspdg);
 
             uint64_t id = ActsFatras::Barcode(t_pmajorityParticleId).particle();
 
@@ -440,114 +466,117 @@ void ComputeInvMass(const char *configFile) {
         }
 
         // Reconstruct Dzero
-        auto kaons = particles[321];
-        auto pions = particles[211];
+        if (particlePdgs.find(421) != particlePdgs.end()) {
+            auto kaons = particles[321];
+            auto pions = particles[211];
 
-        for (size_t iK = 0; iK < kaons.size(); iK++) {
-            auto K = kaons[iK];
+            for (size_t iK = 0; iK < kaons.size(); iK++) {
+                auto K = kaons[iK];
 
-            for (size_t iPi = 0; iPi < pions.size(); iPi++) {
-                auto Pi = pions[iPi];
-                auto Dzero = BuildMother(421, K, Pi);
-                if (std::abs(Dzero.pdg) != 421 || !IsMassCorrect(421, Dzero.t_p.M())) continue;
-                particles[421].push_back(Dzero);
+                for (size_t iPi = 0; iPi < pions.size(); iPi++) {
+                    auto Pi = pions[iPi];
+                    auto Dzero = BuildMother(421, K, Pi);
+                    if (std::abs(Dzero.pdg) != 421 || !IsMassCorrect(421, Dzero.t_p.M())) continue;
+                    particles[421].push_back(Dzero);
 
-                double m = Dzero.p.M();
-                double eta = Dzero.p.Eta();
-                double phi = Dzero.p.Phi();
-                double p = Dzero.p.P();
-                double pt = Dzero.p.Pt();
+                    double m = Dzero.p.M();
+                    double eta = Dzero.p.Eta();
+                    double phi = Dzero.p.Phi();
+                    double p = Dzero.p.P();
+                    double pt = Dzero.p.Pt();
 
-                double t_m = Dzero.t_p.M();
-                double t_eta = Dzero.t_p.Eta();
-                double t_phi = Dzero.t_p.Phi();
-                double t_p = Dzero.t_p.P();
-                double t_pt = Dzero.t_p.Pt();
-
-                // kinematics
-                hPartProp[421]["hP"]->Fill(p);
-                hPartProp[421]["hPt"]->Fill(pt);
-                hPartProp[421]["hEta"]->Fill(eta);
-                hPartProp[421]["hPhi"]->Fill(phi);
-                hPartProp[421]["hPhiVsEta"]->Fill(eta, phi);
-
-                // Invariant mass
-                hPartProp[421]["hInvMass"]->Fill(m);
-                hPartProp[421]["hTrueInvMass"]->Fill(t_m);
-                hPartProp[421]["hInvMassVsPt"]->Fill(pt, m);
-
-                // Resolution
-                hPartProp[421]["hResolutionEta"]->Fill(t_eta, eta);
-                hPartProp[421]["hResolutionDeltaEta"]->Fill(t_eta, eta - t_eta);
-                hPartProp[421]["hResolutionPercEta"]->Fill(t_eta, (eta - t_eta) / t_eta * 100);
-
-                hPartProp[421]["hResolutionPhi"]->Fill(t_phi, phi);
-                hPartProp[421]["hResolutionDeltaPhi"]->Fill(t_phi, phi - t_phi);
-                hPartProp[421]["hResolutionPercPhi"]->Fill(t_phi, (phi - t_phi) / t_phi * 100);
-
-                hPartProp[421]["hResolutionP"]->Fill(t_p, p);
-                hPartProp[421]["hResolutionDeltaP"]->Fill(t_p, p - t_p);
-                hPartProp[421]["hResolutionPercP"]->Fill(t_p, (p - t_p) / t_p * 100);
-
-                hPartProp[421]["hResolutionPt"]->Fill(t_pt, pt);
-                hPartProp[421]["hResolutionDeltaPt"]->Fill(t_pt, pt - t_pt);
-                hPartProp[421]["hResolutionPercPt"]->Fill(t_pt, (pt - t_pt) / t_pt * 100);
-
-                // Reconstruct D*(2010)
-                for (size_t iPi2 = iPi + 1; iPi2 < pions.size(); iPi2++) {
-                    auto Pi2 = pions[iPi2];
-
-                    auto Dstar = BuildMother(413, Dzero, Pi2);
-                    if (std::abs(Dstar.pdg) != 413 || !IsMassCorrect(413, Dstar.t_p.M())) continue;
-
-                    particles[413].push_back(Dstar);
-
-                    double m = Dstar.p.M();
-                    double eta = Dstar.p.Eta();
-                    double phi = Dstar.p.Phi();
-                    double p = Dstar.p.P();
-                    double pt = Dstar.p.Pt();
-
-                    double t_m = Dstar.t_p.M();
-                    double t_eta = Dstar.t_p.Eta();
-                    double t_phi = Dstar.t_p.Phi();
-                    double t_p = Dstar.t_p.P();
-                    double t_pt = Dstar.t_p.Pt();
+                    double t_m = Dzero.t_p.M();
+                    double t_eta = Dzero.t_p.Eta();
+                    double t_phi = Dzero.t_p.Phi();
+                    double t_p = Dzero.t_p.P();
+                    double t_pt = Dzero.t_p.Pt();
 
                     // kinematics
-                    hPartProp[413]["hP"]->Fill(p);
-                    hPartProp[413]["hPt"]->Fill(pt);
-                    hPartProp[413]["hEta"]->Fill(eta);
-                    hPartProp[413]["hPhi"]->Fill(phi);
-                    hPartProp[413]["hPhiVsEta"]->Fill(eta, phi);
+                    hPartProp[421]["hP"]->Fill(p);
+                    hPartProp[421]["hPt"]->Fill(pt);
+                    hPartProp[421]["hEta"]->Fill(eta);
+                    hPartProp[421]["hPhi"]->Fill(phi);
+                    hPartProp[421]["hPhiVsEta"]->Fill(eta, phi);
 
                     // Invariant mass
-                    hPartProp[413]["hInvMass"]->Fill(m);
-                    hPartProp[413]["hTrueInvMass"]->Fill(t_m);
-                    hPartProp[413]["hInvMassVsPt"]->Fill(pt, m);
+                    hPartProp[421]["hInvMass"]->Fill(m);
+                    hPartProp[421]["hTrueInvMass"]->Fill(t_m);
+                    hPartProp[421]["hInvMassVsPt"]->Fill(pt, m);
 
                     // Resolution
-                    hPartProp[413]["hResolutionEta"]->Fill(t_eta, eta);
-                    hPartProp[413]["hResolutionDeltaEta"]->Fill(t_eta, eta - t_eta);
-                    hPartProp[413]["hResolutionPercEta"]->Fill(t_eta, (eta - t_eta) / t_eta * 100);
+                    hPartProp[421]["hResolutionEta"]->Fill(t_eta, eta);
+                    hPartProp[421]["hResolutionDeltaEta"]->Fill(t_eta, eta - t_eta);
+                    hPartProp[421]["hResolutionPercEta"]->Fill(t_eta, (eta - t_eta) / t_eta * 100);
 
-                    hPartProp[413]["hResolutionPhi"]->Fill(t_phi, phi);
-                    hPartProp[413]["hResolutionDeltaPhi"]->Fill(t_phi, phi - t_phi);
-                    hPartProp[413]["hResolutionPercPhi"]->Fill(t_phi, (phi - t_phi) / t_phi * 100);
+                    hPartProp[421]["hResolutionPhi"]->Fill(t_phi, phi);
+                    hPartProp[421]["hResolutionDeltaPhi"]->Fill(t_phi, phi - t_phi);
+                    hPartProp[421]["hResolutionPercPhi"]->Fill(t_phi, (phi - t_phi) / t_phi * 100);
 
-                    hPartProp[413]["hResolutionP"]->Fill(t_p, p);
-                    hPartProp[413]["hResolutionDeltaP"]->Fill(t_p, p - t_p);
-                    hPartProp[413]["hResolutionPercP"]->Fill(t_p, (p - t_p) / t_p * 100);
+                    hPartProp[421]["hResolutionP"]->Fill(t_p, p);
+                    hPartProp[421]["hResolutionDeltaP"]->Fill(t_p, p - t_p);
+                    hPartProp[421]["hResolutionPercP"]->Fill(t_p, (p - t_p) / t_p * 100);
 
-                    hPartProp[413]["hResolutionPt"]->Fill(t_pt, pt);
-                    hPartProp[413]["hResolutionDeltaPt"]->Fill(t_pt, pt - t_pt);
-                    hPartProp[413]["hResolutionPercPt"]->Fill(t_pt, (pt - t_pt) / t_pt * 100);
-                }  // loop over pions2
-            }      // loop over pions
-        }          // loop over kaons
+                    hPartProp[421]["hResolutionPt"]->Fill(t_pt, pt);
+                    hPartProp[421]["hResolutionDeltaPt"]->Fill(t_pt, pt - t_pt);
+                    hPartProp[421]["hResolutionPercPt"]->Fill(t_pt, (pt - t_pt) / t_pt * 100);
 
+                    // Reconstruct D*(2010)
+                    if (particlePdgs.find(413) != particlePdgs.end()) {
+                        for (size_t iPi2 = iPi + 1; iPi2 < pions.size(); iPi2++) {
+                            auto Pi2 = pions[iPi2];
+
+                            auto Dstar = BuildMother(413, Dzero, Pi2);
+                            if (std::abs(Dstar.pdg) != 413 || !IsMassCorrect(413, Dstar.t_p.M())) continue;
+
+                            particles[413].push_back(Dstar);
+
+                            double m = Dstar.p.M();
+                            double eta = Dstar.p.Eta();
+                            double phi = Dstar.p.Phi();
+                            double p = Dstar.p.P();
+                            double pt = Dstar.p.Pt();
+
+                            double t_m = Dstar.t_p.M();
+                            double t_eta = Dstar.t_p.Eta();
+                            double t_phi = Dstar.t_p.Phi();
+                            double t_p = Dstar.t_p.P();
+                            double t_pt = Dstar.t_p.Pt();
+
+                            // kinematics
+                            hPartProp[413]["hP"]->Fill(p);
+                            hPartProp[413]["hPt"]->Fill(pt);
+                            hPartProp[413]["hEta"]->Fill(eta);
+                            hPartProp[413]["hPhi"]->Fill(phi);
+                            hPartProp[413]["hPhiVsEta"]->Fill(eta, phi);
+
+                            // Invariant mass
+                            hPartProp[413]["hInvMass"]->Fill(m);
+                            hPartProp[413]["hTrueInvMass"]->Fill(t_m);
+                            hPartProp[413]["hInvMassVsPt"]->Fill(pt, m);
+
+                            // Resolution
+                            hPartProp[413]["hResolutionEta"]->Fill(t_eta, eta);
+                            hPartProp[413]["hResolutionDeltaEta"]->Fill(t_eta, eta - t_eta);
+                            hPartProp[413]["hResolutionPercEta"]->Fill(t_eta, (eta - t_eta) / t_eta * 100);
+
+                            hPartProp[413]["hResolutionPhi"]->Fill(t_phi, phi);
+                            hPartProp[413]["hResolutionDeltaPhi"]->Fill(t_phi, phi - t_phi);
+                            hPartProp[413]["hResolutionPercPhi"]->Fill(t_phi, (phi - t_phi) / t_phi * 100);
+
+                            hPartProp[413]["hResolutionP"]->Fill(t_p, p);
+                            hPartProp[413]["hResolutionDeltaP"]->Fill(t_p, p - t_p);
+                            hPartProp[413]["hResolutionPercP"]->Fill(t_p, (p - t_p) / t_p * 100);
+
+                            hPartProp[413]["hResolutionPt"]->Fill(t_pt, pt);
+                            hPartProp[413]["hResolutionDeltaPt"]->Fill(t_pt, pt - t_pt);
+                            hPartProp[413]["hResolutionPercPt"]->Fill(t_pt, (pt - t_pt) / t_pt * 100);
+                        }
+                    }  // loop over pions2
+                }      // loop over pions
+            }          // loop over kaons
+        }
         if (pairOnlyPrim) {
-            for (auto abspdg : {211, 321}) {
+            for (auto abspdg : {pdg1, pdg2}) {
                 particles[abspdg].erase(std::remove_if(
                     particles[abspdg].begin(),
                     particles[abspdg].end(),
@@ -619,5 +648,5 @@ void ComputeInvMass(const char *configFile) {
     }
 
     oFile->Close();
-    printf("Output saved in %s\n", oFileName.data());
+    printf("\nOutput saved in %s\n", oFileName.data());
 }
