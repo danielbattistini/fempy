@@ -127,22 +127,6 @@ void ComputeInvMass(const char *configFile) {
     bool useMCTruth = cfg["use_mc_truth"].as<bool>();
     bool pairOnlyPrim = cfg["pair_only_prim"].as<bool>();
 
-    // Save metadata of the simulation
-    TH1D *hInfo = new TH1D("hInfo", "", 10, 0, 10);
-    hInfo->GetXaxis()->SetBinLabel(1, "pdg1");
-    hInfo->SetBinContent(1, pdg1);
-    hInfo->GetXaxis()->SetBinLabel(2, "pdg2");
-    hInfo->SetBinContent(2, pdg2);
-    hInfo->GetXaxis()->SetBinLabel(3, "Mixing depth");
-    hInfo->SetBinContent(3, md);
-    hInfo->GetXaxis()->SetBinLabel(4, "Use MC truth");
-    hInfo->SetBinContent(4, useMCTruth);
-    hInfo->GetXaxis()->SetBinLabel(5, "pairOnlyPrim");
-    hInfo->SetBinContent(5, pairOnlyPrim);
-    hInfo->GetXaxis()->SetBinLabel(6, "min hits");
-    hInfo->SetBinContent(6, minNHits);
-    hInfo->Write();
-
     // Find out which particles need to be saved
     std::set<int> decaysPdg = {411, 421, 413};
     std::set<int> trackablePdgs = {};
@@ -243,6 +227,22 @@ void ComputeInvMass(const char *configFile) {
     tree->SetBranchAddress("majorityParticleId", &t_majorityParticleId);
 
     TFile *oFile = new TFile(oFileName.data(), "recreate");
+    // Save metadata of the simulation
+    TH1D *hInfo = new TH1D("hInfo", "", 10, 0, 10);
+    hInfo->GetXaxis()->SetBinLabel(1, "pdg1");
+    hInfo->SetBinContent(1, pdg1);
+    hInfo->GetXaxis()->SetBinLabel(2, "pdg2");
+    hInfo->SetBinContent(2, pdg2);
+    hInfo->GetXaxis()->SetBinLabel(3, "Mixing depth");
+    hInfo->SetBinContent(3, md);
+    hInfo->GetXaxis()->SetBinLabel(4, "Use MC truth");
+    hInfo->SetBinContent(4, useMCTruth);
+    hInfo->GetXaxis()->SetBinLabel(5, "pairOnlyPrim");
+    hInfo->SetBinContent(5, pairOnlyPrim);
+    hInfo->GetXaxis()->SetBinLabel(6, "min hits");
+    hInfo->SetBinContent(6, minNHits);
+    hInfo->Write();
+
     double massMin;
     double massMax;
     double trueMassMin;
@@ -419,16 +419,23 @@ void ComputeInvMass(const char *configFile) {
     }
 
     // SE
-    hFemto["p02"].insert({"hSE", new TH1D("hSE_02", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    hFemto["p13"].insert({"hSE", new TH1D("hSE_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    hFemto["p03"].insert({"hSE", new TH1D("hSE_03", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    hFemto["p12"].insert({"hSE", new TH1D("hSE_12", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+    for (std::string pair : {"p02", "p13", "p03", "p12"}) {
+        hFemto[pair].insert({"hSE", new TH1D(Form("hSE_%s", pair.data()), ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+        title = ";#it{k}^*{true} (GeV/#it{c});#it{k}^*{reco} (GeV/#it{c});Counts";
+        hFemto[pair].insert({"hSEResolutionKstar", new TH2F(Form("hSEResolutionKstar_%s", pair.data()), title, 3000, 0, 3, 3000, 0, 3)});
+        title = ";#it{k}^*{true} (GeV/#it{c});#it{k}^*{reco} - #it{k}^*{true} (GeV/#it{c});Counts";
+        hFemto[pair].insert({"hSEResolutionDeltaKstar", new TH2F(Form("hSEResolutionDeltaKstar_%s", pair.data()), title, 300, 0, 3, 300, -0.1, 0.1)});
+        title = ";#it{k}^*{true} (GeV/#it{c});(#it{k}^*{reco} - #it{k}^*{true})/#it{k}*^{true} (%);Counts";
+        hFemto[pair].insert({"hSEResolutionPercKstar", new TH2F(Form("hSEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -5, 5)});
 
-    // ME
-    hFemto["p02"].insert({"hME", new TH1D("hME_02", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    hFemto["p13"].insert({"hME", new TH1D("hME_13", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    hFemto["p03"].insert({"hME", new TH1D("hME_03", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-    hFemto["p12"].insert({"hME", new TH1D("hME_12", ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+        hFemto[pair].insert({"hME", new TH1D(Form("hME_%s", pair.data()), ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
+        title = ";#it{k}*^{true} (GeV/#it{c});#it{k}^*{reco} (GeV/#it{c});Counts";
+        hFemto[pair].insert({"hMEResolutionKstar", new TH2F(Form("hMEResolutionKstar_%s", pair.data()), title, 3000, 0, 3, 3000, 0, 3)});
+        title = ";#it{k}*^{true} (GeV/#it{c});#it{k}^*{reco} - #it{k}^*{true} (GeV/#it{c});Counts";
+        hFemto[pair].insert({"hMEResolutionDeltaKstar", new TH2F(Form("hMEResolutionDeltaKstar_%s", pair.data()), title, 300, 0, 3, 300, -0.1, 0.1)});
+        title = ";#it{k}*^{true} (GeV/#it{c});(#it{k}^*{reco} - #it{k}^*{true})/#it{k}*^{true} (%);Counts";
+        hFemto[pair].insert({"hMEResolutionPercKstar", new TH2F(Form("hMEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -5, 5)});
+    }
 
     for (int iEvent = 0; iEvent < tree->GetEntries(); iEvent++) {
         float progress = (float) iEvent / tree->GetEntries();
@@ -715,11 +722,16 @@ void ComputeInvMass(const char *configFile) {
 
                 // todo implement pair cleaner here
 
-                double kStar = useMCTruth ? ComputeKstar(p1.t_p, p2.t_p) : ComputeKstar(p1.p, p2.p);
+                double kStar = ComputeKstar(p1.p, p2.p);
+                double t_kStar = ComputeKstar(p1.t_p, p2.t_p);
+                
                 std::string pair = "p";
                 pair += p1.pdg > 0 ? "0" : "1";
                 pair += p2.pdg > 0 ? "2" : "3";
-                hFemto[pair]["hSE"]->Fill(kStar);
+                hFemto[pair]["hSE"]->Fill(useMCTruth ? t_kStar : kStar);
+                hFemto[pair]["hSEResolutionKstar"]->Fill(t_kStar, kStar);
+                hFemto[pair]["hSEResolutionDeltaKstar"]->Fill(t_kStar, kStar - t_kStar);
+                hFemto[pair]["hSEResolutionPercKstar"]->Fill(t_kStar, (kStar - t_kStar) / t_kStar * 100);
             }
         }
 
@@ -731,11 +743,16 @@ void ComputeInvMass(const char *configFile) {
                 for (size_t i2 = 0; i2 < partBuffer2[iME].size(); i2++) {
                     const auto p2 = partBuffer2[iME][i2];
 
-                    double kStar = useMCTruth ? ComputeKstar(p1.t_p, p2.t_p) : ComputeKstar(p1.p, p2.p);
+                    double kStar = ComputeKstar(p1.p, p2.p);
+                    double t_kStar = ComputeKstar(p1.t_p, p2.t_p);
+                
                     std::string pair = "p";
                     pair += p1.pdg > 0 ? "0" : "1";
                     pair += p2.pdg > 0 ? "2" : "3";
-                    hFemto[pair]["hME"]->Fill(kStar);
+                    hFemto[pair]["hME"]->Fill(useMCTruth ? t_kStar : kStar);
+                    hFemto[pair]["hMEResolutionKstar"]->Fill(t_kStar, kStar);
+                    hFemto[pair]["hMEResolutionDeltaKstar"]->Fill(t_kStar, kStar - t_kStar);
+                    hFemto[pair]["hMEResolutionPercKstar"]->Fill(t_kStar, (kStar - t_kStar) / t_kStar * 100);
                 }
             }
         }
@@ -761,8 +778,22 @@ void ComputeInvMass(const char *configFile) {
 
         hFemto[name]["hSE"]->SetName("hSE");
         hFemto[name]["hSE"]->Write();
+        hFemto[name]["hSEResolutionKstar"]->SetName("hSEResolutionKstar");
+        hFemto[name]["hSEResolutionKstar"]->Write();
+        hFemto[name]["hSEResolutionDeltaKstar"]->SetName("hSEResolutionDeltaKstar");
+        hFemto[name]["hSEResolutionDeltaKstar"]->Write();
+        hFemto[name]["hSEResolutionPercKstar"]->SetName("hSEResolutionPercKstar");
+        hFemto[name]["hSEResolutionPercKstar"]->Write();
+        
+        
         hFemto[name]["hME"]->SetName("hME");
         hFemto[name]["hME"]->Write();
+        hFemto[name]["hMEResolutionKstar"]->SetName("hMEResolutionKstar");
+        hFemto[name]["hMEResolutionKstar"]->Write();
+        hFemto[name]["hMEResolutionDeltaKstar"]->SetName("hMEResolutionDeltaKstar");
+        hFemto[name]["hMEResolutionDeltaKstar"]->Write();
+        hFemto[name]["hMEResolutionPercKstar"]->SetName("hMEResolutionPercKstar");
+        hFemto[name]["hMEResolutionPercKstar"]->Write();
     }
 
     oFile->Close();
