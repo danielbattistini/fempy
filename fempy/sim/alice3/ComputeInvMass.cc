@@ -255,6 +255,7 @@ void ComputeInvMass(const char *configFile) {
 
     // names
     std::map<int, const char *> pdg2name = {
+        {2212, "p"},
         {321, "K"},
         {211, "Pi"},
         {411, "D"},
@@ -421,19 +422,19 @@ void ComputeInvMass(const char *configFile) {
     // SE
     for (std::string pair : {"p02", "p13", "p03", "p12"}) {
         hFemto[pair].insert({"hSE", new TH1D(Form("hSE_%s", pair.data()), ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-        title = ";#it{k}^*{true} (GeV/#it{c});#it{k}^*{reco} (GeV/#it{c});Counts";
+        title = ";#it{k}*^{true} (GeV/#it{c});#it{k}*^{reco} (GeV/#it{c});Counts";
         hFemto[pair].insert({"hSEResolutionKstar", new TH2F(Form("hSEResolutionKstar_%s", pair.data()), title, 3000, 0, 3, 3000, 0, 3)});
-        title = ";#it{k}^*{true} (GeV/#it{c});#it{k}^*{reco} - #it{k}^*{true} (GeV/#it{c});Counts";
+        title = ";#it{k}*^{true} (GeV/#it{c});#it{k}*^{reco} - #it{k}*^{true} (GeV/#it{c});Counts";
         hFemto[pair].insert({"hSEResolutionDeltaKstar", new TH2F(Form("hSEResolutionDeltaKstar_%s", pair.data()), title, 300, 0, 3, 300, -0.1, 0.1)});
-        title = ";#it{k}^*{true} (GeV/#it{c});(#it{k}^*{reco} - #it{k}^*{true})/#it{k}*^{true} (%);Counts";
+        title = ";#it{k}*^{true} (GeV/#it{c});(#it{k}*^{reco} - #it{k}*^{true})/#it{k}*^{true} (%);Counts";
         hFemto[pair].insert({"hSEResolutionPercKstar", new TH2F(Form("hSEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -5, 5)});
 
         hFemto[pair].insert({"hME", new TH1D(Form("hME_%s", pair.data()), ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
-        title = ";#it{k}*^{true} (GeV/#it{c});#it{k}^*{reco} (GeV/#it{c});Counts";
+        title = ";#it{k}*^{true} (GeV/#it{c});#it{k}*^{reco} (GeV/#it{c});Counts";
         hFemto[pair].insert({"hMEResolutionKstar", new TH2F(Form("hMEResolutionKstar_%s", pair.data()), title, 3000, 0, 3, 3000, 0, 3)});
-        title = ";#it{k}*^{true} (GeV/#it{c});#it{k}^*{reco} - #it{k}^*{true} (GeV/#it{c});Counts";
+        title = ";#it{k}*^{true} (GeV/#it{c});#it{k}*^{reco} - #it{k}*^{true} (GeV/#it{c});Counts";
         hFemto[pair].insert({"hMEResolutionDeltaKstar", new TH2F(Form("hMEResolutionDeltaKstar_%s", pair.data()), title, 300, 0, 3, 300, -0.1, 0.1)});
-        title = ";#it{k}*^{true} (GeV/#it{c});(#it{k}^*{reco} - #it{k}^*{true})/#it{k}*^{true} (%);Counts";
+        title = ";#it{k}*^{true} (GeV/#it{c});(#it{k}*^{reco} - #it{k}*^{true})/#it{k}*^{true} (%);Counts";
         hFemto[pair].insert({"hMEResolutionPercKstar", new TH2F(Form("hMEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -5, 5)});
     }
 
