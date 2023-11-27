@@ -22,19 +22,6 @@ double Mass(int pdg) {
     return TDatabasePDG::Instance()->GetParticle(std::abs(pdg))->Mass();
 }
 
-struct particle {
-    int pdg;                        // pdg code
-    uint64_t id;                    // index of the particle in the event
-    double t_x;                     // production vertex x
-    double t_y;                     // production vertex y
-    double t_z;                     // production vertex z
-    ROOT::Math::PxPyPzMVector p;    // reconstructed quadrimomentum
-    ROOT::Math::PxPyPzMVector t_p;  // true quadrimomentum
-    int mother1idx;                 // index of mother 1
-    int mother2idx;                 // index of mother 2
-    int mother1pdg;                 // pdg code of mother 1
-};
-
 // Returns true if the particles have adjacent indeces.
 bool AreSiblings(particle p1, particle p2) { return std::abs(static_cast<int>(p1.id - p2.id)) == 1; }
 
@@ -127,6 +114,7 @@ void ComputeInvMass(const char *configFile) {
     if (rProdLim.size() < 2) rProdLim = {0, 1.e10};
     std::vector<double> absetaLim = cfg["abseta"].as<std::vector<double>>();
     if (absetaLim.size() < 2) absetaLim = {-1.e10, 1.e10};
+    double minDeltaEtaDeltaPhi = cfg["min_deltaeta_deltaphi"].as<double>();
     unsigned int md = cfg["mixing_depth"].as<unsigned int>();
     bool useMCTruth = cfg["use_mc_truth"].as<bool>();
     bool pairOnlyPrim = cfg["pair_only_prim"].as<bool>();
@@ -331,7 +319,7 @@ void ComputeInvMass(const char *configFile) {
         // P resolution percentage
         name = Form("hResolutionPercP_%s", pdg2name[abspdg]);
         title = ";#it{p}^{true} (GeV/#it{c});(#it{p}^{reco} - #it{p}^{true})/#it{p}^{true}) (%);Counts";
-        hPartProp[abspdg].insert({"hResolutionPercP", new TH2F(name, title, 100, 0, 10, 100, -5, 5)});
+        hPartProp[abspdg].insert({"hResolutionPercP", new TH2F(name, title, 100, 0, 10, 100, -15, 15)});
 
         // Pt resolution
         name = Form("hResolutionPt_%s", pdg2name[abspdg]);
@@ -346,7 +334,7 @@ void ComputeInvMass(const char *configFile) {
         // Pt resolution percentage
         name = Form("hResolutionPercPt_%s", pdg2name[abspdg]);
         title = ";#it{p}_{T}^{true} (GeV/#it{c});(#it{p}_{T}^{reco} - #it{p}_{T}^{true})/#it{p}_{T}^{true} (%);Counts";
-        hPartProp[abspdg].insert({"hResolutionPercPt", new TH2F(name, title, 100, 0, 10, 100, -5, 5)});
+        hPartProp[abspdg].insert({"hResolutionPercPt", new TH2F(name, title, 100, 0, 10, 100, -15, 15)});
 
         // Eta resolution
         name = Form("hResolutionEta_%s", pdg2name[abspdg]);
@@ -361,7 +349,7 @@ void ComputeInvMass(const char *configFile) {
         // Eta resolution percentage
         name = Form("hResolutionPercEta_%s", pdg2name[abspdg]);
         title = ";#eta^{true};(#eta^{reco} - #eta^{true})/#eta^{true} (%);Counts";
-        hPartProp[abspdg].insert({"hResolutionPercEta", new TH2F(name, title, 200, -5, 5, 200, -5, 5)});
+        hPartProp[abspdg].insert({"hResolutionPercEta", new TH2F(name, title, 200, -5, 5, 200, -15, 15)});
 
         // Phi resolution
         name = Form("hResolutionPhi_%s", pdg2name[abspdg]);
@@ -423,23 +411,30 @@ void ComputeInvMass(const char *configFile) {
         }
     }
 
-    // SE
     for (std::string pair : {"p02", "p13", "p03", "p12"}) {
+        // SE
         hFemto[pair].insert({"hSE", new TH1D(Form("hSE_%s", pair.data()), ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
         title = ";#it{k}*^{true} (GeV/#it{c});#it{k}*^{reco} (GeV/#it{c});Counts";
         hFemto[pair].insert({"hSEResolutionKstar", new TH2F(Form("hSEResolutionKstar_%s", pair.data()), title, 3000, 0, 3, 3000, 0, 3)});
         title = ";#it{k}*^{true} (GeV/#it{c});#it{k}*^{reco} - #it{k}*^{true} (GeV/#it{c});Counts";
         hFemto[pair].insert({"hSEResolutionDeltaKstar", new TH2F(Form("hSEResolutionDeltaKstar_%s", pair.data()), title, 300, 0, 3, 300, -0.1, 0.1)});
         title = ";#it{k}*^{true} (GeV/#it{c});(#it{k}*^{reco} - #it{k}*^{true})/#it{k}*^{true} (%);Counts";
-        hFemto[pair].insert({"hSEResolutionPercKstar", new TH2F(Form("hSEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -5, 5)});
+        hFemto[pair].insert({"hSEResolutionPercKstar", new TH2F(Form("hSEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -15, 15)});
 
+        title = ";#Delta#eta;#Delta#phi;Counts";
+        hFemto[pair].insert({"hSECPR", new TH2F(Form("hSECPR_%s", pair.data()), title, 300, 0, 0.5, 300, 0, 0.5)});
+
+        // ME
         hFemto[pair].insert({"hME", new TH1D(Form("hME_%s", pair.data()), ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
         title = ";#it{k}*^{true} (GeV/#it{c});#it{k}*^{reco} (GeV/#it{c});Counts";
         hFemto[pair].insert({"hMEResolutionKstar", new TH2F(Form("hMEResolutionKstar_%s", pair.data()), title, 3000, 0, 3, 3000, 0, 3)});
         title = ";#it{k}*^{true} (GeV/#it{c});#it{k}*^{reco} - #it{k}*^{true} (GeV/#it{c});Counts";
         hFemto[pair].insert({"hMEResolutionDeltaKstar", new TH2F(Form("hMEResolutionDeltaKstar_%s", pair.data()), title, 300, 0, 3, 300, -0.1, 0.1)});
         title = ";#it{k}*^{true} (GeV/#it{c});(#it{k}*^{reco} - #it{k}*^{true})/#it{k}*^{true} (%);Counts";
-        hFemto[pair].insert({"hMEResolutionPercKstar", new TH2F(Form("hMEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -5, 5)});
+        hFemto[pair].insert({"hMEResolutionPercKstar", new TH2F(Form("hMEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -15, 15)});
+
+        title = ";#Delta#eta;#Delta#phi;Counts";
+        hFemto[pair].insert({"hMECPR", new TH2F(Form("hMECPR_%s", pair.data()), title, 300, 0, 0.5, 300, 0, 0.5)});
     }
 
     for (int iEvent = 0; iEvent < tree->GetEntries(); iEvent++) {
@@ -730,6 +725,8 @@ void ComputeInvMass(const char *configFile) {
             for (size_t i2 = start; i2 < particles[pdg2].size(); i2++) {
                 const auto p2 = particles[pdg2][i2];
 
+                if (DeltaEtaDeltaPhi(p1, p2) < minDeltaEtaDeltaPhi) continue;
+
                 // todo implement pair cleaner here
 
                 double kStar = ComputeKstar(p1.p, p2.p);
@@ -742,6 +739,7 @@ void ComputeInvMass(const char *configFile) {
                 hFemto[pair]["hSEResolutionKstar"]->Fill(t_kStar, kStar);
                 hFemto[pair]["hSEResolutionDeltaKstar"]->Fill(t_kStar, kStar - t_kStar);
                 hFemto[pair]["hSEResolutionPercKstar"]->Fill(t_kStar, (kStar - t_kStar) / t_kStar * 100);
+                hFemto[pair]["hSECPR"]->Fill(DeltaEta(p1, p2), DeltaPhi(p1, p2));
             }
         }
 
@@ -753,6 +751,8 @@ void ComputeInvMass(const char *configFile) {
                 for (size_t i2 = 0; i2 < partBuffer2[iME].size(); i2++) {
                     const auto p2 = partBuffer2[iME][i2];
 
+                    if (DeltaEtaDeltaPhi(p1, p2) < minDeltaEtaDeltaPhi) continue;
+
                     double kStar = ComputeKstar(p1.p, p2.p);
                     double t_kStar = ComputeKstar(p1.t_p, p2.t_p);
                 
@@ -763,6 +763,7 @@ void ComputeInvMass(const char *configFile) {
                     hFemto[pair]["hMEResolutionKstar"]->Fill(t_kStar, kStar);
                     hFemto[pair]["hMEResolutionDeltaKstar"]->Fill(t_kStar, kStar - t_kStar);
                     hFemto[pair]["hMEResolutionPercKstar"]->Fill(t_kStar, (kStar - t_kStar) / t_kStar * 100);
+                    hFemto[pair]["hMECPR"]->Fill(DeltaEta(p1, p2), DeltaPhi(p1, p2));
                 }
             }
         }
@@ -794,6 +795,8 @@ void ComputeInvMass(const char *configFile) {
         hFemto[name]["hSEResolutionDeltaKstar"]->Write();
         hFemto[name]["hSEResolutionPercKstar"]->SetName("hSEResolutionPercKstar");
         hFemto[name]["hSEResolutionPercKstar"]->Write();
+        hFemto[name]["hSECPR"]->SetName("hSECPR");
+        hFemto[name]["hSECPR"]->Write();
         
         
         hFemto[name]["hME"]->SetName("hME");
@@ -804,6 +807,8 @@ void ComputeInvMass(const char *configFile) {
         hFemto[name]["hMEResolutionDeltaKstar"]->Write();
         hFemto[name]["hMEResolutionPercKstar"]->SetName("hMEResolutionPercKstar");
         hFemto[name]["hMEResolutionPercKstar"]->Write();
+        hFemto[name]["hMECPR"]->SetName("hMECPR");
+        hFemto[name]["hMECPR"]->Write();
     }
 
     oFile->Close();

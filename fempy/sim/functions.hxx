@@ -37,6 +37,19 @@ struct FemtoParticle {
     std::pair<int, int> daus;
 };
 
+struct particle {
+    int pdg;                        // pdg code
+    uint64_t id;                    // index of the particle in the event
+    double t_x;                     // production vertex x
+    double t_y;                     // production vertex y
+    double t_z;                     // production vertex z
+    ROOT::Math::PxPyPzMVector p;    // reconstructed quadrimomentum
+    ROOT::Math::PxPyPzMVector t_p;  // true quadrimomentum
+    int mother1idx;                 // index of mother 1
+    int mother2idx;                 // index of mother 2
+    int mother1pdg;                 // pdg code of mother 1
+};
+
 using v2 = std::array<double, 2>;
 using v3 = std::array<double, 3>;
 using m2 = std::array<std::array<double, 2>, 2>;
@@ -327,6 +340,41 @@ float ComputeKstar(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector pa
     ROOT::Math::PxPyPzMVector trackRelK = part1CM - part2CM;
     float kStar = 0.5 * trackRelK.P();
     return kStar;
+}
+
+// Compute the delta-eta of the two particles
+inline float DeltaEta(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2) {
+    return std::abs(part1.Eta() - part2.Eta());
+}
+
+// Compute the delta-eta of the two particles
+inline float DeltaEta(particle part1, particle part2) {
+    return DeltaEta(part1.p, part2.p);
+}
+
+// Compute the delta-phi of the two particles
+inline float DeltaPhi(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2) {
+    double deltaPhi = std::abs(part1.Phi() - part2.Phi());
+    if (deltaPhi > TMath::Pi()) deltaPhi -= TMath::Pi();
+
+    return deltaPhi;
+}
+
+// Compute the delta-phi of the two particles
+inline float DeltaPhi(particle part1, particle part2) {
+    return DeltaPhi(part1.p, part2.p);
+}
+
+// Compute the delta-eta-delta-phi of the two particles
+inline float DeltaEtaDeltaPhi(ROOT::Math::PxPyPzMVector part1, ROOT::Math::PxPyPzMVector part2) {
+    double dEta = DeltaEta(part1, part2);
+    double dPhi = DeltaPhi(part1, part2);
+    return std::pow(dEta * dEta + dPhi * dPhi, 0.5);
+}
+
+// Compute the delta-eta-delta-phi of the two particles
+inline float DeltaEtaDeltaPhi(particle part1, particle part2) {
+    return DeltaEtaDeltaPhi(part1.p, part2.p);
 }
 
 // Compute the relative momentum in the center of mass reference frame
