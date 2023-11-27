@@ -123,6 +123,10 @@ void ComputeInvMass(const char *configFile) {
     int pdg1 = cfg["pdg1"].as<int>();
     int pdg2 = cfg["pdg2"].as<int>();
     int minNHits = cfg["min_hits"].as<int>();
+    std::vector<double> rProdLim = cfg["r_prod"].as<std::vector<double>>();
+    if (rProdLim.size() < 2) rProdLim = {0, 1.e10};
+    std::vector<double> absetaLim = cfg["abseta"].as<std::vector<double>>();
+    if (absetaLim.size() < 2) absetaLim = {-1.e10, 1.e10};
     unsigned int md = cfg["mixing_depth"].as<unsigned int>();
     bool useMCTruth = cfg["use_mc_truth"].as<bool>();
     bool pairOnlyPrim = cfg["pair_only_prim"].as<bool>();
@@ -497,6 +501,11 @@ void ComputeInvMass(const char *configFile) {
             int m2idx = (*mother2_particle_id)[iPart];
 
             int m1pdg = (*mother1_pdg)[iPart];
+
+            // Particle selections
+            if (!(rProdLim[0] < rProd && rProd < rProdLim[1])) continue;
+            if (!(absetaLim[0] < std::abs(p.Eta()) && std::abs(p.Eta()) < absetaLim[1])) continue;
+
             particle part = particle({pdg, id, x, y, z, p, t_p, m1idx, m2idx, m1pdg});
             particles[abspdg].push_back(part);
 
