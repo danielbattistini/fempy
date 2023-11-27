@@ -44,7 +44,7 @@ for plot in cfg:
         if isinstance(inObj, TH1):
             inObj.SetDirectory(0)
             inObj.Rebin(inputCfg['rebin'])
-        
+
             if inputCfg['normalize']:
                 inObj.Scale(1./inObj.Integral())
             if inputCfg['normalizecf']:
