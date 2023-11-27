@@ -59,8 +59,6 @@ def GetColor(color:str):
 def SetStyle():
     '''Sets the general style'''
     gStyle.SetAxisColor(1, 'xy')
-    gStyle.SetBarOffset(0.5)
-    gStyle.SetBarWidth(0.5)
     gStyle.SetCanvasBorderMode(0)
     gStyle.SetCanvasBorderSize(0)
     gStyle.SetCanvasColor(0)
