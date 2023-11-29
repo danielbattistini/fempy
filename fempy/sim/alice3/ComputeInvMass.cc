@@ -15,6 +15,7 @@
 #include "TTree.h"
 #include "TROOT.h"
 #include "TChain.h"
+#include "TVector3.h"
 #include "ActsFatras/EventData/Barcode.hpp"
 #include "/home/ktas/ge86rim/phsw/fempy/fempy/sim/functions.hxx"
 
@@ -294,17 +295,17 @@ void ComputeInvMass(const char *configFile) {
         // phi
         name = Form("hPhi_%s", pdg2name[abspdg]);
         title = ";#varphi (rad);Counts";
-        hPartProp[abspdg].insert({"hPhi", new TH1D(name, title, 500, -Pi, Pi)});
+        hPartProp[abspdg].insert({"hPhi", new TH1D(name, title, 500, -3.5, 3.5)});
 
         // phi vs eta
         name = Form("hPhiVsEta_%s", pdg2name[abspdg]);
         title = ";#eta;#varphi (rad);Counts";
-        hPartProp[abspdg].insert({"hPhiVsEta", new TH2F(name, title, 200, -5, 5, 200, -Pi, Pi)});
+        hPartProp[abspdg].insert({"hPhiVsEta", new TH2F(name, title, 200, -5, 5, 200, -3.5, 3.5)});
 
         // phi vs rProd
         name = Form("hPhiVsRprod_%s", pdg2name[abspdg]);
         title = ";#it{r}_{prod} (mm);#varphi (rad);Counts";
-        hPartProp[abspdg].insert({"hPhiVsRprod", new TH2F(name, title, 200, 0, 5, 200, -Pi, Pi)});
+        hPartProp[abspdg].insert({"hPhiVsRprod", new TH2F(name, title, 200, 0, 5, 200, -3.5, 3.5)});
 
         // P resolution
         name = Form("hResolutionP_%s", pdg2name[abspdg]);
@@ -318,7 +319,7 @@ void ComputeInvMass(const char *configFile) {
 
         // P resolution percentage
         name = Form("hResolutionPercP_%s", pdg2name[abspdg]);
-        title = ";#it{p}^{true} (GeV/#it{c});(#it{p}^{reco} - #it{p}^{true})/#it{p}^{true}) (%);Counts";
+        title = ";#it{p}^{true} (GeV/#it{c});(#it{p}^{reco} - #it{p}^{true})/#it{p}^{true} (%);Counts";
         hPartProp[abspdg].insert({"hResolutionPercP", new TH2F(name, title, 100, 0, 10, 100, -15, 15)});
 
         // Pt resolution
@@ -354,17 +355,17 @@ void ComputeInvMass(const char *configFile) {
         // Phi resolution
         name = Form("hResolutionPhi_%s", pdg2name[abspdg]);
         title = ";#phi^{true};#phi^{reco};Counts";
-        hPartProp[abspdg].insert({"hResolutionPhi", new TH2F(name, title, 200, -Pi, Pi, 200, -Pi, Pi)});
+        hPartProp[abspdg].insert({"hResolutionPhi", new TH2F(name, title, 200, -3.5, 3.5, 200, -3.5, 3.5)});
 
         // Phi resolution delta
         name = Form("hResolutionDeltaPhi_%s", pdg2name[abspdg]);
         title = ";#phi^{true};#phi^{reco} - #phi^{true};Counts";
-        hPartProp[abspdg].insert({"hResolutionDeltaPhi", new TH2F(name, title, 200, -Pi, Pi, 200, -Pi, Pi)});
+        hPartProp[abspdg].insert({"hResolutionDeltaPhi", new TH2F(name, title, 200, -3.5, 3.5, 200, -3.5, 3.5)});
 
         // Phi resolution percentage
         name = Form("hResolutionPercPhi_%s", pdg2name[abspdg]);
         title = ";#phi^{true};(#phi^{reco} - #phi^{true})/#phi^{true} (%);Counts";
-        hPartProp[abspdg].insert({"hResolutionPercPhi", new TH2F(name, title, 200, -Pi, Pi, 200, -Pi, Pi)});
+        hPartProp[abspdg].insert({"hResolutionPercPhi", new TH2F(name, title, 200, -3.5, 3.5, 200, -3.5, 3.5)});
 
         if (decaysPdg.find(abspdg) != decaysPdg.end()) {
             TString titleMass;
@@ -421,8 +422,15 @@ void ComputeInvMass(const char *configFile) {
         title = ";#it{k}*^{true} (GeV/#it{c});(#it{k}*^{reco} - #it{k}*^{true})/#it{k}*^{true} (%);Counts";
         hFemto[pair].insert({"hSEResolutionPercKstar", new TH2F(Form("hSEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -15, 15)});
 
+        title = ";#sqrt{(#eta_{1}^{2} + #eta_{2}^{2})/2};#it{k}*^{reco} - #it{k}*^{true} (GeV/#it{c});Counts";
+        hFemto[pair].insert({"hSEResolutionDeltaKstarVsEtaSq", new TH2F(Form("hSEResolutionDeltaKstarVsEtaSq_%s", pair.data()), title, 200, 0, 4, 300, -0.1, 0.1)});
+        title = ";#sqrt{(#eta_{1}^{2} + #eta_{2}^{2})/2};(#it{k}*^{reco} - #it{k}*^{true})/#it{k}*^{true} (%);Counts";
+        hFemto[pair].insert({"hSEResolutionPercKstarVsEtaSq", new TH2F(Form("hSEResolutionPercKstarVsEtaSq_%s", pair.data()), title, 200, 0, 4, 300, -15, 15)});
+
         title = ";#Delta#eta;#Delta#phi;Counts";
         hFemto[pair].insert({"hSECPR", new TH2F(Form("hSECPR_%s", pair.data()), title, 300, 0, 0.5, 300, 0, 0.5)});
+        title = ";#it{k}*^{true} (GeV/#it{c});#theta(#it{p}_{1}, #it{p}_{2}) (rad);Counts";
+        hFemto[pair].insert({"hSEOpeningAngleVsKstar", new TH2F(Form("hSEOpeningAngleVsKstar_%s", pair.data()), title, 3000, 0, 3, 300, 0, 4)});
 
         // ME
         hFemto[pair].insert({"hME", new TH1D(Form("hME_%s", pair.data()), ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
@@ -433,8 +441,15 @@ void ComputeInvMass(const char *configFile) {
         title = ";#it{k}*^{true} (GeV/#it{c});(#it{k}*^{reco} - #it{k}*^{true})/#it{k}*^{true} (%);Counts";
         hFemto[pair].insert({"hMEResolutionPercKstar", new TH2F(Form("hMEResolutionPercKstar_%s", pair.data()), title, 300, 0, 3, 300, -15, 15)});
 
+        title = ";#sqrt{(#eta_{1}^{2} + #eta_{2}^{2})/2};#it{k}*^{reco} - #it{k}*^{true} (GeV/#it{c});Counts";
+        hFemto[pair].insert({"hMEResolutionDeltaKstarVsEtaSq", new TH2F(Form("hMEResolutionDeltaKstarVsEtaSq_%s", pair.data()), title, 200, 0, 4, 300, -0.1, 0.1)});
+        title = ";#sqrt{(#eta_{1}^{2} + #eta_{2}^{2})/2};(#it{k}*^{reco} - #it{k}*^{true})/#it{k}*^{true} (%);Counts";
+        hFemto[pair].insert({"hMEResolutionPercKstarVsEtaSq", new TH2F(Form("hMEResolutionPercKstarVsEtaSq_%s", pair.data()), title, 200, 0, 4, 300, -15, 15)});
+
         title = ";#Delta#eta;#Delta#phi;Counts";
         hFemto[pair].insert({"hMECPR", new TH2F(Form("hMECPR_%s", pair.data()), title, 300, 0, 0.5, 300, 0, 0.5)});
+        title = ";#it{k}*^{true} (GeV/#it{c});#theta(#it{p}_{1}, #it{p}_{2}) (rad);Counts";
+        hFemto[pair].insert({"hMEOpeningAngleVsKstar", new TH2F(Form("hMEOpeningAngleVsKstar_%s", pair.data()), title, 3000, 0, 3, 300, 0, 4)});
     }
 
     for (int iEvent = 0; iEvent < tree->GetEntries(); iEvent++) {
@@ -514,11 +529,11 @@ void ComputeInvMass(const char *configFile) {
 
             hPartProp[abspdg]["hResolutionEta"]->Fill(t_p.Eta(), p.Eta());
             hPartProp[abspdg]["hResolutionDeltaEta"]->Fill(t_p.Eta(), p.Eta() - t_p.Eta());
-            hPartProp[abspdg]["hResolutionPercEta"]->Fill(t_p.Eta(), (p.Eta() - t_p.Eta()) / t_p.Eta());
+            hPartProp[abspdg]["hResolutionPercEta"]->Fill(t_p.Eta(), (p.Eta() - t_p.Eta()) / t_p.Eta() * 100);
 
             hPartProp[abspdg]["hResolutionPhi"]->Fill(t_p.Phi(), p.Phi());
             hPartProp[abspdg]["hResolutionDeltaPhi"]->Fill(t_p.Phi(), p.Phi() - t_p.Phi());
-            hPartProp[abspdg]["hResolutionPercPhi"]->Fill(t_p.Phi(), (p.Phi() - t_p.Phi()) / t_p.Phi());
+            hPartProp[abspdg]["hResolutionPercPhi"]->Fill(t_p.Phi(), (p.Phi() - t_p.Phi()) / t_p.Phi() * 100);
 
             hPartProp[abspdg]["hResolutionP"]->Fill(t_p.P(), p.P());
             hPartProp[abspdg]["hResolutionDeltaP"]->Fill(t_p.P(), p.P() - t_p.P());
@@ -740,6 +755,13 @@ void ComputeInvMass(const char *configFile) {
                 hFemto[pair]["hSEResolutionDeltaKstar"]->Fill(t_kStar, kStar - t_kStar);
                 hFemto[pair]["hSEResolutionPercKstar"]->Fill(t_kStar, (kStar - t_kStar) / t_kStar * 100);
                 hFemto[pair]["hSECPR"]->Fill(DeltaEta(p1, p2), DeltaPhi(p1, p2));
+
+                double t_etaSq = std::pow((p1.t_p.Eta() * p1.t_p.Eta() +  p2.t_p.Eta() * p2.t_p.Eta()) / 2, 0.5);
+                hFemto[pair]["hSEResolutionDeltaKstarVsEtaSq"]->Fill(t_etaSq, kStar - t_kStar);
+                hFemto[pair]["hSEResolutionPercKstarVsEtaSq"]->Fill(t_etaSq, (kStar - t_kStar) / t_kStar * 100);
+
+                double angle = TVector3(p1.p.Px(), p1.p.Pz(), p1.p.Pz()).Angle(TVector3(p2.p.Px(), p2.p.Pz(), p2.p.Pz()));
+                hFemto[pair]["hSEOpeningAngleVsKstar"]->Fill(t_kStar, angle);
             }
         }
 
@@ -764,6 +786,13 @@ void ComputeInvMass(const char *configFile) {
                     hFemto[pair]["hMEResolutionDeltaKstar"]->Fill(t_kStar, kStar - t_kStar);
                     hFemto[pair]["hMEResolutionPercKstar"]->Fill(t_kStar, (kStar - t_kStar) / t_kStar * 100);
                     hFemto[pair]["hMECPR"]->Fill(DeltaEta(p1, p2), DeltaPhi(p1, p2));
+
+                    double t_etaSq = std::pow((p1.t_p.Eta() * p1.t_p.Eta() +  p2.t_p.Eta() * p2.t_p.Eta()) / 2, 0.5);
+                    hFemto[pair]["hMEResolutionDeltaKstarVsEtaSq"]->Fill(t_etaSq, kStar - t_kStar);
+                    hFemto[pair]["hMEResolutionPercKstarVsEtaSq"]->Fill(t_etaSq, (kStar - t_kStar) / t_kStar * 100);
+
+                    double angle = TVector3(p1.p.Px(), p1.p.Pz(), p1.p.Pz()).Angle(TVector3(p2.p.Px(), p2.p.Pz(), p2.p.Pz()));
+                    hFemto[pair]["hMEOpeningAngleVsKstar"]->Fill(t_kStar, angle);
                 }
             }
         }
@@ -797,6 +826,12 @@ void ComputeInvMass(const char *configFile) {
         hFemto[name]["hSEResolutionPercKstar"]->Write();
         hFemto[name]["hSECPR"]->SetName("hSECPR");
         hFemto[name]["hSECPR"]->Write();
+        hFemto[name]["hSEResolutionDeltaKstarVsEtaSq"]->SetName("hSEResolutionDeltaKstarVsEtaSq");
+        hFemto[name]["hSEResolutionDeltaKstarVsEtaSq"]->Write();
+        hFemto[name]["hSEResolutionPercKstarVsEtaSq"]->SetName("hSEResolutionPercKstarVsEtaSq");
+        hFemto[name]["hSEResolutionPercKstarVsEtaSq"]->Write();
+        hFemto[name]["hSEOpeningAngleVsKstar"]->SetName("hSEOpeningAngleVsKstar");
+        hFemto[name]["hSEOpeningAngleVsKstar"]->Write();
         
         
         hFemto[name]["hME"]->SetName("hME");
@@ -809,6 +844,12 @@ void ComputeInvMass(const char *configFile) {
         hFemto[name]["hMEResolutionPercKstar"]->Write();
         hFemto[name]["hMECPR"]->SetName("hMECPR");
         hFemto[name]["hMECPR"]->Write();
+        hFemto[name]["hMEResolutionDeltaKstarVsEtaSq"]->SetName("hMEResolutionDeltaKstarVsEtaSq");
+        hFemto[name]["hMEResolutionDeltaKstarVsEtaSq"]->Write();
+        hFemto[name]["hMEResolutionPercKstarVsEtaSq"]->SetName("hMEResolutionPercKstarVsEtaSq");
+        hFemto[name]["hMEResolutionPercKstarVsEtaSq"]->Write();
+        hFemto[name]["hMEOpeningAngleVsKstar"]->SetName("hMEOpeningAngleVsKstar");
+        hFemto[name]["hMEOpeningAngleVsKstar"]->Write();
     }
 
     oFile->Close();
