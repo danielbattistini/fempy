@@ -429,8 +429,9 @@ void ComputeInvMass(const char *configFile) {
 
         title = ";#Delta#eta;#Delta#phi;Counts";
         hFemto[pair].insert({"hSECPR", new TH2F(Form("hSECPR_%s", pair.data()), title, 300, 0, 0.5, 300, 0, 0.5)});
+        hFemto[pair].insert({"hSETuneCPR", new TH2F(Form("hSETuneCPR_%s", pair.data()), title, 300, 0, 0.3, 300, 0, 0.3)});
         title = ";#it{k}*^{true} (GeV/#it{c});#theta(#it{p}_{1}, #it{p}_{2}) (rad);Counts";
-        hFemto[pair].insert({"hSEOpeningAngleVsKstar", new TH2F(Form("hSEOpeningAngleVsKstar_%s", pair.data()), title, 3000, 0, 3, 300, 0, 4)});
+        hFemto[pair].insert({"hSEOpeningAngleVsKstar", new TH2F(Form("hSEOpeningAngleVsKstar_%s", pair.data()), title, 300, 0, 3, 300, 0, 4)});
 
         // ME
         hFemto[pair].insert({"hME", new TH1D(Form("hME_%s", pair.data()), ";#it{k}* (GeV/#it{c});Counts", 3000, 0, 3)});
@@ -448,8 +449,9 @@ void ComputeInvMass(const char *configFile) {
 
         title = ";#Delta#eta;#Delta#phi;Counts";
         hFemto[pair].insert({"hMECPR", new TH2F(Form("hMECPR_%s", pair.data()), title, 300, 0, 0.5, 300, 0, 0.5)});
+        hFemto[pair].insert({"hMETuneCPR", new TH2F(Form("hMETuneCPR_%s", pair.data()), title, 300, 0, 0.3, 300, 0, 0.3)});
         title = ";#it{k}*^{true} (GeV/#it{c});#theta(#it{p}_{1}, #it{p}_{2}) (rad);Counts";
-        hFemto[pair].insert({"hMEOpeningAngleVsKstar", new TH2F(Form("hMEOpeningAngleVsKstar_%s", pair.data()), title, 3000, 0, 3, 300, 0, 4)});
+        hFemto[pair].insert({"hMEOpeningAngleVsKstar", new TH2F(Form("hMEOpeningAngleVsKstar_%s", pair.data()), title, 300, 0, 3, 300, 0, 4)});
     }
 
     for (int iEvent = 0; iEvent < tree->GetEntries(); iEvent++) {
@@ -755,6 +757,9 @@ void ComputeInvMass(const char *configFile) {
                 hFemto[pair]["hSEResolutionDeltaKstar"]->Fill(t_kStar, kStar - t_kStar);
                 hFemto[pair]["hSEResolutionPercKstar"]->Fill(t_kStar, (kStar - t_kStar) / t_kStar * 100);
                 hFemto[pair]["hSECPR"]->Fill(DeltaEta(p1, p2), DeltaPhi(p1, p2));
+                if (DeltaEtaDeltaPhi(p1.t_p, p2.t_p) < 1.e-5) {
+                    hFemto[pair]["hSETuneCPR"]->Fill(DeltaEta(p1, p2), DeltaPhi(p1, p2));
+                }
 
                 double t_etaSq = std::pow((p1.t_p.Eta() * p1.t_p.Eta() +  p2.t_p.Eta() * p2.t_p.Eta()) / 2, 0.5);
                 hFemto[pair]["hSEResolutionDeltaKstarVsEtaSq"]->Fill(t_etaSq, kStar - t_kStar);
@@ -786,6 +791,9 @@ void ComputeInvMass(const char *configFile) {
                     hFemto[pair]["hMEResolutionDeltaKstar"]->Fill(t_kStar, kStar - t_kStar);
                     hFemto[pair]["hMEResolutionPercKstar"]->Fill(t_kStar, (kStar - t_kStar) / t_kStar * 100);
                     hFemto[pair]["hMECPR"]->Fill(DeltaEta(p1, p2), DeltaPhi(p1, p2));
+                    if (DeltaEtaDeltaPhi(p1.t_p, p2.t_p) < 1.e-5) {
+                        hFemto[pair]["hMETuneCPR"]->Fill(DeltaEta(p1, p2), DeltaPhi(p1, p2));
+                    }
 
                     double t_etaSq = std::pow((p1.t_p.Eta() * p1.t_p.Eta() +  p2.t_p.Eta() * p2.t_p.Eta()) / 2, 0.5);
                     hFemto[pair]["hMEResolutionDeltaKstarVsEtaSq"]->Fill(t_etaSq, kStar - t_kStar);
@@ -826,6 +834,8 @@ void ComputeInvMass(const char *configFile) {
         hFemto[name]["hSEResolutionPercKstar"]->Write();
         hFemto[name]["hSECPR"]->SetName("hSECPR");
         hFemto[name]["hSECPR"]->Write();
+        hFemto[name]["hSETuneCPR"]->SetName("hSETuneCPR");
+        hFemto[name]["hSETuneCPR"]->Write();
         hFemto[name]["hSEResolutionDeltaKstarVsEtaSq"]->SetName("hSEResolutionDeltaKstarVsEtaSq");
         hFemto[name]["hSEResolutionDeltaKstarVsEtaSq"]->Write();
         hFemto[name]["hSEResolutionPercKstarVsEtaSq"]->SetName("hSEResolutionPercKstarVsEtaSq");
@@ -844,6 +854,8 @@ void ComputeInvMass(const char *configFile) {
         hFemto[name]["hMEResolutionPercKstar"]->Write();
         hFemto[name]["hMECPR"]->SetName("hMECPR");
         hFemto[name]["hMECPR"]->Write();
+        hFemto[name]["hMETuneCPR"]->SetName("hMETuneCPR");
+        hFemto[name]["hMETuneCPR"]->Write();
         hFemto[name]["hMEResolutionDeltaKstarVsEtaSq"]->SetName("hMEResolutionDeltaKstarVsEtaSq");
         hFemto[name]["hMEResolutionDeltaKstarVsEtaSq"]->Write();
         hFemto[name]["hMEResolutionPercKstarVsEtaSq"]->SetName("hMEResolutionPercKstarVsEtaSq");
