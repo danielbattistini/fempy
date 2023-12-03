@@ -36,6 +36,7 @@ for plot in cfg:
     # Load the objects to draw
     inObjs = []
     legends = []
+    drawOpts = []
     for inputCfg in plot["input"]:
         inFile = TFile(inputCfg['file'])
 
@@ -52,6 +53,8 @@ for plot in cfg:
 
         inObj.SetLineColor(style.GetColor(inputCfg['color']))
         inObj.SetMarkerColor(style.GetColor(inputCfg['color']))
+        inObj.SetLineWidth(inputCfg.get('thickness', 1))
+        drawOpts.append(inputCfg.get('drawopt', 'p' if isinstance(inObj, TH1) else 'pe'))
         inObjs.append(inObj)
         legends.append(inputCfg['legend'])
 
@@ -75,11 +78,9 @@ for plot in cfg:
     legy2 = plot['opt']['leg']['posy'][1]
     leg = TLegend(legx1, legy1, legx2, legy2)
 
-    for iObj, (inObj, legend) in enumerate(zip(inObjs, legends)):
-        if isinstance(inObj, TGraph):
-            inObj.Draw('same p')
-        elif isinstance(inObj, TH1):
-            inObj.Draw("same pe")
+    for iObj, (inObj, legend, drawOpt) in enumerate(zip(inObjs, legends, drawOpts)):
+        inObj.Draw(f'same {drawOpt}')
+        print(f'same {drawOpt}')
 
         # Compute statistics for hist in the displayed range
         if isinstance(inObj, TH1):
