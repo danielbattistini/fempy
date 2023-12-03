@@ -12,6 +12,10 @@
 
 double Pol0(double *x, double *par) { return par[0]; }
 
+double Pol1(double *x, double *par) { return Pol0(x, par) + par[1] * x[0]; }
+
+double Pol2(double *x, double *par) { return Pol1(x, par) + par[2] * pow(x[0], 2); }
+
 double BreitWigner(double *x, double *par) {
     double kstar = x[0];
 
@@ -20,6 +24,18 @@ double BreitWigner(double *x, double *par) {
     double gamma = par[2];
 
     return yield * gamma / TMath::Pi() / (gamma * gamma + (kstar - mean) * (kstar - mean));
+}
+
+// Convolution of a Breit-Wigner and a gaussian
+double Voigt(double *x, double *par) {
+    double kstar = x[0];
+
+    double yield = par[0];
+    double mean = par[1];
+    double sigma = par[2];
+    double gamma = par[3];
+
+    return  yield * TMath::Voigt(kstar - mean, sigma, gamma);
 }
 
 class CorrelationFitter {
@@ -54,8 +70,14 @@ class CorrelationFitter {
     void Add(std::string name, std::vector<std::tuple<std::string, double, double, double>> pars) {
         if (name == "pol0") {  // Constant function
             this->fitFunc.push_back(Pol0);
+        } else if (name == "pol1") {  // Breit-Wigner function
+            this->fitFunc.push_back(Pol1);
+        } else if (name == "pol2") {  // Breit-Wigner function
+            this->fitFunc.push_back(Pol2);
         } else if (name == "bw") {  // Breit-Wigner function
             this->fitFunc.push_back(BreitWigner);
+        } else if (name == "voigt") {  // Breit-Wigner function
+            this->fitFunc.push_back(Voigt);
         } else {
             printf("Error: function '%s' is not implemented. Exit!", name.data());
             exit(1);
