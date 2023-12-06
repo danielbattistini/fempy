@@ -5,8 +5,7 @@
 #include <tuple>
 #include <string>
 
-#include "TLatex.h"
-#include "TObject.h"
+#include "../../../alice/AliPhysics/PWG/Tools/yaml-cpp/include/yaml-cpp/yaml.h"
 
 
 double Gaus(double *x, double *par) {
@@ -42,44 +41,72 @@ double PowEx(double *x, double *par) {
 
 double Pol1(double *x, double *par) { return par[0] + par[1] * x[0]; }
 
+double Pol5(double *x, double *par) { return par[0] + 
+                                             par[1] * (x[0]-par[6]) + 
+                                             par[2] * (x[0]-par[6]) * (x[0]-par[6]) +
+                                             par[3] * (x[0]-par[6]) * (x[0]-par[6]) * (x[0]-par[6]) +
+                                             par[4] * (x[0]-par[6]) * (x[0]-par[6]) * (x[0]-par[6]) * (x[0]-par[6]) + 
+                                             par[5] * (x[0]-par[6]) * (x[0]-par[6]) * (x[0]-par[6]) * (x[0]-par[6]) * (x[0]-par[6]); }
+
 double Exp(double *x, double *par) {
     // p0: total yield
     // p1: slope
     return par[0] * TMath::Exp(par[1] * x[0]);
 }
 
+double Spline5(double *x, double *par){
+    int numKnots = 8;
+    Double_t xKnots[numKnots];
+    Double_t yKnots[numKnots];
+    for(int iKnot=0; iKnot<numKnots; iKnot++){
+        xKnots[iKnot] = par[iKnot];
+        yKnots[iKnot] = par[numKnots+iKnot];
+    }
+    TSpline5* sp5 = new TSpline5("sp5", xKnots, yKnots, numKnots, "");
+    return sp5->Eval(x[0]);
+}
+
 class MassFitter {
  public:
-    std::map<std::string, int> nPars = {{"ngaus", 3}, {"gaus", 3}, {"hat", 5}, {"pol1", 2}, {"powex", 2}, {"exp", 2}};
+    std::map<std::string, int> nPars = {{"ngaus", 3}, {"gaus", 3}, {"hat", 5}, 
+                                        {"pol1", 2}, {"pol5", 7}, {"powex", 2}, {"exp", 2}, {"spline5", 16}}; 
 
-    enum SgnFuncs { kGaus = 0 };
-    enum BkgFuncs { kPol1 = 0 };
-    MassFitter(TH1 *hist, std::string sgnFuncName, std::string bkgFuncName, double fitRangeMin, double fitRangeMax) {
-        this->hist = reinterpret_cast<TH1 *>(hist->Clone());
-        this->fitRangeMin = fitRangeMin;
-        this->fitRangeMax = fitRangeMax;
-        this->sgnFuncName = sgnFuncName;
-        this->bkgFuncName = bkgFuncName;
+    enum SgnFuncs { kGaus = 0 }; // not used, delete?
+    enum BkgFuncs { kPol1 = 0 }; // not used, delete?
+    MassFitter(TH1 *hist, std::string sgnFuncName, std::string bkgFuncName, double fitRangeMin, double fitRangeMax,
+               std::string configPath) {
+        this->fHist = reinterpret_cast<TH1 *>(hist->Clone());
+        this->fFitRangeMin = fitRangeMin;
+        this->fFitRangeMax = fitRangeMax;
+        this->fSgnFuncName = sgnFuncName;
+        this->fBkgFuncName = bkgFuncName;
 
-        this->nSgnPars = nPars[this->sgnFuncName];
-        this->nBkgPars = nPars[this->bkgFuncName];
-        int nTotPars = this->nSgnPars + this->nBkgPars;
+        this->fNSgnPars = nPars[this->fSgnFuncName];
+        this->fNBkgPars = nPars[this->fBkgFuncName];
+        int nTotPars = this->fNSgnPars + this->fNBkgPars; 
 
-        if (sgnFuncName == "gaus") {
-            this->sgnFunc = Gaus;
-        } else if (sgnFuncName == "hat") {
-            this->sgnFunc = Hat;
+        this->fConfigPath = configPath.data();
+        this->fCfgFile = YAML::LoadFile(configPath.data());
+
+        if (fSgnFuncName == "gaus") {
+            this->fSgnFunc = Gaus;
+        } else if (fSgnFuncName == "hat") {
+            this->fSgnFunc = Hat;
         } else {
             printf("Function not implemented\n");
             exit(1);
         }
 
-        if (bkgFuncName == "powex") {
-            this->bkgFunc = PowEx;
-        } else if (bkgFuncName == "exp") {
-            this->bkgFunc = Exp;
-        } else if (bkgFuncName == "pol1") {
-            this->bkgFunc = Pol1;
+        if (fBkgFuncName == "powex") {
+            this->fBkgFunc = PowEx;
+        } else if (fBkgFuncName == "exp") {
+            this->fBkgFunc = Exp;
+        } else if (fBkgFuncName == "pol1") {
+            this->fBkgFunc = Pol1;
+        } else if (fBkgFuncName == "pol5") {
+            this->fBkgFunc = Pol5;
+        } else if (fBkgFuncName == "spline5") {
+            this->fBkgFunc = Spline5;    
         } else {
             printf("Function not implemented\n");
             exit(1);
@@ -88,25 +115,25 @@ class MassFitter {
         this->fFit = new TF1(
             "fTot",
             [&, this](double *x, double *pars) {
-                return this->sgnFunc(x, pars) + this->bkgFunc(x, &pars[this->nSgnPars]);
+                return this->fSgnFunc(x, pars) + this->fBkgFunc(x, &pars[this->fNSgnPars]);
             },
-            fitRangeMin, fitRangeMax, nTotPars);
+            fFitRangeMin, fFitRangeMax, nTotPars);
         fFit->SetNpx(300);
 
         this->fPrefit = new TF1(
             "fPrefit",
             [&, this, bkgFuncName](double *x, double *pars) -> double {
-                if (bkgFuncName == "powex" && std::abs(x[0] - 0.1455) < 0.003) {
+                if (fBkgFuncName == "powex" && std::abs(x[0] - 0.1455) < 0.003) {
                     TF1::RejectPoint();
-                    return this->bkgFunc(x, pars);
-                } else if (bkgFuncName == "exp" && std::abs(x[0] - 1.87) < 0.05) {
+                    return this->fBkgFunc(x, pars);
+                } else if (fBkgFuncName == "exp" && std::abs(x[0] - 1.87) < 0.05) {
                     TF1::RejectPoint();
-                    return this->bkgFunc(x, pars);
+                    return this->fBkgFunc(x, pars);
                 } else {
-                    return this->bkgFunc(x, pars);
+                    return this->fBkgFunc(x, pars);
                 }
             },
-            this->fitRangeMin, fitRangeMax, nBkgPars);
+            this->fFitRangeMin, fFitRangeMax, fNBkgPars);
     }
 
     /*
@@ -116,7 +143,7 @@ class MassFitter {
     Parameters:
         - name: unique identifier of the set of parameters. Format: pdg_signal-func_bkg-func_suffix
     */
-    void SetFitSettings(std::string name) {
+    void SetFitSettings(std::string name, int npart = 0, int version = 0) {
         if (name == "421_gaus_exp_alice3_siblings") {
             fFitPars = {
                 // gaussian
@@ -162,6 +189,32 @@ class MassFitter {
                 {5, {"norm", 1, 0, 1e6}},
                 {6, {"slope", 0.1, -100, 100}},
             };
+        } else if ("Purity") {
+            const YAML::Node& parSett = fCfgFile["neutrpart"][npart]["fitsettings"][version];
+            if(this->fBkgFuncName == "spline5"){
+                for (int iPar = 0; iPar < this->fNSgnPars; iPar++){
+                    fFitPars.insert({iPar, {parSett["p" + std::to_string(iPar)][0].as<std::string>(),
+                                        parSett["p" + std::to_string(iPar)][1].as<double>(),
+                                        parSett["p" + std::to_string(iPar)][2].as<double>(),
+                                        parSett["p" + std::to_string(iPar)][3].as<double>()}});
+                }
+                for (int iPar = 0; iPar < this->fNBkgPars/2; iPar++){
+                    double xKnotFix = parSett["xknots"][iPar].as<double>();
+                    double yKnotSet = this->fHist->GetBinContent(this->fHist->FindBin(xKnotFix));
+                    fFitPars.insert({iPar + this->fNSgnPars, {"pXKn" + std::to_string(iPar), 
+                                     xKnotFix, xKnotFix, xKnotFix}});
+                    fFitPars.insert({iPar + this->fNSgnPars + this->fNBkgPars/2, {"pYKn" + std::to_string(iPar), 
+                                     yKnotSet, yKnotSet - 1e3, yKnotSet + 1e3}});
+                }
+            }
+            else {
+                for (int iPar = 0; iPar < this->fNSgnPars + this->fNBkgPars; iPar++){
+                    fFitPars.insert({iPar, {parSett["p" + std::to_string(iPar)][0].as<std::string>(),
+                                            parSett["p" + std::to_string(iPar)][1].as<double>(),
+                                            parSett["p" + std::to_string(iPar)][2].as<double>(),
+                                            parSett["p" + std::to_string(iPar)][3].as<double>()}});
+                }
+            }
         } else {
             std::cout << "The set of parameters '" << name << "' is not valid. Exit!" << std::endl;
             exit(1);
@@ -175,13 +228,13 @@ class MassFitter {
         //     if (std::abs(x[0] - 0.145) < 0.001)
         //         TF1::RejectPoint();
         //         return 0;
-        //     return this->bkgFunc.;EvalPar(x, par);cc
+        //     return this->fBkgFunc.;EvalPar(x, par);cc
 
-        // }, this->fitRangeMin, fitRangeMax, nBkgPars);
+        // }, this->fFitRangeMin, fFitRangeMax, fNBkgPars);
         // printf("\n\n\nPerfomring the prefit to the background:\n");
         // hist->Fit(this->fPrefit, "QMR0+", "");
 
-        for (int iPar = 0; iPar < this->nSgnPars + this->nBkgPars; iPar++) {
+        for (int iPar = 0; iPar < this->fNSgnPars + this->fNBkgPars; iPar++) {
             auto pars = fFitPars[iPar];
             std::cout << iPar << " " 
                       << std::get<0>(pars)
@@ -196,48 +249,38 @@ class MassFitter {
         }
 
         // printf("\n\n\nPerfomring the full fit:\n");
-        int status = hist->Fit(this->fFit, "SMRL+0", "")->Status();
+        int status = fHist->Fit(this->fFit, "SMRL+0", "")->Status();
 
         // decompose the fit function in its contributions
-        if (this->bkgFuncName == "pol1") {
-            this->fBkg = new TF1("pol1", Pol1, fitRangeMin, fitRangeMax, 2);
-            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
-            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
-        } else if (this->bkgFuncName == "powex") {
-            this->fBkg = new TF1("fPowEx", PowEx, fitRangeMin, fitRangeMax, 2);
-            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
-            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
-        } else if (this->bkgFuncName == "exp") {
-            this->fBkg = new TF1("fExp", Exp, fitRangeMin, fitRangeMax, 2);
-            this->fBkg->SetParameter(0, this->fFit->GetParameter(this->nSgnPars + 0));
-            this->fBkg->SetParameter(1, this->fFit->GetParameter(this->nSgnPars + 1));
+        this->fBkg = new TF1(fBkgFuncName.data(), fBkgFunc, fFitRangeMin, fFitRangeMax, fNBkgPars);
+        for(int iBkgPar = 0; iBkgPar < fNBkgPars; iBkgPar++){
+            this->fBkg->SetParameter(iBkgPar, this->fFit->GetParameter(this->fNSgnPars + iBkgPar));
         }
 
-        if (this->sgnFuncName == "hat") {
-            this->fHatThin = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
+        if (this->fSgnFuncName == "hat") {
+            this->fHatThin = new TF1("fHatThin", Gaus, fFitRangeMin, fFitRangeMax, 3);
             this->fHatThin->SetParameter(0, this->fFit->GetParameter(0) * this->fFit->GetParameter(3));
             this->fHatThin->SetParameter(1, this->fFit->GetParameter(1));
             this->fHatThin->SetParameter(2, this->fFit->GetParameter(2));
 
-            this->fHatWide = new TF1("fHatThin", Gaus, fitRangeMin, fitRangeMax, 3);
+            this->fHatWide = new TF1("fHatThin", Gaus, fFitRangeMin, fFitRangeMax, 3);
             this->fHatWide->SetParameter(0, this->fFit->GetParameter(0) * (1 - this->fFit->GetParameter(3)));
             this->fHatWide->SetParameter(1, this->fFit->GetParameter(1));
             this->fHatWide->SetParameter(2, this->fFit->GetParameter(2) * this->fFit->GetParameter(4));
 
-            this->fSgn = new TF1("fSgn", Hat, fitRangeMin, fitRangeMax, 5);
+            this->fSgn = new TF1("fSgn", Hat, fFitRangeMin, fFitRangeMax, 5);
             this->fSgn->SetParameter(0, this->fFit->GetParameter(0));
             this->fSgn->SetParameter(1, this->fFit->GetParameter(1));
             this->fSgn->SetParameter(2, this->fFit->GetParameter(2));
             this->fSgn->SetParameter(3, this->fFit->GetParameter(3));
             this->fSgn->SetParameter(4, this->fFit->GetParameter(4));
 
-        } else if (this->sgnFuncName == "gaus") {
-            this->fSgn = new TF1("fSgn", Gaus, fitRangeMin, fitRangeMax, 3);
-            this->fSgn->SetParameter(0, this->fFit->GetParameter(0));
-            this->fSgn->SetParameter(1, this->fFit->GetParameter(1));
-            this->fSgn->SetParameter(2, this->fFit->GetParameter(2));
+        } else {
+            this->fSgn = new TF1(fSgnFuncName.data(), fSgnFunc, fFitRangeMin, fFitRangeMax, fNSgnPars);
+            for(int iSgnPar = 0; iSgnPar < fNSgnPars; iSgnPar++){
+                this->fSgn->SetParameter(iSgnPar, this->fFit->GetParameter(iSgnPar));
+            }
         }
-
         return status;
     }
 
@@ -246,21 +289,30 @@ class MassFitter {
     */
     void Draw(TVirtualPad *pad, std::string method) {
         pad->cd();
-        hist->GetYaxis()->SetRangeUser(0, 1.3 * hist->GetMaximum());
-        gPad->DrawFrame(fitRangeMin, 0, fitRangeMax, 1.3 * hist->GetMaximum(),
-                        Form("%s;%s;%s", this->hist->GetTitle(), this->hist->GetXaxis()->GetTitle(),
-                             this->hist->GetYaxis()->GetTitle()));
-        if (this->bkgFuncName == "pol1") {
+        fHist->GetYaxis()->SetRangeUser(0, 1.3 * fHist->GetMaximum());
+        gPad->DrawFrame(fFitRangeMin, 0, fFitRangeMax, 1.3 * fHist->GetMaximum(),
+                        Form("%s;%s;%s", this->fHist->GetTitle(), this->fHist->GetXaxis()->GetTitle(),
+                             this->fHist->GetYaxis()->GetTitle()));
+        if (this->fBkgFuncName == "pol1") {
             this->fBkg->SetNpx(300);
             this->fBkg->SetLineColor(kGray + 2);
             this->fBkg->Draw("same");
-        } else if (this->bkgFuncName == "powex" || this->bkgFuncName == "exp") {
+        } else if (this->fBkgFuncName == "pol5") {
             this->fBkg->SetNpx(300);
             this->fBkg->SetLineColor(kGray + 2);
             this->fBkg->Draw("same");
-        }
+        } else if (this->fBkgFuncName == "powex" || this->fBkgFuncName == "exp") {
+            this->fBkg->SetNpx(300);
+            this->fBkg->SetLineColor(kGray + 2);
+            this->fBkg->Draw("same");
+        } 
+        else if (this->fBkgFuncName == "spline5") {
+            this->fBkg->SetNpx(300);
+            this->fBkg->SetLineColor(kGray + 2);
+            this->fBkg->Draw("same");
+        } 
 
-        if (this->sgnFuncName == "hat") {
+        if (this->fSgnFuncName == "hat") {
             this->fHatThin->SetLineColor(kMagenta + 3);
             this->fHatThin->SetNpx(300);
             this->fHatThin->Draw("same");
@@ -272,7 +324,7 @@ class MassFitter {
             this->fSgn->SetNpx(300);
             this->fSgn->SetLineColor(kBlue + 2);
             this->fSgn->Draw("same");
-        } else if (this->sgnFuncName == "gaus") {
+        } else if (this->fSgnFuncName == "gaus") {
             this->fSgn->SetNpx(300);
             this->fSgn->SetLineColor(kBlue + 2);
             this->fSgn->Draw("same");
@@ -285,12 +337,12 @@ class MassFitter {
         fFit->SetLineColor(kRed);
         fFit->Draw("same");
 
-        hist->SetMarkerSize(1);
-        hist->SetMarkerStyle(20);
-        hist->SetMarkerColor(kBlack);
-        hist->SetLineColor(kBlack);
-        hist->SetLineWidth(2);
-        hist->Draw("same pe");
+        fHist->SetMarkerSize(1);
+        fHist->SetMarkerStyle(20);
+        fHist->SetMarkerColor(kBlack);
+        fHist->SetLineColor(kBlack);
+        fHist->SetLineWidth(2);
+        fHist->Draw("same pe");
 
         TLatex tl;
         tl.SetTextSize(0.035);
@@ -306,20 +358,20 @@ class MassFitter {
         tl.DrawLatexNDC(
             .15, .85 - step * iStep++,
             Form("B(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetBackground(nSigma), this->GetBackgroundUnc(nSigma)));
-
+        
         tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("Counts = %.2f", this->GetCounts()));
         pad->Update();
     }
 
     double GetMean() {
         if (!fFit) return -1;
-        if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParameter(1);
+        if (this->fSgnFuncName == "gaus" || this->fSgnFuncName == "hat") return fFit->GetParameter(1);
         return -1;
     }
 
     double GetMeanUnc() {
         if (!fFit) return -1;
-        if (this->sgnFuncName == "gaus" || this->sgnFuncName == "hat") return fFit->GetParError(1);
+        if (this->fSgnFuncName == "gaus" || this->fSgnFuncName == "hat") return fFit->GetParError(1);
         return -1;
     }
 
@@ -335,22 +387,22 @@ class MassFitter {
     double GetWidthUnc() {
         if (!fFit) return -1;
 
-        if (this->sgnFuncName == "gaus")
+        if (this->fSgnFuncName == "gaus")
             return fFit->GetParError(2);
-        else if (this->sgnFuncName == "hat")
+        else if (this->fSgnFuncName == "hat")
             return fFit->GetParError(2) / fFit->GetParameter(2) * GetWidth();  // assume rel error is the same
         return -1;
     }
 
     double GetCounts() {
         if (!fFit) return -1;
-        int firstBin = hist->GetXaxis()->FindBin(fitRangeMin * 1.0001);
-        int lastBin = hist->GetXaxis()->FindBin(fitRangeMax * 0.9999);
+        int firstBin = fHist->GetXaxis()->FindBin(fFitRangeMin * 1.0001);
+        int lastBin = fHist->GetXaxis()->FindBin(fFitRangeMax * 0.9999);
 
-        double totCounts = hist->Integral(firstBin, lastBin);
+        double totCounts = fHist->Integral(firstBin, lastBin);
         double bkgCounts =
-            fBkg->Integral(hist->GetXaxis()->GetBinLowEdge(firstBin), hist->GetXaxis()->GetBinLowEdge(lastBin + 1)) /
-            this->hist->GetBinWidth(1);
+            fBkg->Integral(fHist->GetXaxis()->GetBinLowEdge(firstBin), fHist->GetXaxis()->GetBinLowEdge(lastBin + 1)) /
+            this->fHist->GetBinWidth(1);
         return totCounts - bkgCounts;
     }
 
@@ -363,12 +415,12 @@ class MassFitter {
         fSgn->GetQuantiles(2, quantiles, probs);  // returns the limits in which the sgn func should be integrated
 
         if (method == "sgn_int") {
-            return fSgn->Integral(quantiles[0], quantiles[1]) / this->hist->GetBinWidth(1);
+            return fSgn->Integral(quantiles[0], quantiles[1]) / this->fHist->GetBinWidth(1);
         } else if (method == "data_minus_bkg") {
-            int firstBin = hist->GetXaxis()->FindBin(quantiles[0] * 1.0001);
-            int lastBin = hist->GetXaxis()->FindBin(quantiles[1] * 0.9999);
+            int firstBin = fHist->GetXaxis()->FindBin(quantiles[0] * 1.0001);
+            int lastBin = fHist->GetXaxis()->FindBin(quantiles[1] * 0.9999);
 
-            double data = this->hist->Integral(firstBin, lastBin);
+            double data = this->fHist->Integral(firstBin, lastBin);
             double bkg = GetBackground(nSigma);
             return data - bkg;
         } else {
@@ -385,24 +437,24 @@ class MassFitter {
         double quantiles[2];
         fSgn->GetQuantiles(2, quantiles, probs);  // returns the limits in which the sgn func should be integrated
 
-        return fBkg->Integral(quantiles[0], quantiles[1]) / this->hist->GetBinWidth(1);
+        return fBkg->Integral(quantiles[0], quantiles[1]) / this->fHist->GetBinWidth(1);
     }
 
     double GetBackgroundUnc(double nSigma) {
-        Int_t leftBand = this->hist->FindBin(this->GetMean() - 6 * this->GetWidth());
-        Int_t rightBand = this->hist->FindBin(this->GetMean() + 6 * this->GetWidth());
+        Int_t leftBand = this->fHist->FindBin(this->GetMean() - 6 * this->GetWidth());
+        Int_t rightBand = this->fHist->FindBin(this->GetMean() + 6 * this->GetWidth());
 
-        int start = this->hist->FindBin(this->fitRangeMin * 1.0001);
-        int end = this->hist->FindBin(this->fitRangeMax * 0.9999);
+        int start = this->fHist->FindBin(this->fFitRangeMin * 1.0001);
+        int end = this->fHist->FindBin(this->fFitRangeMax * 0.9999);
         double SidebandBkg =
-            this->hist->Integral(1, leftBand) + this->hist->Integral(rightBand, this->hist->GetNbinsX());
+            this->fHist->Integral(1, leftBand) + this->fHist->Integral(rightBand, this->fHist->GetNbinsX());
 
         double sum2 = 0;
         for (Int_t i = 1; i <= leftBand; i++) {
-            sum2 += this->hist->GetBinError(i) * this->hist->GetBinError(i);
+            sum2 += this->fHist->GetBinError(i) * this->fHist->GetBinError(i);
         }
-        for (Int_t i = rightBand; i <= this->hist->GetNbinsX(); i++) {
-            sum2 += this->hist->GetBinError(i) * this->hist->GetBinError(i);
+        for (Int_t i = rightBand; i <= this->fHist->GetNbinsX(); i++) {
+            sum2 += this->fHist->GetBinError(i) * this->fHist->GetBinError(i);
         }
 
         return TMath::Sqrt(sum2) / SidebandBkg * this->GetBackground(nSigma);
@@ -415,8 +467,21 @@ class MassFitter {
         return fFit->GetParError(0) / fFit->GetParameter(0) * this->GetSignal(nSigma, method);
     }
 
+    TF1* GetSgnFunc() {
+        //if (!fFit) return -1;
+        return fSgn;
+    }
+
+    TF1* GetBkgFunc() {
+        //if (!fFit) return -1;
+        return fBkg;
+    }
+
+
  private:
-    TH1 *hist = nullptr;
+    YAML::Node fCfgFile;
+
+    TH1 *fHist = nullptr;
     TF1 *fSgn = nullptr;
     TF1 *fHatThin = nullptr;
     TF1 *fHatWide = nullptr;
@@ -424,16 +489,17 @@ class MassFitter {
     TF1 *fFit = nullptr;
     TF1 *fPrefit = nullptr;
 
-    std::string sgnFuncName;
-    std::string bkgFuncName;
+    std::string fSgnFuncName;
+    std::string fBkgFuncName;
+    const char* fConfigPath;
 
-    double (*sgnFunc)(double *x, double *par);
-    double (*bkgFunc)(double *x, double *par);
+    double (*fSgnFunc)(double *x, double *par);
+    double (*fBkgFunc)(double *x, double *par);
 
-    int nSgnPars;
-    int nBkgPars;
-    double fitRangeMin;
-    double fitRangeMax;
+    int fNSgnPars;
+    int fNBkgPars;
+    double fFitRangeMin;
+    double fFitRangeMax;
     std::map<int, std::tuple<std::string, double, double, double>> fFitPars;
 };
 
