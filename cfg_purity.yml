@@ -1,10 +1,33 @@
 pair: LPi
-infiledata: ~/an/LPi/Trains/02_allpc/data/data/AnalysisResultsAllPC.root
-infilemc: ~/an/LPi/Trains/02_allpc/mc/data/AnalysisResultsAllPC.root
+
+# histos for neutral particles purity, enter 'null' if not needed
+infiledata: /home/mdicostanzo/physsoftware/fempy/AnalysisResultsExample.root
+
+# histos for charged particles purity, enter 'null' if not needed
+infilemc: /home/mdicostanzo/physsoftware/fempy/AnalysisResultsExample.root 
 
 # where to save the output
-odir: ~/an/LPi/Trains/02_allpc/data/histos
-suffix: null
+odir: ./
+suffix: PurityTest.root
 
 runsuffix: 1001 # The last parameter of the AddTask macro
 
+neutrpart:
+-   type: v0                # or Antiv0
+    name: nameofparticle    # e.g. Lambda or AntiLambda
+    ptMins: [0., 0.5]       # pT bins lower and upper edges
+    ptMaxs: [0.5, 1.]      
+    sgnfuncname: 'hat'      # see MassFitter.cxx for the implemented functions
+    bkgfuncname: 'spline5'  
+    nsigma: 2
+    task: 'Purity'          # option for MassFitter class
+    fitrange: [1.102, 1.128]
+    cfgfile: /home/mdicostanzo/an/LPi/Analysis/configs/cfg_purity.yml
+    fitsettings:              # parameter initialization for sgnfunc and bkgfunc
+    -   p0: ["p0", 1, 0, 2]   # [parname, startvalue, lowbound, uppbound]
+        p1: ["p1", 1, 0, 2]   
+        p2: ["p2", 1, 0, 2]   
+        p3: ["p3", 1, 0, 2]   
+        p4: ["p4", 1, 0, 2] 
+        xknots: [-1., 0., 1.]
+    
