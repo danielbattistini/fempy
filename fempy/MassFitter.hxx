@@ -193,6 +193,69 @@ class MassFitter {
     Set the fit parameters. Signal parameters first, then background.
     format: {index_of_parameter, {init_value, lower_lim, upper_lim}}
     */
+    void SetFitSettings(std::string name) {
+        if (name == "421_gaus_exp_alice3_siblings") {
+            fFitPars = {
+                // gaussian
+                {0, {"norm", 1000, 0, 1.e6}},
+                {1, {"mean", 1.86484, 1.86484*0.98, 1.86484*1.02}},
+                {2, {"sigma", 10, 0.005, 0.05}},
+
+                // exp
+                {3, {"norm", 10, 0.01, 1.e4}},
+                {4, {"slope", -0.5, -10, 10}},
+            };
+        } else if (name == "413_gaus_powex_DstarFemto_SE") {
+            fFitPars = {
+                // gaussian
+                {0, {"norm", 1, 0.05, 5}},
+                {1, {"mean", 0.1455, 0.1443, 0.1458}},
+                {2, {"sigma", 0.0006, 0.0005, 0.0007}},
+                
+                // powex
+                {3, {"norm", 2000, 100, 6000}},
+                {4, {"slope", 20, 5, 30}},
+            };
+        } else if (name == "413_gaus_powex_DstarFemto_ME") {
+            fFitPars = {
+                // gaussian
+                {0, {"norm", 200, 10, 500}},
+                {1, {"mean", 0.1455, 0.1443, 0.1458}},
+                {2, {"sigma", 0.0006, 0.0005, 0.0007}},
+                
+                // powex
+                {3, {"norm", 200000, 10000, 500000}},
+                {4, {"slope", 20, 15, 25}},
+            };
+        } else if (name == "411_gaus_exp_DstarFemto") {
+            fFitPars = { {0, {"norm", 0.5, 0, 50}},
+                {0, {"mean", 1.87, 1.84, 1.9}},
+                {2, {"sigma", 0.006, 0.0001, 0.01}},
+
+                // exp
+                {3, {"norm", 10, 0, 1.e6}},
+                {4, {"slope", -0.5, -10, 0}},
+            };
+        } else if (name == "411_hat_exp_DstarFemto") {
+            fFitPars = {    // gauss1
+                {0, {"norm", 0.1, 0, 50}},
+                {1, {"mean", 0.145, 0.144, 0.146}},
+                {2, {"sigma", 0.001, 0.0002, 0.002}},
+
+                // gauss2
+                {3, {"Yfrac", 0.5, 0.1, 1}},
+                {4, {"sigmaFrac", 1.5, 1, 5}},
+
+                // exp
+                {5, {"norm", 1, 0, 1e6}},
+                {6, {"slope", 0.1, -100, 100}},
+            };
+        } else {
+            std::cout << "The set of parameters '" << name << "' is not valid. Exit!" << std::endl;
+            exit(1);
+        }
+    }
+
     void Add(std::vector<std::tuple<std::string, double, double, double>> pars) {
         for (int iPar = 0; iPar < this->fNSgnPars + this->fNBkgPars; iPar++){
             fFitPars.insert({iPar, pars[iPar]});
@@ -416,13 +479,56 @@ class MassFitter {
         fFit->SetLineColor(kRed);
         fFit->Draw("same");
 
-        fHist->SetMarkerSize(1);
-        fHist->SetMarkerStyle(20);
-        fHist->SetMarkerColor(kBlack);
-        fHist->SetLineColor(kBlack);
-        fHist->SetLineWidth(2);
-        fHist->Draw("same pe");
+        hist->SetMarkerSize(1);
+        hist->SetMarkerStyle(20);
+        hist->SetMarkerColor(kBlack);
+        hist->SetLineColor(kBlack);
+        hist->SetLineWidth(2);
+        hist->Draw("same pe");
 
+        TLatex tl;
+        tl.SetTextSize(0.035);
+        tl.SetTextFont(42);
+        double nSigma = 2;
+        double step = 0.05;
+        int iStep = 0;
+        tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("#chi^{2}/NDF = %.2f", fFit->GetChisquare() / fFit->GetNDF()));
+        tl.DrawLatexNDC(.15, .85 - step * iStep++,
+                        Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetSignal(nSigma, method),
+                             this->GetSignalUnc(nSigma, method)));
+
+        tl.DrawLatexNDC(
+            .15, .85 - step * iStep++,
+            Form("B(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetBackground(nSigma), this->GetBackgroundUnc(nSigma)));
+
+        tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("Counts = %.2f", this->GetCounts()));
+
+        // Write on the plot the fit parameters
+        for (int iPar = 0; iPar < fFit->GetNpar(); iPar++) {
+            double par = fFit->GetParameter(iPar);
+            double parMin;
+            double parMax;
+            fFit->GetParLimits(iPar, parMin, parMax);
+            double range = parMax - parMin;
+            
+            // Check if the fit pars are at limit
+            if (par - parMin < 1.e-4 * range || parMax - par < 1.e-4 * range) {
+                tl.SetTextColor(2);
+                tl.DrawLatexNDC(.6, .85 - step * iPar, Form("%s*** = %.2e", fFit->GetParName(iPar), par));
+                tl.SetTextColor(1);
+            } else {
+                tl.DrawLatexNDC(.6, .85 - step * iPar, Form("%s = %.2e", fFit->GetParName(iPar), par));
+            }
+        }
+        if (fFit->GetChisquare() / fFit->GetNDF() > 150) {
+            TLatex tlDanger;
+            tlDanger.SetTextSize(0.07);
+            tlDanger.SetTextFont(42);
+            tlDanger.SetTextColor(2);
+            tlDanger.DrawLatexNDC(.5, .4, "Danger: #chi^{2}/NDF > 150");
+        }
+        
+        pad->Update();
     }
 
     double GetMean() {
