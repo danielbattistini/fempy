@@ -128,16 +128,27 @@ class MassFitter {
                 {3, {"norm", 10, 0.01, 1.e4}},
                 {4, {"slope", -0.5, -10, 10}},
             };
-        } else if (name == "431_gaus_powex_DstarFemto") {
+        } else if (name == "413_gaus_powex_DstarFemto_SE") {
             fFitPars = {
                 // gaussian
-                {0, {"norm", 0.5, 0, 50}},
-                {1, {"mean", 0.145, 0.144, 0.146}},
-                {2, {"sigma", 0.0006, 0.0003, 0.0009}},
-
+                {0, {"norm", 1, 0.05, 5}},
+                {1, {"mean", 0.1455, 0.1443, 0.1458}},
+                {2, {"sigma", 0.0006, 0.0005, 0.0007}},
+                
                 // powex
-                {3, {"norm", 0.5, 200, 3000}},
-                {4, {"slope", 0.1, 0, 100}},
+                {3, {"norm", 2000, 100, 6000}},
+                {4, {"slope", 20, 5, 30}},
+            };
+        } else if (name == "413_gaus_powex_DstarFemto_ME") {
+            fFitPars = {
+                // gaussian
+                {0, {"norm", 200, 10, 500}},
+                {1, {"mean", 0.1455, 0.1443, 0.1458}},
+                {2, {"sigma", 0.0006, 0.0005, 0.0007}},
+                
+                // powex
+                {3, {"norm", 200000, 10000, 500000}},
+                {4, {"slope", 20, 15, 25}},
             };
         } else if (name == "411_gaus_exp_DstarFemto") {
             fFitPars = { {0, {"norm", 0.5, 0, 50}},
@@ -308,6 +319,32 @@ class MassFitter {
             Form("B(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetBackground(nSigma), this->GetBackgroundUnc(nSigma)));
 
         tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("Counts = %.2f", this->GetCounts()));
+
+        // Write on the plot the fit parameters
+        for (int iPar = 0; iPar < fFit->GetNpar(); iPar++) {
+            double par = fFit->GetParameter(iPar);
+            double parMin;
+            double parMax;
+            fFit->GetParLimits(iPar, parMin, parMax);
+            double range = parMax - parMin;
+            
+            // Check if the fit pars are at limit
+            if (par - parMin < 1.e-4 * range || parMax - par < 1.e-4 * range) {
+                tl.SetTextColor(2);
+                tl.DrawLatexNDC(.6, .85 - step * iPar, Form("%s*** = %.2e", fFit->GetParName(iPar), par));
+                tl.SetTextColor(1);
+            } else {
+                tl.DrawLatexNDC(.6, .85 - step * iPar, Form("%s = %.2e", fFit->GetParName(iPar), par));
+            }
+        }
+        if (fFit->GetChisquare() / fFit->GetNDF() > 150) {
+            TLatex tlDanger;
+            tlDanger.SetTextSize(0.07);
+            tlDanger.SetTextFont(42);
+            tlDanger.SetTextColor(2);
+            tlDanger.DrawLatexNDC(.5, .4, "Danger: #chi^{2}/NDF > 150");
+        }
+        
         pad->Update();
     }
 

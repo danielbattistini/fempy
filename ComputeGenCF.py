@@ -161,7 +161,9 @@ def ComputePurity(hist, kStarBW, event, variation=""):
         lastBin = hist.FindBin((iBin + 1) * kStarBW * 0.9999)
 
         hCharmMass = hist.ProjectionY('', firstBin, lastBin)
+        hCharmMass.SetTitle(f'k* bin = {iBin}')
         fitter = MassFitter(hCharmMass, 'gaus', 'powex', 0.141, 0.154)
+        fitter.SetFitSettings(f'413_gaus_powex_DstarFemto_{event}')
         fitter.Fit()
 
         nSigma = 2
