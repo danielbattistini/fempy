@@ -156,15 +156,22 @@ def Bootstrap(hist):
 def ComputePurity(hist, kStarBW, event, variation=""):
     nBins = round(3000/kStarBW)
     hPurity = TH1D(f'{hist.GetName()}_{event}_purity', '', nBins, 0, 3000)
+    # cPurity = TCanvas('cPurity', '', 600, 600)
+    # cPurity.SaveAs(f'cPurity_{hist.GetName()}_{event}.pdf[')
     for iBin in range(nBins):
         firstBin = hist.FindBin(iBin * kStarBW * 1.0001)
         lastBin = hist.FindBin((iBin + 1) * kStarBW * 0.9999)
+
+        print(iBin)
+        print(f'k* bin = {iBin}')
 
         hCharmMass = hist.ProjectionY('', firstBin, lastBin)
         hCharmMass.SetTitle(f'k* bin = {iBin}')
         fitter = MassFitter(hCharmMass, 'gaus', 'powex', 0.141, 0.154)
         fitter.SetFitSettings(f'413_gaus_powex_DstarFemto_{event}')
         fitter.Fit()
+        # fitter.Draw(cPurity, 'data_minus_bkg')
+        # cPurity.SaveAs(f'cPurity_{hist.GetName()}_{event}.pdf')
 
         nSigma = 2
         sgn = fitter.GetSignal(nSigma, 'data_minus_bkg')
@@ -183,6 +190,8 @@ def ComputePurity(hist, kStarBW, event, variation=""):
             hPurity.SetBinContent(iBin+1, purity - purityUnc)
 
         hPurity.SetBinError(iBin+1, purityUnc)
+    # cPurity.SaveAs(f'cPurity_{hist.GetName()}_{event}.pdf]')
+
     return hPurity
 
 
@@ -359,7 +368,7 @@ def ComputeScattPar(**kwargs):
     return scattLen, scattLenUnc, normLL, chi2ndf, hCFGen
 
 normRange = [1500, 2000]
-bkgFitRanges = [[300, 1000], [350, 1100], [250, 900]]
+bkgFitRanges = [[300, 1000], [400, 1200], [250, 800]]
 
 def ComputeGenCF(args):
     gStyle.SetOptStat(0)
@@ -392,6 +401,8 @@ def ComputeGenCF(args):
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen.root'
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange{normRange[0]}-{normRange[1]}.root'
         oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange{normRange[0]}-{normRange[1]}_bkgfitrange{bkgFitRanges[0][0]}-{bkgFitRanges[0][1]}.root'
+        oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange{normRange[0]}-{normRange[1]}_bkgfitrange{bkgFitRanges[0][0]}-{bkgFitRanges[0][1]}.root'
+        oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorrTest_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen.root'
         if False:
             inFileData = TFile('/home/daniel/an/DstarPi/20_luuksel/distr/sbsyst/Distr_mass_2_7_0.20.root')
             oFileName = f'/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_sbsyst_mass_2_7_0.20_nopc_kStarBW50MeV_bs{args.bs}{"syst" if args.syst else ""}.root'

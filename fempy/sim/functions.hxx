@@ -280,8 +280,146 @@ ROOT::Math::PxPyPzMVector Rotate(m3 rot, const ROOT::Math::PxPyPzMVector &partic
 // Physics #####################################################################
 // #############################################################################
 
+
+
+
+
+/*
+Return true if the particle satisfies all the following criteria:
+- is a pion, kaon or proton
+- is a final-state particle (status code > 0)
+- is within the TPC acceptance (|eta| < 0.8)
+- has pT > 0.3 GeV/c
+*/
+inline bool IsDetectableInTPC(TParticle *p, std::set<int> pdgs = {211, 321, 2212}) {
+    return pdgs.find(std::abs(p->GetPdgCode())) != pdgs.end() &&
+           p->GetStatusCode() > 0 &&
+           p->Pt() > 0.3 &&
+           std::abs(p->Eta()) < 0.8;
+}
+
+
+std::set<int> SelectInDaughterTree(TClonesArray* particles, int start, std::vector<int> pdgs, bool requireInAcc=false) {
+    std::set<int> result = {};
+    if (start < 2) {
+        return result;
+    }
+
+    TParticle* part = dynamic_cast<TParticle*>(particles->At(start));
+    if (std::find(pdgs.begin(), pdgs.end(), std::abs(part->GetPdgCode())) != pdgs.end()) {
+        if (requireInAcc) {
+            if (IsDetectableInTPC(part)) {
+                result.insert(start);
+            }
+        } else {
+            result.insert(start);
+        }
+    } else {
+        for (int iDau = part->GetFirstDaughter(); iDau <= part->GetLastDaughter(); iDau++) {
+            auto r = SelectInDaughterTree(particles, iDau, pdgs, requireInAcc);
+            result.insert(r.begin(), r.end());
+        }
+    }
+    return result;
+}
+
+/* Returns true if the particle `idx` in `particles` is the mother of itself. A particle can be a self-daughter if it is
+involved in a process like gluon emission: q -> q + g */
+bool IsLast(TClonesArray* particles, int idx) {
+    TParticle* part = dynamic_cast<TParticle*>(particles->At(idx));
+    int pdg = part->GetPdgCode();
+
+    for (int iDau = part->GetFirstDaughter(); iDau <= part->GetLastDaughter(); iDau++) {
+        TParticle* dau = dynamic_cast<TParticle*>(particles->At(iDau));
+
+        if (dau->GetPdgCode() == pdg) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+float RelativePairMomentum(TLorentzVector& PartOne, TLorentzVector& PartTwo) {
+    TLorentzVector trackSum = PartOne + PartTwo;
+
+    float beta = trackSum.Beta();
+    float betax = beta * cos(trackSum.Phi()) * sin(trackSum.Theta());
+    float betay = beta * sin(trackSum.Phi()) * sin(trackSum.Theta());
+    float betaz = beta * cos(trackSum.Theta());
+
+    TLorentzVector PartOneCMS = PartOne;
+    TLorentzVector PartTwoCMS = PartTwo;
+
+    PartOneCMS.Boost(-betax, -betay, -betaz);
+    PartTwoCMS.Boost(-betax, -betay, -betaz);
+
+    TLorentzVector trackRelK = PartOneCMS - PartTwoCMS;
+
+    return 0.5 * trackRelK.P();
+}
+
+float RelativePairMomentum(TParticle* part1, TParticle* part2) {
+    TLorentzVector p1(part1->Px(), part1->Py(), part1->Pz(), part1->Energy());
+    TLorentzVector p2(part2->Px(), part2->Py(), part2->Pz(), part2->Energy());
+
+    return RelativePairMomentum(p1, p2);
+}
+
+
 // return true if the particle is in the TPC acceptance
 inline bool isInTPC(TParticle *p) { return p->GetStatusCode() == 1 && p->Pt() > 0.3 && std::abs(p->Eta()) < 0.8; }
+
+
+
+// inline bool AreAllDausInAcc(TClonesArray *particles, int iPart) {
+//     TParticle* particle = dynamic_cast<TParticle*>(particles->At(iPart));
+
+//     for (int iDau = particle->GetFirstDaughter(); iDau <= particle->GetLastDaughter(); iDau++) {
+//         TParticle* dau = dynamic_cast<TParticle*>(particles->At(iDau));
+//         if (!isInTPC(dau)) return false;
+//     }
+//     return true;
+// }
+
+/*
+If the particle has no daughters, it returns if the particle is in the TPC acceptance. If the particle decays, it lops
+recursively over all the daughters and check that all of them are in the TPC acceptance.
+*/
+bool IsInAcc(TClonesArray* particles, int idx) {
+    TParticle* part = dynamic_cast<TParticle*>(particles->At(idx));
+    // printf("IsInAcc: %d %d   dau: %d\n", idx, part->GetPdgCode(), part->GetNDaughters());
+
+    if (part->GetStatusCode() > 0) { // The particle is final (i.e. after all decays)
+        return IsDetectableInTPC(part);
+    }
+    else {
+        for (int iDau = part->GetFirstDaughter(); iDau <= part->GetLastDaughter(); iDau++) {
+            if (!IsInAcc(particles, iDau)) return false;
+        }
+        return true;
+    }
+}
+
+
+
+/*
+*/
+bool Trigger(TClonesArray* particles, std::string trigger) {
+    if (trigger == "411") {
+        for (int iPart = 2; iPart < particles->GetEntriesFast(); iPart++) {
+            TParticle* part = dynamic_cast<TParticle*>(particles->At(iPart));
+            if (std::abs(part->GetPdgCode()) == 411) return true;
+        }
+        return false;
+    } else if (trigger == "411_inAcc") {
+        for (int iPart = 2; iPart < particles->GetEntriesFast(); iPart++) {
+            TParticle* part = dynamic_cast<TParticle*>(particles->At(iPart));
+            if (std::abs(part->GetPdgCode()) == 411 && IsInAcc(particles, iPart)) return true;
+        }
+        return false;
+    }
+}
 
 // Return true if the particle is charged and long lived and in the final state
 bool IsDetectable(const int &absPdg) {
