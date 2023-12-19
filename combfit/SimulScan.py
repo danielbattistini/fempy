@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import argparse
 
-from ROOT import TFile, TCanvas, TGraph, TLegend, TNtuple, gStyle, TH2D, gROOT, EColor
+from ROOT import TFile, TCanvas, TGraph, TLegend, TNtuple, gStyle, TH2D, gROOT, EColor, TProfile, TGraphErrors
 
 gROOT.SetBatch(True)
 
@@ -40,6 +40,7 @@ parser = argparse.ArgumentParser()
 # default = '~/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs10002syst.root'
 # parser.add_argument('inFile', help='input file without extension')
 parser.add_argument('oFileWoExt', help='output file without extension')
+parser.add_argument('--unc', choices=('stat', 'tot'), default='stat', help='Stat or Syst run')
 parser.add_argument('--pair', choices=('DPi', 'DstarPi'), help='DPi or DstarPi')
 parser.add_argument('--source', choices=('centr', 'upper', 'lower'), help='Source variation', default='centr')
 args = parser.parse_args()
@@ -54,17 +55,18 @@ elif args.source == 'upper':
     sourceRadii = [1.06, 2.88]
     weightSource = 0.64
     
-baseDir = '../theory/cf/yuki/DPi_correlation'
+baseDir = '../theory/cf/yuki'
 
 gCFTheoSC = {}
 gCFTheoOC = {}
 
-fitRange = [0, 300]
+fitRanges = [[0, 250], [0, 200], [0, 300]]
 
-for vq in range(-1000, 3000, 100):
+for vq in range(-3000, 4000, 100):
     try:
-        dfsc_small = pd.read_csv(f'{baseDir}/1sigma/corr_Dp_pip/{sourceRadii[0]}fm/corr_{sourceRadii[0]}fm_{vq}.dat', header=None, delim_whitespace=True)
-        dfsc_large = pd.read_csv(f'{baseDir}/1sigma/corr_Dp_pip/{sourceRadii[1]}fm/corr_{sourceRadii[1]}fm_{vq}.dat', header=None, delim_whitespace=True)
+        print(f'{baseDir}/Dp_Pip/{sourceRadii[0]}fm/corr_{sourceRadii[0]}fm_{vq}.dat')
+        dfsc_small = pd.read_csv(f'{baseDir}/Dp_Pip/{sourceRadii[0]}fm/corr_{sourceRadii[0]}fm_{vq}.dat', header=None, delim_whitespace=True)
+        dfsc_large = pd.read_csv(f'{baseDir}/Dp_Pip/{sourceRadii[1]}fm/corr_{sourceRadii[1]}fm_{vq}.dat', header=None, delim_whitespace=True)
     except FileNotFoundError:
         print(f'File not found for vq = {vq}')
         continue
@@ -75,10 +77,10 @@ for vq in range(-1000, 3000, 100):
 
     gCFTheoOC[vq] = {}
     # Load opposite charge CFs
-    for vd in range(-2000, 3000, 100):
+    for vd in range(-2000, 5100, 100):
         try:
-            dfsc_small = pd.read_csv(f'{baseDir}/1sigma/corr_Dp_pim/{sourceRadii[0]}fm/corr_{sourceRadii[0]}fm_Vq_{vq}_Vd_{vd}.dat', header=None, delim_whitespace=True)
-            dfsc_large = pd.read_csv(f'{baseDir}/1sigma/corr_Dp_pim/{sourceRadii[1]}fm/corr_{sourceRadii[1]}fm_Vq_{vq}_Vd_{vd}.dat', header=None, delim_whitespace=True)
+            dfsc_small = pd.read_csv(f'{baseDir}/Dp_Pim/{sourceRadii[0]}fm/corr_{sourceRadii[0]}fm_Vq_{vq}_Vd_{vd}.dat', header=None, delim_whitespace=True)
+            dfsc_large = pd.read_csv(f'{baseDir}/Dp_Pim/{sourceRadii[1]}fm/corr_{sourceRadii[1]}fm_Vq_{vq}_Vd_{vd}.dat', header=None, delim_whitespace=True)
         except FileNotFoundError:
             print(f'File not found for vq = {vq} and vd = {vd}')
             continue
@@ -90,7 +92,7 @@ for vq in range(-1000, 3000, 100):
 # Plot the loaded CFs
 gStyle.SetPalette(55)
 cCFTheoSC = TCanvas('cCFTheoSC', '', 600, 600)
-frame = cCFTheoSC.DrawFrame(0, fitRange[0], fitRange[1], 3, ';#it{k}* (MeV/#it{c});#it{C}(#it{k}*)')
+frame = cCFTheoSC.DrawFrame(0, 0, 300, 3, ';#it{k}* (MeV/#it{c});#it{C}(#it{k}*)')
 leg = TLegend(0.15, 0.5, 0.85, 0.85)
 leg.SetNColumns(2)
 for vq, fCFSC in gCFTheoSC.items():
@@ -102,7 +104,7 @@ cCFTheoSC.SaveAs(f'{args.oFileWoExt}_theoSC.pdf')
 cCFTheoOC = TCanvas('cCFTheoOC', '', 600, 600)
 cCFTheoOC.SaveAs(f'{args.oFileWoExt}_theoOC.pdf[')
 for vq, _ in gCFTheoOC.items():
-    frame = cCFTheoOC.DrawFrame(0, fitRange[0], fitRange[1], 3, ';#it{k}* (MeV/#it{c});#it{C}(#it{k}*)')
+    frame = cCFTheoOC.DrawFrame(0, 0, 300, 3, ';#it{k}* (MeV/#it{c});#it{C}(#it{k}*)')
     leg = TLegend(0.15, 0.5, 0.85, 0.85, f'Vq = {vq} MeV')
     leg.SetNColumns(2)
     for vd in gCFTheoOC[vq].keys():
@@ -177,15 +179,23 @@ if args.pair == 'DPi':
     inFileOC = TFile("/home/daniel/paper/CharmPaper/figures/final_D/simscan/DPiMinusOutput_tot.root")
     gCFGenSC = inFileSC.Get("CF_corr_MC_truth_NBL_0")
     gCFGenOC = inFileOC.Get("CF_corr_MC_truth_NBL_0")
-    ndf = CountPoints(gCFGenSC, fitRange[0], fitRange[1]) + CountPoints(gCFGenOC, fitRange[0], fitRange[1]) - 2
 elif args.pair == 'DstarPi':
-    inFile = TFile('~/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs10002syst.root')
-    inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs1000_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange300-600.root')
+    # inFile = TFile('~/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs10002syst.root')
+    # inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs1000_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange300-600.root')
     inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs50_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root')
-    gCFGenSC = inFile.Get('sc/stat/gCFGen0')
-    gCFGenOC = inFile.Get('oc/stat/gCFGen0')
-    ndf = CountPoints(gCFGenSC, fitRange[0], fitRange[1]) + CountPoints(gCFGenOC, fitRange[0], fitRange[1]) - 2
+    inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root')
+    gCFGenSC = inFile.Get(f'sc/{args.unc}/gCFGen0')
+    gCFGenOC = inFile.Get(f'oc/{args.unc}/gCFGen0')
 
+gCoulombSC = gCFTheoSC[0]
+gCoulombOC = gCFTheoOC[0][0]
+xvals = gCoulombSC.GetX()
+
+# Assume that all bins have a width of 1 MeV
+edges = np.array(xvals, 'd') + 0.5
+edges = np.insert(edges, 0, 0.5, axis=0)
+hBestFitBandSC = TProfile("hBestFitBandSC", "", gCFTheoSC[0].GetN(), edges, 's')
+hBestFitBandOC = TProfile("hBestFitBandOC", "", gCFTheoSC[0].GetN(), edges, 's')
 
 oFile = TFile(f"{args.oFileWoExt}_trials.root", 'create')
 if oFile.IsZombie(): # File already exists
@@ -195,12 +205,15 @@ if oFile.IsZombie(): # File already exists
 for iIter in range(1000000):
     print(f"Iter: {iIter}")
 
+    fitRange = fitRanges[np.random.randint(len(fitRanges)) if args.unc == 'tot' else 0]
+    ndf = CountPoints(gCFGenSC, fitRange[0], fitRange[1]) + CountPoints(gCFGenOC, fitRange[0], fitRange[1]) - 2
+
     if args.pair == 'DPi':
         gCFGenSC = inFileSC.Get(f"CF_corr_MC_truth_NBL_{iIter}")
         gCFGenOC = inFileOC.Get(f"CF_corr_MC_truth_NBL_{iIter}")
     elif args.pair == 'DstarPi':
-        gCFGenSC = inFile.Get(f'sc/stat/gCFGen{iIter}')
-        gCFGenOC = inFile.Get(f'oc/stat/gCFGen{iIter}')
+        gCFGenSC = inFile.Get(f'sc/{args.unc}/gCFGen{iIter}')
+        gCFGenOC = inFile.Get(f'oc/{args.unc}/gCFGen{iIter}')
 
     if gCFGenSC == None or gCFGenOC == None:
         break
@@ -210,8 +223,8 @@ for iIter in range(1000000):
     bestPot = (None, None)
 
     for vq, gSC in gCFTheoSC.items():
+        chi2SC = ComputeChi2(gCFGenSC, gSC, fitRange[0], fitRange[1])
         for vd, gOC in gCFTheoOC[vq].items():
-            chi2SC = ComputeChi2(gCFGenSC, gSC, fitRange[0], fitRange[1])
             chi2OC = ComputeChi2(gCFGenOC, gOC, fitRange[0], fitRange[1])
             chi2 = chi2SC + chi2OC
 
@@ -222,7 +235,17 @@ for iIter in range(1000000):
             if chi2 < minChi2:
                 minChi2 = chi2
                 bestPot = (vq, vd)
+    for iPoint in range(gCFTheoSC[bestPot[0]].GetN()):
+        xx = gCFTheoSC[bestPot[0]].GetPointX(iPoint)
+        yy = gCFTheoSC[bestPot[0]].GetPointY(iPoint)
+        hBestFitBandSC.Fill(xx, yy)
+        
+    for iPoint in range(gCFTheoOC[bestPot[0]][bestPot[1]].GetN()):
+        xx = gCFTheoOC[bestPot[0]][bestPot[1]].GetPointX(iPoint)
+        yy = gCFTheoOC[bestPot[0]][bestPot[1]].GetPointY(iPoint)
+        hBestFitBandOC.Fill(xx, yy)
 
+    # print(bestPot[0], bestPot[1], gCFTheoOC[bestPot[0]][bestPot[1]].GetPointY(30), gCFTheoOC[0][0].GetPointY(30))
     tResults.Fill(bestPot[0], bestPot[1], minChi2 / ndf, gPot2ScatLen.Eval(bestPot[0]), gPot2ScatLen.Eval(bestPot[1]))
 
     if iIter < 50:
@@ -267,7 +290,7 @@ for iIter in range(1000000):
         hContour.Draw('same cont3')
 
         gBestPot = TGraph(1)
-        print(bestPot, minChi2, minChi2/ndf)
+        # print(bestPot, minChi2, minChi2/ndf)
         gBestPot.SetPoint(0, bestPot[0], bestPot[1])
         gBestPot.SetMarkerStyle(20)
         gBestPot.SetMarkerSize(1)
@@ -281,6 +304,59 @@ for iIter in range(1000000):
         cChi2Ndf.SaveAs(f'{args.oFileWoExt}_Chi2Ndf.pdf')
 
 cChi2Ndf.SaveAs(f'{args.oFileWoExt}_Chi2Ndf.pdf]')
+
+gCoulombSC.SetName(f'gCoulombSC_source-{args.source}')
+gCoulombSC.Write()
+
+gCoulombOC.SetName(f'gCoulombOC_source-{args.source}')
+gCoulombOC.Write()
+
+hBestFitBandSC.Write()
+hBestFitBandOC.Write()
+
+def SubtractInQuadrature(graph1, graph2, name='', shift=True):
+    if graph1.GetN() != graph2.GetN():
+        print("diff num of points")
+        sys.exit()
+
+    gAns = TGraphErrors(1)
+    gAns.SetName(name)
+    for iPoint in range(graph1.GetN()):
+        gAns.SetPoint(iPoint, graph1.GetPointX(iPoint), graph1.GetPointY(iPoint))
+
+        e1 = graph1.GetErrorY(iPoint)
+        e2 = graph2.GetErrorY(iPoint)
+        systSq = e1 ** 2 - e2 ** 2
+        if shift:
+            y1 = graph1.GetErrorY(iPoint)
+            y2 = graph2.GetErrorY(iPoint)
+            systSq += (y1 - y2) ** 2
+
+        if systSq < 0:
+            print("warning: Syst unc < 0. Assigning 0")
+            systSq = 0
+
+        gAns.SetPointError(iPoint, graph1.GetErrorX(iPoint), systSq ** 0.5)
+
+    return gAns
+
+gCFGenSCstat = inFile.Get(f'sc/stat/gCFGen0')
+gCFGenSCstat.SetName('gCFGenSCstat')
+gCFGenSCstat.Write()
+gCFGenSCtot = inFile.Get(f'sc/tot/gCFGen0')
+gCFGenSCtot.SetName('gCFGenSCtot')
+gCFGenSCtot.Write()
+gCFGenSCsyst = SubtractInQuadrature(gCFGenSCtot, gCFGenSCstat, 'gCFGenSCsyst')
+gCFGenSCsyst.Write()
+
+gCFGenOCstat = inFile.Get(f'oc/stat/gCFGen0')
+gCFGenOCstat.SetName('gCFGenOCstat')
+gCFGenOCstat.Write()
+gCFGenOCtot = inFile.Get(f'oc/tot/gCFGen0')
+gCFGenOCtot.SetName('gCFGenOCtot')
+gCFGenOCtot.Write()
+gCFGenOCsyst = SubtractInQuadrature(gCFGenOCtot, gCFGenOCstat, 'gCFGenOCsyst')
+gCFGenOCsyst.Write()
 
 tResults.Write()
 oFile.Close()

@@ -56,7 +56,7 @@ def GetColor(color:str):
     return EColor.kBlack
 
 
-def SetStyle():
+def SetStyle(**kwargs):
     '''Sets the general style'''
     gStyle.SetAxisColor(1, 'xy')
     gStyle.SetCanvasBorderMode(0)
@@ -102,7 +102,7 @@ def SetStyle():
     gStyle.SetLegendBorderSize(0)
     gStyle.SetLegendFillColor(0)
     gStyle.SetLegendFont(42)
-    gStyle.SetLegendTextSize(0.04)
+    gStyle.SetLegendTextSize(0.035)
     gStyle.SetLegoInnerR(0.5)
     gStyle.SetLineScalePS(3)
     gStyle.SetNdivisions(510, 'xy')
@@ -117,15 +117,15 @@ def SetStyle():
     gStyle.SetOptTitle(0)
     gStyle.SetPadBorderMode(1)
     gStyle.SetPadBorderSize(1)
-    gStyle.SetPadBottomMargin(0.11)
     gStyle.SetPadColor(19)
     gStyle.SetPadGridX(False)
     gStyle.SetPadGridY(False)
-    gStyle.SetPadLeftMargin(0.15)
-    gStyle.SetPadRightMargin(0.02)
+    gStyle.SetPadTopMargin(kwargs.get('topMargin', 0.02))
+    gStyle.SetPadBottomMargin(kwargs.get('bottomMargin', 0.11))
+    gStyle.SetPadRightMargin(kwargs.get('rightMargin', 0.02))
+    gStyle.SetPadLeftMargin(kwargs.get('leftMargin', 0.15))
     gStyle.SetPadTickX(1)
     gStyle.SetPadTickY(1)
-    gStyle.SetPadTopMargin(0.02)
     gStyle.SetPaintTextFormat('g')
     gStyle.SetPalette(55)
     gStyle.SetScreenFactor(1)
