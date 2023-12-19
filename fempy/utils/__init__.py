@@ -1,5 +1,6 @@
 import os
 import sys
+from .io import *
 
 def Chunkyfy(array, nElemPerChunk=200):
     if len(array) == 0:
