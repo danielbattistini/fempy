@@ -62,7 +62,7 @@ gCFTheoOC = {}
 
 fitRanges = [[0, 250], [0, 200], [0, 300]]
 
-for vq in range(-3000, 4000, 100):
+for vq in range(-3000, 2100, 100):
     try:
         print(f'{baseDir}/Dp_Pip/{sourceRadii[0]}fm/corr_{sourceRadii[0]}fm_{vq}.dat')
         dfsc_small = pd.read_csv(f'{baseDir}/Dp_Pip/{sourceRadii[0]}fm/corr_{sourceRadii[0]}fm_{vq}.dat', header=None, delim_whitespace=True)
@@ -175,8 +175,10 @@ pad.SetRightMargin(0.21)
 cChi2Ndf.SaveAs(f'{args.oFileWoExt}_Chi2Ndf.pdf[')
 
 if args.pair == 'DPi':
-    inFileSC = TFile("/home/daniel/paper/CharmPaper/figures/final_D/simscan/DPiPlusOutput_tot.root")
-    inFileOC = TFile("/home/daniel/paper/CharmPaper/figures/final_D/simscan/DPiMinusOutput_tot.root")
+    # inFileSC = TFile("/home/daniel/paper/CharmPaper/figures/final_D/simscan/DPiPlusOutput_tot.root")
+    # inFileOC = TFile("/home/daniel/paper/CharmPaper/figures/final_D/simscan/DPiMinusOutput_tot.root")
+    inFileSC = TFile("/home/daniel/paper/CharmPaper/figures/final_D_20231221/DPiPlusOutput_tot.root")
+    inFileOC = TFile("/home/daniel/paper/CharmPaper/figures/final_D_20231221/DPiMinusOutput_tot.root")
     gCFGenSC = inFileSC.Get("CF_corr_MC_truth_NBL_0")
     gCFGenOC = inFileOC.Get("CF_corr_MC_truth_NBL_0")
 elif args.pair == 'DstarPi':
@@ -184,6 +186,9 @@ elif args.pair == 'DstarPi':
     # inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs1000_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange300-600.root')
     inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs50_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root')
     inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root')
+    # inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFCorrTest_nopc_kStarBW50MeV_bs100syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_combfitLL_scaledLL_fit700_chi2ndflt5_originalinputfile_indepRandGen.root')
+    # inFile = TFile('/home/daniel/an/DstarPi/20_luuksel/GenCFDebug_nopc_kStarBW50MeV_bs10000syst.root')
+
     gCFGenSC = inFile.Get(f'sc/{args.unc}/gCFGen0')
     gCFGenOC = inFile.Get(f'oc/{args.unc}/gCFGen0')
 
@@ -202,7 +207,7 @@ if oFile.IsZombie(): # File already exists
     sys.exit()
 
 
-for iIter in range(1000000):
+for iIter in range(100000):
     print(f"Iter: {iIter}")
 
     fitRange = fitRanges[np.random.randint(len(fitRanges)) if args.unc == 'tot' else 0]
@@ -340,22 +345,38 @@ def SubtractInQuadrature(graph1, graph2, name='', shift=True):
 
     return gAns
 
-gCFGenSCstat = inFile.Get(f'sc/stat/gCFGen0')
-gCFGenSCstat.SetName('gCFGenSCstat')
-gCFGenSCstat.Write()
-gCFGenSCtot = inFile.Get(f'sc/tot/gCFGen0')
-gCFGenSCtot.SetName('gCFGenSCtot')
-gCFGenSCtot.Write()
-gCFGenSCsyst = SubtractInQuadrature(gCFGenSCtot, gCFGenSCstat, 'gCFGenSCsyst')
-gCFGenSCsyst.Write()
+if args.pair == 'DstarPi':
+    gCFGenSCstat = inFile.Get(f'sc/stat/gCFGen0')
+    gCFGenSCstat.SetName('gCFGenSCstat')
+    gCFGenSCtot = inFile.Get(f'sc/tot/gCFGen0')
+    gCFGenSCtot.SetName('gCFGenSCtot')
+    gCFGenSCsyst = SubtractInQuadrature(gCFGenSCtot, gCFGenSCstat, 'gCFGenSCsyst')
 
-gCFGenOCstat = inFile.Get(f'oc/stat/gCFGen0')
-gCFGenOCstat.SetName('gCFGenOCstat')
+    gCFGenOCstat = inFile.Get(f'oc/stat/gCFGen0')
+    gCFGenOCstat.SetName('gCFGenOCstat')
+    gCFGenOCtot = inFile.Get(f'oc/tot/gCFGen0')
+    gCFGenOCtot.SetName('gCFGenOCtot')
+    gCFGenOCsyst = SubtractInQuadrature(gCFGenOCtot, gCFGenOCstat, 'gCFGenOCsyst')
+
+    gCFGenOCtot.Write()
+    gCFGenSCtot.Write()
+else:
+    inFileGenCF_SC = TFile('/home/daniel/paper/CharmPaper/figures/final_D_20231221/PipDp_FINAL.root')
+    gCFGenSCstat = inFileGenCF_SC.Get('genCF_stat')
+    gCFGenSCstat.SetName('gCFGenSCstat')
+    gCFGenSCsyst = inFileGenCF_SC.Get('genCF_syst')
+    gCFGenSCsyst.SetName('gCFGenSCsyst')
+
+    inFileGenCF_OC = TFile('/home/daniel/paper/CharmPaper/figures/final_D_20231221/PipDm_FINAL.root')
+    gCFGenOCstat = inFileGenCF_OC.Get('genCF_stat')
+    gCFGenOCstat.SetName('gCFGenOCstat')
+    gCFGenOCsyst = inFileGenCF_OC.Get('genCF_syst')
+    gCFGenOCsyst.SetName('gCFGenOCsyst')
+
+oFile.cd()
+gCFGenSCstat.Write()
+gCFGenSCsyst.Write()
 gCFGenOCstat.Write()
-gCFGenOCtot = inFile.Get(f'oc/tot/gCFGen0')
-gCFGenOCtot.SetName('gCFGenOCtot')
-gCFGenOCtot.Write()
-gCFGenOCsyst = SubtractInQuadrature(gCFGenOCtot, gCFGenOCstat, 'gCFGenOCsyst')
 gCFGenOCsyst.Write()
 
 tResults.Write()
