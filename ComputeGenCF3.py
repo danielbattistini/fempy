@@ -264,26 +264,49 @@ def ComputeScattPar(**kwargs):
 
     else:
         # Compute the normalization of the MJ
-        hCFNorm = (hCFSgn - lamPar['sb'] * hCFSbr) / (hCFMJ * (lamPar['gen'] + lamPar['flat']))
-        hCFNorm.SetName(f'hCFNorm{iIter}')
-        hCFNorm.Write()
+        # hCFNorm = (hCFSgn - lamPar['sb'] * hCFSbr) / (hCFMJ * (lamPar['gen'] + lamPar['flat']))
+        # hCFNorm.SetName(f'hCFNorm{iIter}')
+        # hCFNorm.Write()
 
-        # Fit the baseline
-        fBaseLine = TF1(f'fBaseLine{iIter}', '[0]', 0, 3000)
-        ApplyCenterOfGravity(hCFNorm, gGravities).Fit(fBaseLine, 'Q', '', bkgFitRange[0], bkgFitRange[1])
-        blNorm = fBaseLine.GetParameter(0)
+        # # Fit the baseline
+        # fBaseLine = TF1(f'fBaseLine{iIter}', '[0]', 0, 3000)
+        # ApplyCenterOfGravity(hCFNorm, gGravities).Fit(fBaseLine, 'Q', '', bkgFitRange[0], bkgFitRange[1])
+        # blNorm = fBaseLine.GetParameter(0)
 
         # Compute the total background mode
-        hCFBkg = lamPar['sb'] * hCFSbr + blNorm * hCFMJ * (lamPar['gen'] + lamPar['flat'])
-        hCFBkg.SetName(f'hCFBkg{iIter}')
-        hCFBkg.Write()
+        def bkgModel(x, par):
+            bin = hCFSbr.FindBin(x[0])
+
+            sbr = hCFSbr.GetBinContent(bin)
+            c_non_femto = par[0] * (hCFMJ.GetBinContent(bin) + par[1] * x[0])
+            return lamPar['sb'] * sbr + c_non_femto * (lamPar['gen'] + lamPar['flat'])
+
+        fCFBkgModel = TF1('fCFBkgModel', bkgModel, bkgFitRange[0], bkgFitRange[1], 2) 
+        fCFBkgModel.SetParLimits(0, 0, 2)
+        fCFBkgModel.SetParLimits(1, -0.1, 0.1)
+        ApplyCenterOfGravity(hCFSgn, gGravities).Fit(fCFBkgModel, 'MR+', '', bkgFitRange[0], bkgFitRange[1])
+        # hCFBkg = lamPar['sb'] * hCFSbr + blNorm * hCFMJ * (lamPar['gen'] + lamPar['flat'])
+        # hCFBkg.SetName(f'hCFBkg{iIter}')
+        # hCFBkg.Write()
 
         # Compute the Gen CF
-        hCFFlat = MakeFlatHist(hCFSgn, lamPar['flat'], 'hCFFlat')
-        hCFGen = (hCFSgn - lamPar['sb'] * hCFSbr)/(blNorm * hCFMJ) - hCFFlat
-        hCFGen.Scale(1./lamPar['gen'])
-        hCFGen.SetName(f'hCFGen{iIter}')
-        hCFGen.Write()
+        
+        hCFGen = hCFSgn.Clone(f'hCFGen{iIter}')
+        hCFGen.Reset()
+        # hCFFlat = MakeFlatHist(hCFSgn, lamPar['flat'], 'hCFFlat')
+        for iBin in range(hCFGen.GetNbinsX()):
+            kStar = hCFGen.GetBinCenter(iBin + 1)
+            sgn = hCFSgn.GetBinContent(iBin + 1)
+            sbr = hCFSbr.GetBinContent(iBin + 1)
+            mj = hCFMJ.GetBinContent(iBin + 1)
+            non_femto = (fCFBkgModel.GetParameter(0) * (mj + kStar * fCFBkgModel.GetParameter(1)))
+            hCFGen.SetBinContent(iBin + 1, ((sgn - lamPar['sb'] * sbr)/non_femto - lamPar['flat'])/lamPar['gen'])
+            hCFGen.SetBinError(iBin + 1, 0) # Error determined with the bootstrap method
+
+        # hCFGen = (hCFSgn - lamPar['sb'] * hCFSbr)/(blNorm * hCFMJ) - hCFFlat
+        # hCFGen.Scale(1./lamPar['gen'])
+        # hCFGen.SetName(f'hCFGen{iIter}')
+        # hCFGen.Write()
 
     # Add the CF to the hist2D
     if iIter > 0:
@@ -383,7 +406,7 @@ def ComputeGenCF(args):
         oFile.mkdir(f'{comb}/stat')
         oFile.cd(f'{comb}/stat')
 
-        hhCFGenStat = TH2D('hhCFGenStat', '', dCFData[0]['sgn'].GetNbinsX(), 0, 3000, 2000, 0.5, 1.5)
+        hhCFGenStat = TH2D('hhCFGenStat', '', dCFData[0]['sgn'].GetNbinsX(), 0, 3000, 2000, 0, 2)
 
         if args.pair == 'DstarK':
             lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
@@ -433,7 +456,7 @@ def ComputeGenCF(args):
             oFile.mkdir(f'{comb}/tot')
             oFile.cd(f'{comb}/tot')
 
-            hhCFGenTot = TH2D('hhCFGenTot', '', dCFData[0]['sgn'].GetNbinsX(), 0, 3000, 2000, 0.5, 1.5)
+            hhCFGenTot = TH2D('hhCFGenTot', '', dCFData[0]['sgn'].GetNbinsX(), 0, 3000, 2000, 0, 2)
 
 
             for iIter in range(args.bs):
@@ -447,22 +470,42 @@ def ComputeGenCF(args):
                 lightFracRelVar = [0, 0.10, -0.10][np.random.randint(3)]
                 # lightFracRelVar = 0 #!
                 
+                hCFMJ = hCFMC.Clone(f'hCFMC{iIter}')
                 if args.pair == 'DstarK': #!
-                    lastBin = dhhSEData[iVar].GetXaxis().FindBin(200*0.9999)
+                    lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
                     purity, _ = ComputeIntegratedPurity(dhhSEData[iVar].ProjectionY(f"hPurity_{iVar}", 1, lastBin), name=f'{comb}_{iIter}_{iVar}')
                     DmesonPurityRelVar = [0, 0.02, -0.02][np.random.randint(3)]
-                    # DmesonPurityRelVar = 0
+                    # DmesonPurityRelVar = 0 #!
                     purity *= (1. + DmesonPurityRelVar)
                     lamPar = SumLamPar(LoadLambdaParam(cfg, npFracAbsVar, purity, lightFracRelVar), cfg['treatment'])
-                    # hCFSgn = dCFData[iVar]['sgn'].Clone(f'hCFSgn{iIter}')
-                    # hCFSbr = dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}')
 
-                    if not IsLamParMatValid(LoadLambdaParam(cfg, npFracAbsVar, purity)):
-                        fempy.error("lambda parameters don't sum to 1!!")
 
-                    hCFSgn = Bootstrap(dCFData[iVar]['sgn'].Clone(f'hCFSgn{iIter}'))
-                    hCFSbr = Bootstrap(dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}'))
+                    
+                    
+                    
+                    # if not IsLamParMatValid(LoadLambdaParam(cfg, npFracAbsVar, purity)):
+                    #     fempy.error("lambda parameters don't sum to 1!!")
 
+                    # hCFSgn = Bootstrap(dCFData[iVar]['sgn'].Clone(f'hCFSgn{iIter}'))
+                    # hCFSbr = Bootstrap(dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}'))
+
+                    # lastBin = dhhSEData[0].GetXaxis().FindBin(200*0.9999)
+                    # purity, _ = ComputeIntegratedPurity(dhhSEData[0].ProjectionY(f"Purity_{0}", 1, lastBin), name=f'{comb}_SE')
+                    # lamPar = SumLamPar(LoadLambdaParam(cfg, 0, purity), cfg['treatment'])
+
+                    hCFSgn = dCFData[iVar]['sgn'].Clone(f'hCFSgn{iIter}')
+                    hCFSbr = dCFData[iVar]['sbr'].Clone(f'hCFSbr{iIter}')
+                    ComputeScattPar(
+                        sgn=Bootstrap(hCFSgn),
+                        sbr=Bootstrap(hCFSbr),
+                        mj=Bootstrap(hCFMJ),
+                        iVar=0,
+                        iIter=iIter,
+                        lamPar=lamPar,
+                        bkgFitRange=bkgFitRanges[np.random.randint(3)], #!
+                        hhCFGen=hhCFGenTot,
+                        gGravities=gGravities,
+                    )
                 elif args.pair == 'DstarPi':
                     lamPar = SumLamPar(LoadLambdaParam(cfg, npFracAbsVar, lightFracRelVar=lightFracRelVar), cfg['treatment'])
                     hSESgn = dSEPurity[iVar] * dSEData[iVar]['sgn']
@@ -475,20 +518,18 @@ def ComputeGenCF(args):
                     hMESgn = VaryHistogram(dMEPurity[iVar], np.random.randint(-1, 2)) * dMEData[iVar]['sgn']
                     hSESgn.Scale(ComputeNormFactor(hSESgn, hMESgn, normRange[0], normRange[1]))
                     hCFSgn = hSESgn/hMESgn
-                    hCFSgn = Bootstrap(hCFSgn)
-                hCFMJ = hCFMC.Clone(f'hCFMC{iIter}')
 
-                ComputeScattPar(
-                    sgn=hCFSgn, #!
-                    sbr=None if args.pair == 'DstarPi' else hCFSbr,
-                    mj=Bootstrap(hCFMJ),
-                    iVar=iVar,
-                    iIter=iIter,
-                    lamPar=lamPar,
-                    bkgFitRange=bkgFitRanges[np.random.randint(3)],
-                    hhCFGen=hhCFGenTot,
-                    gGravities=gGravities,
-                )
+                    ComputeScattPar(
+                        sgn=Bootstrap(hCFSgn), #!
+                        sbr=None,
+                        mj=Bootstrap(hCFMJ),
+                        iVar=iVar,
+                        iIter=iIter,
+                        lamPar=lamPar,
+                        bkgFitRange=bkgFitRanges[np.random.randint(3)],
+                        hhCFGen=hhCFGenTot,
+                        gGravities=gGravities,
+                    )
 
             oFile.cd(comb)
             hhCFGenTot.Write()
@@ -499,8 +540,17 @@ def ComputeGenCF(args):
             hCFGenSyst.Reset()
             for iBin in range(hCFGenTot.GetNbinsX()):
                 hCFGenTotProj = hhCFGenTot.ProjectionY(f'hGenCF_bin{iBin}', iBin+1, iBin+1)
+
                 muTot = hCFGenTotProj.GetMean()
                 sigmaTot = hCFGenTotProj.GetStdDev()
+
+                # to remove outliers
+                hCFGenTotProj.GetXaxis().SetRangeUser(muTot - 4 * sigmaTot, muTot + 4 * sigmaTot)
+                
+                # recalculation
+                muTot = hCFGenTotProj.GetMean()
+                sigmaTot = hCFGenTotProj.GetStdDev()
+
                 muStat = hCFGenStat.GetBinContent(iBin + 1)
                 sigmaStat = hCFGenStat.GetBinError(iBin + 1)
                 shift = muStat - muTot
@@ -519,7 +569,25 @@ def ComputeGenCF(args):
             gCFGenTot = ApplyCenterOfGravity(hCFGenTot, gGravities)
             gCFGenTot.SetName('gCFGenTot')
             gCFGenTot.Write()
-        gBrackets = ComputeBinBrackets(hCFGenTot)
+
+            gCFGenSyst = ApplyCenterOfGravity(hCFGenSyst, gGravities)
+            gCFGenSyst.SetName('gCFGenSyst')
+            gCFGenSyst.Write()
+
+            # Compute the average of the syst unc in k* in [0, 300] MeV
+            systs = []
+            for iBin in range(hCFGenSyst.FindBin(300)):
+                systs.append(hCFGenSyst.GetBinError(iBin+1))
+            systAvg = sum(systs) / len(systs)
+
+            hCFGenSystAvg = hCFGenSyst.Clone('hCFGenSystAvg')
+            for iBin in range(hCFGenSyst.FindBin(300)):
+                hCFGenSystAvg.SetBinError(iBin + 1, systAvg)
+            gCFGenSystAvg = ApplyCenterOfGravity(hCFGenSystAvg, gGravities)
+            gCFGenSystAvg.SetName('gCFGenSystAvg')
+            gCFGenSystAvg.Write()
+
+            gBrackets = ComputeBinBrackets(hCFGenTot)
         gBrackets.Write()
 
     # Save purity
