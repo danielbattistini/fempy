@@ -214,7 +214,18 @@ class MassFitter {
                 
                 // powex
                 {3, {"norm", 2000, 100, 6000}},
-                {4, {"slope", 20, 5, 30}},
+                {4, {"slope", 20, 10, 30}},
+            };
+        } else if (name == "413_gaus_powex_DstarKFemto_SE") {
+            fFitPars = {
+                // gaussian
+                {0, {"norm", 1, 0.01, 5}},
+                {1, {"mean", 0.1455, 0.1443, 0.1458}},
+                {2, {"sigma", 0.0006, 0.0005, 0.0007}},
+                
+                // powex
+                {3, {"norm", 2000, 100, 6000}},
+                {4, {"slope", 20, 2, 30}},
             };
         } else if (name == "413_gaus_powex_DstarFemto_ME") {
             fFitPars = {
@@ -299,13 +310,7 @@ class MassFitter {
         
         for (int iPar = 0; iPar < this->fNSgnPars + this->fNBkgPars; iPar++) {
             auto pars = fFitPars[iPar];
-            //std::cout << iPar << " " 
-            //          << std::get<0>(pars)
-            //          << " " << std::get<1>(pars)
-            //          << " " << std::get<2>(pars)
-            //          << " " << std::get<3>(pars)
-            //          << std::endl;
-            
+
             this->fFit->SetParName(iPar, std::get<0>(pars).data());
             this->fFit->SetParameter(iPar, std::get<1>(pars));
             this->fFit->SetParLimits(iPar, std::get<2>(pars), std::get<3>(pars));
