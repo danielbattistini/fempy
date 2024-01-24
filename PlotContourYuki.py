@@ -1,11 +1,20 @@
 '''
  --> DstarPi
 python3 PlotContourYuki.py -b --pair DstarPi /home/daniel/an/DstarPi/20_luuksel/SimScanDebug_nopc_kStarBW50MeV_bs10000syst_stat_source-centr_trials.root /home/daniel/an/DstarPi/20_luuksel/SimScanDebug_nopc_kStarBW50MeV_bs10000syst_tot_source-all_trials.root /home/daniel/an/DstarPi/20_luuksel/GenCFDebug_nopc_kStarBW50MeV_bs10000syst.root /home/daniel/an/DstarPi/20_luuksel/PlotSimScanDebug_nopc_kStarBW50MeV_bs10000syst.root
+python3 PlotContourYuki.py -b --pair DstarPi \
+    /home/daniel/an/DstarPi/20_luuksel/SimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000_unc-stat_source-centr_trials.root \
+    /home/daniel/an/DstarPi/20_luuksel/SimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000_unc-tot_source-all_trials.root \
+    /home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root \
+    /home/daniel/an/DstarPi/20_luuksel/PlotSimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root.root
 
  -->Pi
 
 python3 PlotContourYuki.py -b --pair DPi /home/daniel/paper/CharmPaper/figures/final_D_20231221/SimScan_5000syst_stat_source-centr_trials.root /home/daniel/paper/CharmPaper/figures/final_D_20231221/SimScan_5000syst_tot_source-all_trials.root X /home/daniel/paper/CharmPaper/figures/final_D_20231221/PlotSimScanDebug_bs5000syst.root
-
+python3 PlotContourYuki.py -b --pair DPi \
+    /home/daniel/paper/.CharmPaper.bk/figures/final_D_20231221/SimScan_5000syst_stat_source-centr_trials.root \
+    /home/daniel/paper/.CharmPaper.bk/figures/final_D_20231221/SimScan_5000syst_tot_source-all_trials.root \
+    X \
+    /home/daniel/paper/.CharmPaper.bk/figures/final_D_20231221/PlotSimScanDebug_bs5000syst_savefits.root 
 
 '''
 
@@ -18,7 +27,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
-from ROOT import gROOT, TFile, RDataFrame, TCanvas, TLegend, TColor, TLatex, TGraph, TGraphErrors, TLine, kGray, EColor, TGraphAsymmErrors, gStyle, gROOT
+from ROOT import gROOT, TFile, RDataFrame, TCanvas, TLegend, TColor, TLatex, TGraph, TH1D, TGraphErrors, TLine, kGray, EColor, TGraphAsymmErrors, gStyle, gROOT
 gROOT.SetBatch(True)
 
 from fempy.utils import style
@@ -125,12 +134,12 @@ def EllipseToGraph(ellipse, nPoints=500):
 
         xrot = + x * np.cos(angle*np.pi / 180) - y * np.sin(angle*np.pi / 180)
         yrot = + x * np.sin(angle*np.pi / 180) + y * np.cos(angle*np.pi / 180)
-        
+
         gEllipse.SetPoint(iPoint, xrot + center[0], yrot + center[1])
     return gEllipse
 
 albumen = '#ffdd88'
-yoke = '#ff8866'
+yoke = '#ff6f6f'
 
 # Plot range
 xlim = [-0.18, 0.38]
@@ -161,6 +170,16 @@ tResultsTot = inFileTot.Get("tResults")
 pointsTot = np.array(list(RDataFrame(tResultsTot).AsNumpy(['vq', 'vd']).values()))
 dfPot = pd.DataFrame(pointsTot.T, columns=['vq', 'vd'])
 
+hChi2Ndf = TH1D('hChi2Ndf', '', 100, 0, 10)
+inFileTot.Get('tResults').Draw('chi2ndf>>hChi2Ndf')
+# chi2ndf = hChi2Ndf.GetMean() / 2
+# Use recalculated chi2 (done at the end of the macro)
+if args.pair == 'DstarPi':
+    chi2ndf = 1.0509003475188607
+elif args.pair == 'DPi':
+    chi2ndf = 0.6987477090252844
+    
+
 # Convert potential strenght to scattering length
 gPot2ScatLen = LoadPot2ScatLenConversionTable()
 dfPot['a0q'] = dfPot.apply(lambda row : gPot2ScatLen.Eval(row['vq']), axis=1)
@@ -173,9 +192,29 @@ a0dTot = yTot.mean()
 a0qUncTot = xTot.std()
 a0dUncTot = yTot.std()
 
+# det scat par unc
+inFileStat = TFile(args.inFileStat)
+tResultsStat = inFileStat.Get("tResults")
+pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['vq', 'vd']).values()))
+dfPotStat = pd.DataFrame(pointsStat.T, columns=['vq', 'vd'])
+
+# Convert potential strenght to scattering length
+dfPotStat['a0q'] = dfPotStat.apply(lambda row : gPot2ScatLen.Eval(row['vq']), axis=1)
+dfPotStat['a0d'] = dfPotStat.apply(lambda row : gPot2ScatLen.Eval(row['vd']), axis=1)
+pointsStat = dfPotStat[['a0q' , 'a0d']].T.to_numpy()
+_, _, xStat, yStat = dfPotStat.T.to_numpy()
+
+a0qStat = xStat.mean()
+a0dStat = yStat.mean()
+a0qUncStat = xStat.std()
+a0dUncStat = yStat.std()
+
+a0qShift = a0qTot - a0qStat
+a0dShift = a0dTot - a0dStat
+
 # Plot a transparent 1 and 2 standard deviation covariance ellipse
-ellip2Tot = plot_point_cov(pointsTot.T, nstd=2, color=albumen, label='95% CL')
-ellip1Tot = plot_point_cov(pointsTot.T, nstd=1, color=yoke, label='68% CL')
+ellip2Tot = plot_point_cov(pointsTot.T, nstd=2, enlarge=(a0qShift, a0dShift), color=albumen, label='95% CL')
+ellip1Tot = plot_point_cov(pointsTot.T, nstd=1, enlarge=(a0qShift, a0dShift), color=yoke, label='68% CL')
 
 cCountour = TCanvas('cCountour', '', 600, 600)
 pairLatex = 'D#pi' if args.pair == 'DPi' else 'D*#pi'
@@ -208,7 +247,6 @@ cl95ColorRoot = TColor(cl95Color, cl95ColorRGB[0], cl95ColorRGB[1], cl95ColorRGB
 gCountourCL95.SetMarkerColor(cl95Color)
 gCountourCL95.SetLineColor(cl95Color)
 gCountourCL95.SetFillColor(cl95Color)
-gCountourCL95.Draw('same fce3')
 
 gCountourCL68 = EllipseToGraph(ellip1Tot)
 gCountourCL68.SetName('gCountourCL68')
@@ -218,22 +256,40 @@ cl68RootColor = TColor(cl68Color, cl68RGBColor[0], cl68RGBColor[1], cl68RGBColor
 gCountourCL68.SetMarkerColor(cl68Color)
 gCountourCL68.SetLineColor(cl68Color)
 gCountourCL68.SetFillColorAlpha(cl68Color, 1)
+
+def ShiftGraph(graph, deltaX, deltaY):
+    for iPoint in range(graph.GetN()):
+        x_new = graph.GetPointX(iPoint) + deltaX
+        y_new = graph.GetPointY(iPoint) + deltaY
+        graph.SetPoint(iPoint, x_new, y_new)
+ShiftGraph(gCountourCL95, -a0qShift, -a0dShift)
+ShiftGraph(gCountourCL68, -a0qShift, -a0dShift)
+gCountourCL95.Draw('same fce3')
 gCountourCL68.Draw('same fce3')
 
 gScattParTot = TGraphErrors(1)
 gScattParTot.SetName('gScatPar')
 gScattParTot.SetPoint(0, a0qTot, a0dTot)
-gScattParTot.SetPointError(0, a0qUncTot, a0dUncTot)
+
+a0qUncTotShift = (a0qUncTot ** 2 + a0qShift**2) ** 0.5
+a0dUncTotShift = (a0dUncTot ** 2 + a0dShift**2) ** 0.5
+
+# a0qUncTotShift = a0qUncTot + abs(a0qShift)
+# a0dUncTotShift = a0dUncTot + abs(a0dShift)
+
+gScattParTot.SetPointError(0, a0qUncTotShift, a0dUncTotShift)
+# gScattParTot.SetPointError(0, a0qUncTot, a0dUncTot)
 gScattParTot.SetMarkerStyle(20)
 gScattParTot.SetMarkerSize(1)
 gScattParTot.SetMarkerColor(1)
 gScattParTot.SetLineWidth(2)
 gScattParTot.SetLineColor(1)
 gScattParTot.SetMarkerColor(1)
+ShiftGraph(gScattParTot, -a0qShift, -a0dShift)
 gScattParTot.Draw('same pe')
 
 leg = TLegend(0.48, 0.64 if args.pair == 'DstarPi' else 0.4, 0.95, 0.78)
-leg.AddEntry(gScattParTot, 'Data', 'lpe')
+leg.AddEntry(gScattParTot, f'Data (#chi^{{2}}/ndf = {chi2ndf:.1f})', 'lpe')
 leg.AddEntry(gCountourCL95, '95% CL', 'f')
 leg.AddEntry(gCountourCL68, '68% CL', 'f')
 
@@ -335,38 +391,22 @@ if (args.pair == 'DPi'):
 
 print(f'output saved in {path.splitext(args.oFile)[0]}_contour.root')
 
-# det scat par unc
-inFileStat = TFile(args.inFileStat)
-tResultsStat = inFileStat.Get("tResults")
-pointsStat = np.array(list(RDataFrame(tResultsStat).AsNumpy(['vq', 'vd']).values()))
-dfPotStat = pd.DataFrame(pointsStat.T, columns=['vq', 'vd'])
-
-# Convert potential strenght to scattering length
-dfPotStat['a0q'] = dfPotStat.apply(lambda row : gPot2ScatLen.Eval(row['vq']), axis=1)
-dfPotStat['a0d'] = dfPotStat.apply(lambda row : gPot2ScatLen.Eval(row['vd']), axis=1)
-pointsStat = dfPotStat[['a0q' , 'a0d']].T.to_numpy()
-_, _, xStat, yStat = dfPotStat.T.to_numpy()
-
-a0qStat = xStat.mean()
-a0dStat = yStat.mean()
-a0qUncStat = xStat.std()
-a0dUncStat = yStat.std()
-
-a0qShift = a0qStat - a0qTot
-a0dShift = a0dStat - a0dTot
 
 print()
+print(f'a0q unc tot = {a0qUncTot:.8f} fm')
+print(f'a0d unc tot = {a0dUncTot:.8f} fm')
+
 print(f'a0q shift = {a0qShift:.8f} fm')
 print(f'a0d shift = {a0dShift:.8f} fm')
 
-a0qUncSyst = (a0qUncTot ** 2 + a0qUncStat ** 2) ** 0.5
-a0dUncSyst = (a0dUncTot ** 2 + a0dUncStat ** 2) ** 0.5
+a0qUncSyst = (a0qUncTot ** 2 - a0qUncStat ** 2) ** 0.5
+a0dUncSyst = (a0dUncTot ** 2 - a0dUncStat ** 2) ** 0.5
 print()
 print(f'a0qStat = {a0qStat:.8f} +/- {a0qUncStat:.8f} (stat) +/- {a0qUncSyst:.8f} (tot ⊖ stat) fm')
 print(f'a0dStat = {a0dStat:.8f} +/- {a0dUncStat:.8f} (stat) +/- {a0dUncSyst:.8f} (tot ⊖ stat) fm')
 
-a0qUncSystShift = (a0qUncTot ** 2 + a0qUncStat ** 2 + a0qShift ** 2) ** 0.5
-a0dUncSystShift = (a0dUncTot ** 2 + a0dUncStat ** 2 + a0dShift ** 2) ** 0.5
+a0qUncSystShift = (a0qUncTot ** 2 - a0qUncStat ** 2 + a0qShift ** 2) ** 0.5
+a0dUncSystShift = (a0dUncTot ** 2 - a0dUncStat ** 2 + a0dShift ** 2) ** 0.5
 
 print()
 print(f'a0qTot = {a0qTot:.8f} +/- {a0qUncStat:.8f} (stat) +/- {a0qUncSystShift:.8f} (tot ⊖ stat ⊕ shift) fm')
@@ -377,14 +417,21 @@ print(f'a0dTot = {a0dTot:.8f} +/- {a0dUncStat:.8f} (stat) +/- {a0dUncSystShift:.
 xlim = [0, 299.99]
 ylim = [0.7, 1.849]
 
+chi2ndfRecalc = 0.
 for comb in ['SC', 'OC']:
     if args.pair == 'DstarPi':
         inFileCF = TFile(args.inFileCF)
     else:
         if comb == 'SC':
-            inFileCF = TFile('/home/daniel/paper/CharmPaper/figures/final_D_20231221/PipDp_FINAL.root')
+            if args.pair == 'DstarPi':
+                inFileCF = TFile('/home/daniel/paper/CharmPaper/figures/final_D_20231221/PipDp_FINAL.root')
+            else:
+                inFileCF = TFile('/home/daniel/paper/.CharmPaper.bk/figures/final_D_20231221/PipDp_FINAL.root')
         else:
-            inFileCF = TFile('/home/daniel/paper/CharmPaper/figures/final_D_20231221/PipDm_FINAL.root')
+            if args.pair == 'DstarPi':
+                inFileCF = TFile('/home/daniel/paper/CharmPaper/figures/final_D_20231221/PipDm_FINAL.root')
+            else:
+                inFileCF = TFile('/home/daniel/paper/.CharmPaper.bk/figures/final_D_20231221/PipDm_FINAL.root')
 
     graphsTot = inFileTot.Get(f'gCFGen{comb}')
 
@@ -604,8 +651,8 @@ for comb in ['SC', 'OC']:
     gCFFit.SetMarkerStyle(20)
     gCFFit.SetMarkerSize(0)
     gCFFit.SetFillStyle(1001)
-    gCFFit.SetMarkerColorAlpha(EColor.kBlue + 1, 0.7)
-    gCFFit.SetFillColorAlpha(EColor.kBlue + 1, 0.7)
+    gCFFit.SetMarkerColorAlpha(EColor.kRed - 4, 0.7)
+    gCFFit.SetFillColorAlpha(EColor.kRed - 4, 0.7)
     gCFFit.SetLineColorAlpha(0, 0)
     gCFFit.Draw("same e3")
 
@@ -665,17 +712,24 @@ for comb in ['SC', 'OC']:
         hist.GetYaxis().SetTitleOffset(1.25)
         
     # SetHistStyle(gBrackets)
-    for iPoint in range(gBrackets.GetN()):
-        if type(gCFGenSystAvg) == TGraphErrors:
-            gCFGenSystAvg.SetPointError(iPoint, 0.5 * gCFGen.GetErrorX(iPoint), gCFGenSystAvg.GetErrorY(iPoint))
-        elif type(gCFGenSystAvg) == TGraphAsymmErrors:
-            gCFGenSystAvg.SetPointError(iPoint, 0.5 * gCFGen.GetErrorX(iPoint), 0.5 * gCFGen.GetErrorX(iPoint), gCFGenSystAvg.GetErrorY(iPoint), gCFGenSystAvg.GetErrorY(iPoint))
+    useAvgSyst = True
+    if useAvgSyst:
+        for iPoint in range(gBrackets.GetN()):
+            if type(gCFGenSystAvg) == TGraphErrors:
+                gCFGenSystAvg.SetPointError(iPoint, 0.5 * gCFGen.GetErrorX(iPoint), gCFGenSystAvg.GetErrorY(iPoint))
+            elif type(gCFGenSystAvg) == TGraphAsymmErrors:
+                gCFGenSystAvg.SetPointError(iPoint, 0.5 * gCFGen.GetErrorX(iPoint), 0.5 * gCFGen.GetErrorX(iPoint), gCFGenSystAvg.GetErrorY(iPoint), gCFGenSystAvg.GetErrorY(iPoint))
 
-    gCFGenSystAvg.SetLineColorAlpha(0, 0)
-    gCFGenSystAvg.SetFillColorAlpha(kGray+1, 0.65)
-    gCFGenSystAvg.SetFillStyle(1001)
-    gCFGenSystAvg.Draw('same ze2')
-
+        gCFGenSystAvg.SetLineColorAlpha(0, 0)
+        gCFGenSystAvg.SetFillColorAlpha(kGray+1, 0.65)
+        gCFGenSystAvg.SetFillStyle(1001)
+        gCFGenSystAvg.Draw('same ze2')
+    else:
+        gCFGenSyst = inFileCF.Get(f'{comb.lower()}/gCFGenSyst')
+        gCFGenSyst.SetLineColorAlpha(0, 0)
+        gCFGenSyst.SetFillColorAlpha(kGray+1, 0.65)
+        gCFGenSyst.SetFillStyle(1001)
+        gCFGenSyst.Draw('same ze2')
     # gCFGen.SetMarkerStyle(24)
     gCFGen.SetMarkerStyle(20)
     gCFGen.SetMarkerSize(0.5)
@@ -718,5 +772,48 @@ for comb in ['SC', 'OC']:
         cCFGen.SaveAs(f'{path.splitext(args.oFile)[0]}_fit{comb}.{ext}')
 
     oFile = TFile(f'{path.splitext(args.oFile)[0]}_fit{comb}.root', 'recreate')
+    gCoulomb.Write()
+    gCFGen.Write()
+    gCFGenSystAvg.Write() if useAvgSyst else gCFGenSyst.Write()
+    gCFFit.Write()
 
+    def EvalError(graph, x):
+        for iPoint in range(graph.GetN() -1):
+            xLeft = graph.GetPointX(iPoint)
+            xRight = graph.GetPointX(iPoint+1)
+
+            if xLeft < x < xRight:
+                yUncLeft = graph.GetErrorY(iPoint)
+                yUncRight = graph.GetErrorY(iPoint + 1)
+
+                m = (yUncRight - yUncLeft) / (xRight - xLeft)
+                return m * (x - xLeft) + yUncLeft
+
+        # return 100% error in case the point is outside the range of the graph
+        print("x outside of the graph range")
+        return graph.Eval(x)
+
+
+
+    # chi2 recalc
+    nPoints = 0
+    for iPoint in range(gCFGen.GetN()):
+        x = gCFGen.GetPointX(iPoint)
+        if x > 250:
+            break
+        nPoints += 1
+        y = gCFGen.GetPointY(iPoint)
+        yStatUnc = gCFGen.GetErrorY(iPoint)
+        if useAvgSyst:
+            ySystUnc = gCFGenSystAvg.GetErrorY(iPoint)
+        else:
+            ySystUnc = gCFGenSyst.GetErrorY(iPoint)
+
+        iBin = gCFFit.FindBin(x)
+        yFit = gCFFit.GetBinContent(iBin)
+        yFitUnc = gCFFit.GetBinError(iBin)
+        yUnc = (yStatUnc ** 2 + ySystUnc ** 2 + yFitUnc ** 2) ** 0.5
+        chi2ndfRecalc += ((y - yFit)/yUnc) ** 2
+chi2ndfRecalc /= (2 * nPoints - 2)
+print('chi2/ndf',  chi2ndfRecalc)
 oFile.Close()

@@ -346,20 +346,16 @@ def SubtractInQuadrature(graph1, graph2, name='', shift=True):
     return gAns
 
 if args.pair == 'DstarPi':
-    gCFGenSCstat = inFile.Get(f'sc/stat/gCFGen0')
+    gCFGenSCstat = inFile.Get(f'sc/gCFGenStat')
     gCFGenSCstat.SetName('gCFGenSCstat')
-    gCFGenSCtot = inFile.Get(f'sc/tot/gCFGen0')
-    gCFGenSCtot.SetName('gCFGenSCtot')
-    gCFGenSCsyst = SubtractInQuadrature(gCFGenSCtot, gCFGenSCstat, 'gCFGenSCsyst')
+    gCFGenSCsyst = inFile.Get(f'sc/gCFGenSyst')
+    gCFGenSCsyst.SetName('gCFGenSCsyst')
 
-    gCFGenOCstat = inFile.Get(f'oc/stat/gCFGen0')
+    gCFGenOCstat = inFile.Get(f'oc/gCFGenStat')
     gCFGenOCstat.SetName('gCFGenOCstat')
-    gCFGenOCtot = inFile.Get(f'oc/tot/gCFGen0')
-    gCFGenOCtot.SetName('gCFGenOCtot')
-    gCFGenOCsyst = SubtractInQuadrature(gCFGenOCtot, gCFGenOCstat, 'gCFGenOCsyst')
+    gCFGenOCsyst = inFile.Get(f'oc/gCFGenSyst')
+    gCFGenOCsyst.SetName('gCFGenOCsyst')
 
-    gCFGenOCtot.Write()
-    gCFGenSCtot.Write()
 else:
     inFileGenCF_SC = TFile('/home/daniel/paper/CharmPaper/figures/final_D_20231221/PipDp_FINAL.root')
     gCFGenSCstat = inFileGenCF_SC.Get('genCF_stat')
