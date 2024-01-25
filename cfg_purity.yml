@@ -1,33 +1,84 @@
-pair: LPi
-
-# histos for neutral particles purity, enter 'null' if not needed
-infiledata: /home/mdicostanzo/physsoftware/fempy/AnalysisResultsExample.root
-
-# histos for charged particles purity, enter 'null' if not needed
-infilemc: /home/mdicostanzo/physsoftware/fempy/AnalysisResultsExample.root 
-
 # where to save the output
-odir: ./
-suffix: PurityTest.root
+odir: ~/an/LPi/Trains/02_allpc/data/histos
+suffix: SameMeanSp5Far
 
 runsuffix: 1001 # The last parameter of the AddTask macro
 
-neutrpart:
--   type: v0                # or Antiv0
-    name: nameofparticle    # e.g. Lambda or AntiLambda
-    ptMins: [0., 0.5]       # pT bins lower and upper edges
-    ptMaxs: [0.5, 1.]      
-    sgnfuncname: 'hat'      # see MassFitter.cxx for the implemented functions
-    bkgfuncname: 'spline5'  
-    nsigma: 2
-    task: 'Purity'          # option for MassFitter class
-    fitrange: [1.102, 1.128]
-    cfgfile: /home/mdicostanzo/an/LPi/Analysis/configs/cfg_purity.yml
-    fitsettings:              # parameter initialization for sgnfunc and bkgfunc
-    -   p0: ["p0", 1, 0, 2]   # [parname, startvalue, lowbound, uppbound]
-        p1: ["p1", 1, 0, 2]   
-        p2: ["p2", 1, 0, 2]   
-        p3: ["p3", 1, 0, 2]   
-        p4: ["p4", 1, 0, 2] 
-        xknots: [-1., 0., 1.]
-    
+infilemc: absolute/path/to/mc/file.root  # or null if there are no particles for which purity is computed with mc techniques
+MCpurityparts:
+-   idpartfile: identified/particles/file
+    corridpartfile: correctly/identified/particles/file
+    avgptpairs: [kstar/pt/TH2D/of/pair1, kstar/pt/TH2D/of/pair2]
+    clonedSEhisto: histogram/to/be/cloned/for/saving/avgpurity
+
+infiledata: absolute/path/to/data/file.root  # or null if there are no particles for which purity is computed with mc techniques
+IMpurityparts:
+-   invmassfilepaths: [path/to/InvMassPt/histo/part, path/to/InvMassPt/histo/antipart]
+    avgptpairs: [kstar/pt/TH2D/of/pair1/particle, kstar/pt/TH2D/of/pair1/particle,
+                 kstar/pt/TH2D/of/pair1/antiparticle, kstar/pt/TH2D/of/pair1/antiparticle]
+    clonedSEhistos: [histogram/to/be/cloned/for/saving/avgpurity/pair1/particle, 
+                     histogram/to/be/cloned/for/saving/avgpurity/pair1/particle,
+                     histogram/to/be/cloned/for/saving/avgpurity/pair1/antiparticle, 
+                     histogram/to/be/cloned/for/saving/avgpurity/pair1/antiparticle]
+    ptMins: [0.3, 0.8, 1.3, 1.8, 2.3, 2.8, 3.3, 3.8]
+    ptMaxs: [0.8, 1.3, 1.8, 2.3, 2.8, 3.3, 3.8, 4.3]
+    drawrange: [1.083, 1.15]        # x-axis draw range for the TCanvas 
+    fitrange: [1.088, 1.144]        # fit range 
+    sgnfuncname: 'hat'              # or doublegaus or gaus
+    bkgfuncname: 'spline5'          # or spline3, powex, exp, pol1, pol5
+    splineylimits: 35               # percentage for parlimits when fitting the spline compared to prefit results
+    nsigma: null                    # define signal window in terms of multiples of sigma
+    PDGmass: 1.115683               # [GeV/c2]
+    intrange: 0.004                 # define signal window in terms of PDGmass ± nsigma 
+    drawopt: 'ispkc'                # 'i' to print fit stats, 's' to draw signal window, 
+                                    # 'p' to draw prefit exclusion window, 'k' to draw spline knots
+                                    # 'c' to draw all lines close to the corresponding data point
+    fitsettings:
+    -   p0: ["norm", 3500, 3000, 4000]                    # parameter init: ["name", starting guess, low lim, upp lim]
+        p1: ["Mean", 1.116, 1.115, 1.117] 
+        p2: ["Sigma", 0.0007, 0.0005, 0.0015] 
+        p3: ["NarrGaussYield", 0.7, 0.4, 0.8] 
+        p4: ["RatioWidths", 2, 1, 4] 
+        xknots: [1.094, 1.1, 1.106, 1.126, 1.132, 1.138]  # specific for splines, set x knots positions
+    -   p0: ["norm", 7000, 5000, 20000] 
+        p1: ["Mean", 1.1156, 1.1155, 1.1159] 
+        p2: ["Sigma", 0.0007, 0.0005, 0.0015] 
+        p3: ["NarrGaussYield", 0.7, 0.4, 0.8] 
+        p4: ["RatioWidths", 2, 1, 4] 
+        xknots: [1.094, 1.1, 1.106, 1.126, 1.132, 1.138]
+    -   p0: ["norm", 7000, 5000, 20000] 
+        p1: ["Mean", 1.116, 1.115, 1.117] 
+        p2: ["Sigma", 0.0007, 0.0005, 0.0015] 
+        p3: ["NarrGaussYield", 0.7, 0.6, 0.8] 
+        p4: ["RatioWidths", 2, 1, 5] 
+        xknots: [1.094, 1.1, 1.106, 1.126, 1.132, 1.138]
+    -   p0: ["norm", 8000, 7000, 10000] 
+        p1: ["Mean", 1.116, 1.115, 1.117] 
+        p2: ["Sigma", 0.0007, 0.0005, 0.0015] 
+        p3: ["NarrGaussYield", 0.7, 0.4, 0.8] 
+        p4: ["RatioWidths", 2, 1, 4] 
+        xknots: [1.094, 1.1, 1.106, 1.126, 1.132, 1.138]
+    -   p0: ["norm", 5500, 5000, 6000] 
+        p1: ["Mean", 1.116, 1.115, 1.117] 
+        p2: ["Sigma", 0.0007, 0.0005, 0.0015] 
+        p3: ["NarrGaussYield", 0.7, 0.4, 0.8] 
+        p4: ["RatioWidths", 2, 1, 4] 
+        xknots: [1.094, 1.1, 1.106, 1.126, 1.132, 1.138]
+    -   p0: ["norm", 2000, 1000, 5000] 
+        p1: ["Mean", 1.116, 1.115, 1.117] 
+        p2: ["Sigma", 0.0007, 0.0005, 0.0015] 
+        p3: ["NarrGaussYield", 0.7, 0.6, 0.8] 
+        p4: ["RatioWidths", 2, 1, 4] 
+        xknots: [1.094, 1.1, 1.106, 1.126, 1.132, 1.138]
+    -   p0: ["norm", 1500, 1000, 2000] 
+        p1: ["Mean", 1.116, 1.115, 1.117] 
+        p2: ["Sigma", 0.0007, 0.0005, 0.0015] 
+        p3: ["NarrGaussYield", 0.65, 0.4, 0.7] 
+        p4: ["RatioWidths", 1.5, 1, 3] 
+        xknots: [1.094, 1.1, 1.106, 1.126, 1.132, 1.138]
+    -   p0: ["norm", 500, 0, 1000] 
+        p1: ["Mean", 1.116, 1.115, 1.117] 
+        p2: ["Sigma", 0.0007, 0.0005, 0.0015] 
+        p3: ["NarrGaussYield", 0.65, 0.4, 0.7] 
+        p4: ["RatioWidths", 1.5, 1, 3] 
+        xknots: [1.094, 1.1, 1.106, 1.126, 1.132, 1.138]

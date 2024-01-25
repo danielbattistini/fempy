@@ -7,7 +7,8 @@ import sys
 import yaml
 
 from ROOT import TDatabasePDG, TGraphErrors
-
+import math
+from math import sqrt
 import fempy
 
 class Pair:
@@ -121,3 +122,31 @@ def ComputeBinBrackets(hist, name='gBrackets'):
         gBrackets.SetPoint(iBin, hist.GetBinCenter(iBin+1), hist.GetBinContent(iBin+1))
         gBrackets.SetPointError(iBin, hist.GetBinWidth(iBin+1)/2, 0)
     return gBrackets
+
+def WeightedAverage(hQuantity, hWeight):
+
+    totWeight = hWeight.Integral()
+    avgQuantity = 0
+    avgQuantityErr = 0
+    for iBin in range(hQuantity.GetNbinsX()):
+        
+        binQuantity = hQuantity.GetBinContent(iBin + 1)
+        binWeight = hWeight.GetBinContent(iBin + 1)
+        avgQuantity += binQuantity * binWeight
+        
+    avgQuantity = avgQuantity / totWeight
+
+    for iBin in range(hQuantity.GetNbinsX()):
+        
+        binQuantity = hQuantity.GetBinContent(iBin + 1)
+        binWeight = hWeight.GetBinContent(iBin + 1)
+
+        binQuantityErr = hQuantity.GetBinError(iBin + 1)
+        binWeightErr = hWeight.GetBinError(iBin + 1)
+        weightErr = ( binQuantity / totWeight - ( avgQuantity / (totWeight**2) ) ) * binWeightErr 
+        quantityErr = binWeight * binQuantityErr
+        avgQuantityErr += weightErr**2 + quantityErr**2 
+    
+    avgQuantityErr = math.sqrt(avgQuantityErr)        
+
+    return avgQuantity, avgQuantityErr
