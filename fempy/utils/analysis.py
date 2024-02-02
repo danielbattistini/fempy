@@ -6,6 +6,16 @@ import sys
 
 import yaml
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+from ROOT import TDatabasePDG, TGraphErrors
+
+=======
+>>>>>>> f60a00e (draw components in CF fitter)
+=======
+>>>>>>> 2a4e774 (deleted comments)
 from ROOT import TDatabasePDG, TGraphErrors, TH1F
 import math
 from math import sqrt
