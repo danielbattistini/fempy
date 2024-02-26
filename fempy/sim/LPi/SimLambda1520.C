@@ -42,7 +42,7 @@ float RelativePairMomentum(TLorentzVector &PartOne, TLorentzVector &PartTwo) {
   return 0.5 * trackRelK.P();
 }
 
-void SimLambda1520(int nEvents=1, int seed=42) {
+void SimLambda1520(int nEvents=10000, int seed=42) {
     
     std::map<TString, TH1F*> hSEPairs;
     TString lambdaPiPlus("3122211");
@@ -101,13 +101,17 @@ void SimLambda1520(int nEvents=1, int seed=42) {
     double massLambda1520 = TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Mass();
     cout << "Lambda1520 mass " << massLambda1520 << endl;
     double hBar = 1.054571817*pow(10,-34);
+    cout << "Lambda(1520) lifetime: " << TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Lifetime() << endl; 
+    cout << "Lambda(1520) lifetime multiplied: " << pow(10, 20)*TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Lifetime() << endl; 
     double lifetimeLambda1520 = 3*pow(10, 11)*TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Lifetime(); 
     // Lifetime of TDatabasePDG in s, in Pythia the unity [mm/c] are used, so a conversion factor of 3*10^11 is needed
     //double lifetimeLambda1520 = 3*pow(10, 11)*TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Lifetime(); 
     cout << "Lambda1520 lifetime: " << lifetimeLambda1520 << endl;
-    auto fDecay = new TF1("fDecay", "exp(-x/[0] )", 0., 1000); // seconds
+    auto fDecay = new TF1("fDecay", "exp(-x/[0] )", 0., pow(10,-10)); // seconds
     fDecay->FixParameter(0, lifetimeLambda1520);
+    fDecay->SetNpx(1500); // f1->GetNpx() > f1->GetXmax() / f1->GetXmin()
     auto fPt = new TF1("fPt", "exp(-x/1)", 0., 5.); // GeV
+    //auto fDecay = new TF1("fDecay", "exp(-x/100 )", 0., 1000); // seconds
 
     // Lambda 1520
     Particle lambda1520Feature;
@@ -156,10 +160,12 @@ void SimLambda1520(int nEvents=1, int seed=42) {
         for(int iPart=2; iPart<pythia.event.size(); iPart++) {
           if(pythia.event[iPart].id()==3122) {
             Particle lambda = pythia.event[iPart];
+            cout << "Quadrimomentum of Lambda: " << lambda.px() << " " << lambda.py() << " " << lambda.pz() << " " << lambda.e() << " " << endl;
             TLorentzVector momLambda = TLorentzVector(lambda.px(), lambda.py(), lambda.pz(), lambda.e());
             for(int jPart=3; jPart<pythia.event.size(); jPart++) {
               if(abs(pythia.event[jPart].id())==211) {
-                Particle pion = pythia.event[iPart];
+                Particle pion = pythia.event[jPart];
+                cout << "Quadrimomentum of pion: " << pion.px() << " " << pion.py() << " " << pion.pz() << " " << pion.e() << " " << endl;
                 TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
                 TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
                 float kStar = RelativePairMomentum(momPion, momLambda);
@@ -168,6 +174,8 @@ void SimLambda1520(int nEvents=1, int seed=42) {
             }
           }
         }
+
+        pythia.event.reset();
 
         // AntiLambda 1520
         Particle antiLambda1520;
@@ -184,21 +192,22 @@ void SimLambda1520(int nEvents=1, int seed=42) {
         antiLambda1520.pz(pzLambda1520);
         antiLambda1520.tau(tauLambda1520);
         
-        pythia.event.reset();
         pythia.event.append(antiLambda1520);
         int idPartAntiLambda = pythia.event[1].id();
         cout << idPartAntiLambda << endl;
-        pythia.particleData.mayDecay(idPartLambda, true);
+        pythia.particleData.mayDecay(idPartAntiLambda, true);
         pythia.moreDecays();
 
         for(int iPart=2; iPart<pythia.event.size(); iPart++) {
           if(pythia.event[iPart].id()==-3122) {
             Particle lambda = pythia.event[iPart];
+            cout << "Quadrimomentum of Lambda: " << lambda.px() << " " << lambda.py() << " " << lambda.pz() << " " << lambda.e() << " " << endl;
             TLorentzVector momLambda = TLorentzVector(lambda.px(), lambda.py(), lambda.pz(), lambda.e());
             for(int jPart=3; jPart<pythia.event.size(); jPart++) {
               cout << pythia.event[jPart].id() << endl;
               if(abs(pythia.event[jPart].id())==211) {
-                Particle pion = pythia.event[iPart];
+                Particle pion = pythia.event[jPart];
+                cout << "Quadrimomentum of pion: " << pion.px() << " " << pion.py() << " " << pion.pz() << " " << pion.e() << " " << endl;
                 TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
                 TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
                 float kStar = RelativePairMomentum(momPion, momLambda);
