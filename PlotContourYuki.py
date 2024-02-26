@@ -6,6 +6,11 @@ python3 PlotContourYuki.py -b --pair DstarPi \
     /home/daniel/an/DstarPi/20_luuksel/SimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000_unc-tot_source-all_trials.root \
     /home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root \
     /home/daniel/an/DstarPi/20_luuksel/PlotSimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root.root
+python3 PlotContourYuki.py -b --pair DstarPi \
+    /home/daniel/an/DstarPi/20_luuksel/SimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000_unc-stat_source-centr_trials.root \
+    /home/daniel/an/DstarPi/20_luuksel/SimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000_unc-tot_source-all_trials.root \
+    /home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root \
+    /home/daniel/an/DstarPi/20_luuksel/PlotSimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000_check
 
  -->Pi
 
@@ -16,6 +21,24 @@ python3 PlotContourYuki.py -b --pair DPi \
     X \
     /home/daniel/paper/.CharmPaper.bk/figures/final_D_20231221/PlotSimScanDebug_bs5000syst_savefits.root 
 
+    
+
+
+
+    ########################
+    Add ZW Liu
+    DstarPi:
+    python3 PlotContourYuki.py -b --pair DstarPi /home/daniel/an/DstarPi/20_luuksel/SimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000_unc-stat_source-centr_trials.root \
+        /home/daniel/an/DstarPi/20_luuksel/SimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000_unc-tot_source-all_trials.root \
+        /home/daniel/an/DstarPi/20_luuksel/GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000.root\
+        /home/daniel/an/DstarPi/20_luuksel/PlotSimScan_GenCFCorr_nopc_kStarBW50MeV_bs5000syst_uncThermalFist-beauty-DstarPurity_fixQSRedMasSwapp_noLLfit_originalinputfile_indepRandGen_normrange1500-2000_bkgfitrange300-1000_savefits_zwliu
+
+    DPi:
+    python3 PlotContourYuki.py -b --pair DPi /home/daniel/paper/.CharmPaper.bk/figures/final_D_20231221/SimScan_5000syst_stat_source-centr_trials.root \
+        /home/daniel/paper/.CharmPaper.bk/figures/final_D_20231221/SimScan_5000syst_tot_source-all_trials.root \
+        X \
+        /home/daniel/paper/.CharmPaper.bk/figures/final_D_20231221/PlotSimScanDebug_bs5000syst_savefits_zwliu.root
+        
 '''
 
 
@@ -288,7 +311,7 @@ gScattParTot.SetMarkerColor(1)
 ShiftGraph(gScattParTot, -a0qShift, -a0dShift)
 gScattParTot.Draw('same pe')
 
-leg = TLegend(0.48, 0.64 if args.pair == 'DstarPi' else 0.4, 0.95, 0.78)
+leg = TLegend(0.48, 0.6 if args.pair == 'DstarPi' else 0.4, 0.95, 0.78)
 leg.AddEntry(gScattParTot, f'Data (#chi^{{2}}/ndf = {chi2ndf:.1f})', 'lpe')
 leg.AddEntry(gCountourCL95, '95% CL', 'f')
 leg.AddEntry(gCountourCL68, '68% CL', 'f')
@@ -359,8 +382,19 @@ gTorres.SetMarkerStyle(21)
 gTorres.SetMarkerSize(1.5)
 gTorres.SetLineColor(EColor.kAzure - 9)
 gTorres.Draw('same pe')
-
 leg.AddEntry(gTorres, "J.M. Torres-Rincon #it{et al.}", "p")
+
+if args.pair == 'DstarPi':
+    gZWLiu = TGraphAsymmErrors(1)
+    gZWLiu.SetName('gZWLiu')
+    gZWLiu.SetPoint(0, -0.13, 0.27)
+    gZWLiu.SetMarkerColor(EColor.kMagenta - 8)
+    gZWLiu.SetMarkerStyle(47)
+    gZWLiu.SetMarkerSize(1.8)
+    gZWLiu.SetLineColor(EColor.kMagenta - 8)
+    gZWLiu.Draw('same pe')
+    leg.AddEntry(gZWLiu, "Z.-W. Liu #it{et al.}", "p")
+
 leg.Draw()
 
 lv = TLine(0, ylim[0], 0, ylim[1]*0.7)
@@ -712,7 +746,7 @@ for comb in ['SC', 'OC']:
         hist.GetYaxis().SetTitleOffset(1.25)
         
     # SetHistStyle(gBrackets)
-    useAvgSyst = True
+    useAvgSyst = True and args.pair == 'DPi'
     if useAvgSyst:
         for iPoint in range(gBrackets.GetN()):
             if type(gCFGenSystAvg) == TGraphErrors:
