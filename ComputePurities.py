@@ -54,7 +54,6 @@ if cfg['infilemc'] != '' and cfg['infilemc'] is not None:
     
     inFileMC = TFile(cfg['infilemc'])
     
-    
     for partNum, MCpart in enumerate(cfg['MCpurityparts']):
         
         folderName = f'p{partNum}'
@@ -164,7 +163,6 @@ if cfg['infiledata'] != '' and cfg['infiledata'] is not None:
     IMPartList = cfg['IMpurityparts']
     
     for partNum, IMPart in enumerate(IMPartList):
-        
         
         if(IMPart['nsigma']):
             nSigma = IMPart['nsigma']
@@ -311,10 +309,9 @@ if cfg['infiledata'] != '' and cfg['infiledata'] is not None:
                 oFile.cd(f'p{folderName}')
                 hMassProj.Write()
             
-
             # load histo to compute averaged pT
             for iPair in range(2):            
-                kStarPt = Load(inFileData, IMPart['avgptpairs'][iPair + iPartNum])
+                kStarPt = Load(inFileData, IMPart['avgptpairs'][iPair + 2*iPartNum])
             
                 # compute yield of pions for each pT bin in k* range [0, 200] MeV/c2
                 hPt = kStarPt.ProjectionY(f'femto{folderName}', 1, kStarPt.GetXaxis().FindBin(0.2*0.9999))
