@@ -42,18 +42,17 @@ float RelativePairMomentum(TLorentzVector &PartOne, TLorentzVector &PartTwo) {
   return 0.5 * trackRelK.P();
 }
 
-void SimLambda1520(int nEvents=10000, int seed=42) {
+void SimLambda1520(int nEvents=20000000, int seed=42) {
     
     std::map<TString, TH1F*> hSEPairs;
-    TString lambdaPiPlus("3122211");
-    hSEPairs.insert({lambdaPiPlus, new TH1F(lambdaPiPlus.Data(), ";#it{k*};Counts", 1500, 0., 6.)});
-    TString lambdaPiMinus("3122-211");
-    hSEPairs.insert({lambdaPiMinus, new TH1F(lambdaPiMinus.Data(), ";#it{k*};Counts", 1500, 0., 6.)});
-    TString antiLambdaPiPlus("-3122211");
-    hSEPairs.insert({antiLambdaPiPlus, new TH1F(antiLambdaPiPlus.Data(), ";#it{k*};Counts", 1500, 0., 6.)});
-    TString antiLambdaPiMinus("-3122-211");
-    hSEPairs.insert({antiLambdaPiMinus, new TH1F(antiLambdaPiMinus.Data(), ";#it{k*};Counts", 1500, 0., 6.)});
-
+    std::map<TString, TH1F*> hSEPairsSmeared;
+    std::vector<TString> keys = {"3122211", "3122-211", "-3122211", "-3122-211"};
+    for(int iKey=0; iKey<keys.size(); iKey++) {
+      TString smearHistoName = keys[iKey] + "_smeared";
+      hSEPairs.insert({keys[iKey], new TH1F(keys[iKey].Data(), ";#it{k*};Counts", 1500, 0., 6.)});
+      hSEPairsSmeared.insert({keys[iKey], new TH1F(smearHistoName.Data(), ";#it{k*};Counts", 1500, 0., 6.)});
+    }
+    
     Pythia pythia;
     
     // set seed for simulation
@@ -96,39 +95,37 @@ void SimLambda1520(int nEvents=10000, int seed=42) {
     std::vector<std::tuple<int, int, int, int>> pions;
     std::vector<std::tuple<int, int, int, int>> lambdas;
     //
-    int countLambda1520 = 0;
     int pdgLambda1520 = 3124;
     double massLambda1520 = TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Mass();
-    cout << "Lambda1520 mass " << massLambda1520 << endl;
-    double hBar = 1.054571817*pow(10,-34);
-    cout << "Lambda(1520) lifetime: " << TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Lifetime() << endl; 
-    cout << "Lambda(1520) lifetime multiplied: " << pow(10, 20)*TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Lifetime() << endl; 
-    double lifetimeLambda1520 = 3*pow(10, 11)*TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Lifetime(); 
     // Lifetime of TDatabasePDG in s, in Pythia the unity [mm/c] are used, so a conversion factor of 3*10^11 is needed
-    //double lifetimeLambda1520 = 3*pow(10, 11)*TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Lifetime(); 
-    cout << "Lambda1520 lifetime: " << lifetimeLambda1520 << endl;
-    auto fDecay = new TF1("fDecay", "exp(-x/[0] )", 0., pow(10,-10)); // seconds
+    double lifetimeLambda1520 = 3*pow(10, 11)*TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Lifetime(); 
+    
+    auto fDecay = new TF1("fDecay", "exp(-x/[0] )", 0., pow(10,-10)); // mm/c
     fDecay->FixParameter(0, lifetimeLambda1520);
-    fDecay->SetNpx(1500); // f1->GetNpx() > f1->GetXmax() / f1->GetXmin()
-    auto fPt = new TF1("fPt", "exp(-x/1)", 0., 5.); // GeV
-    //auto fDecay = new TF1("fDecay", "exp(-x/100 )", 0., 1000); // seconds
+    fDecay->SetNpx(1500); 
+  
+    // Read histograms from Xi(1530) to simulate acceptance and pT of the particle
+    TFile *kinemXi1530 = TFile::Open("/home/mdicostanzo/an/LPi/Simulation/outputs/SimLambda1520Kinem_MERGED.root", "r");
+    TH1F * hAcc1530 = (TH1F*)kinemXi1530->Get("hAcc");
+    TH1F * hPt1530 = (TH1F*)kinemXi1530->Get("hPt");
 
     // Lambda 1520
     Particle lambda1520Feature;
     lambda1520Feature.id(pdgLambda1520);
     lambda1520Feature.m(massLambda1520);
-    cout << "Lambda(1520) mass: " << lambda1520Feature.m() << endl;
+    // cout << "Lambda(1520) mass: " << lambda1520Feature.m() << endl;
 
     for (int iEvent = 0; iEvent < nEvents; ++iEvent) {
-        cout << endl;
-        cout << "-------------------------" << endl;
-        // if(iEvent%10000 == 0)
-        std::cout << "Processing event " << iEvent << endl;
+        // cout << endl;
+        // cout << "-------------------------" << endl;
+        if(iEvent%5000 == 0)
+          std::cout << "Processing event " << iEvent << endl;
+        
         double tauLambda1520 = fDecay->GetRandom();
         double phiLambda1520 = gRandom->Rndm() * 2 * TMath::Pi();
-        double etaLambda1520 = gRandom->Uniform(-2., 2.);
+        double etaLambda1520 = hAcc1530->GetRandom();
         double thetaLambda1520 = 2 * TMath::ATan( TMath::Exp(-etaLambda1520) );
-        double ptLambda1520 = fPt->GetRandom();
+        double ptLambda1520 = hPt1530->GetRandom();
         double pxLambda1520 = ptLambda1520 * TMath::Cos(phiLambda1520);
         double pyLambda1520 = ptLambda1520 * TMath::Sin(phiLambda1520);
         double pzLambda1520 = ptLambda1520 * TMath::Cos(thetaLambda1520) * (1 / TMath::Sin(thetaLambda1520));
@@ -153,25 +150,29 @@ void SimLambda1520(int nEvents=10000, int seed=42) {
         pythia.event.reset();
         pythia.event.append(lambda1520);
         int idPartLambda = pythia.event[1].id();
-        cout << idPartLambda << endl;
+        // cout << idPartLambda << endl;
         pythia.particleData.mayDecay(idPartLambda, true);
         pythia.moreDecays();
 
         for(int iPart=2; iPart<pythia.event.size(); iPart++) {
           if(pythia.event[iPart].id()==3122) {
             Particle lambda = pythia.event[iPart];
-            cout << "Quadrimomentum of Lambda: " << lambda.px() << " " << lambda.py() << " " << lambda.pz() << " " << lambda.e() << " " << endl;
             TLorentzVector momLambda = TLorentzVector(lambda.px(), lambda.py(), lambda.pz(), lambda.e());
+            
             for(int jPart=3; jPart<pythia.event.size(); jPart++) {
               if(abs(pythia.event[jPart].id())==211) {
                 Particle pion = pythia.event[jPart];
-                cout << "Quadrimomentum of pion: " << pion.px() << " " << pion.py() << " " << pion.pz() << " " << pion.e() << " " << endl;
                 TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
-                TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
-                float kStar = RelativePairMomentum(momPion, momLambda);
-                hSEPairs[histoKey]->Fill(kStar); 
+            
+                if(lambda.pT()>=0.3 && abs(lambda.eta())<=0.8 && pion.pT()>=0.3 && abs(pion.eta())<=0.8) {
+                  TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
+                  float kStar = RelativePairMomentum(momPion, momLambda);
+                  hSEPairs[histoKey]->Fill(kStar); 
+                }
+            
               }
             }
+          
           }
         }
 
@@ -194,38 +195,113 @@ void SimLambda1520(int nEvents=10000, int seed=42) {
         
         pythia.event.append(antiLambda1520);
         int idPartAntiLambda = pythia.event[1].id();
-        cout << idPartAntiLambda << endl;
+        // cout << idPartAntiLambda << endl;
         pythia.particleData.mayDecay(idPartAntiLambda, true);
         pythia.moreDecays();
 
         for(int iPart=2; iPart<pythia.event.size(); iPart++) {
           if(pythia.event[iPart].id()==-3122) {
             Particle lambda = pythia.event[iPart];
-            cout << "Quadrimomentum of Lambda: " << lambda.px() << " " << lambda.py() << " " << lambda.pz() << " " << lambda.e() << " " << endl;
             TLorentzVector momLambda = TLorentzVector(lambda.px(), lambda.py(), lambda.pz(), lambda.e());
-            for(int jPart=3; jPart<pythia.event.size(); jPart++) {
-              cout << pythia.event[jPart].id() << endl;
+            
+            for(int jPart=3; jPart<pythia.event.size(); jPart++) {  
               if(abs(pythia.event[jPart].id())==211) {
                 Particle pion = pythia.event[jPart];
-                cout << "Quadrimomentum of pion: " << pion.px() << " " << pion.py() << " " << pion.pz() << " " << pion.e() << " " << endl;
                 TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
-                TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
-                float kStar = RelativePairMomentum(momPion, momLambda);
-                cout << "Histo key: " << histoKey << endl;
-                hSEPairs[histoKey]->Fill(kStar); 
+                
+                if(lambda.pT()>=0.3 && abs(lambda.eta())<=0.8 && pion.pT()>=0.3 && abs(pion.eta())<=0.8) {
+                  TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
+                  float kStar = RelativePairMomentum(momPion, momLambda);
+                  // cout << "Histo key: " << histoKey << endl;
+                  hSEPairs[histoKey]->Fill(kStar); 
+                }
+              
               }
             }
+          
           }
         }
       }
 
-    std::string outFileName = "./SimLambda1520_" + std::to_string(seed) + ".root";  
+    std::vector<TH2F*> smearMatrices;
+    cout << "CIAO1" << endl;
+    TFile *MCdata = TFile::Open("/home/mdicostanzo/an/LPi/Trains/02_allpc/mc/data/AnalysisResultsAllPC.root");
+    cout << "CIAO2" << endl;
+    TDirectoryFile *folder = static_cast<TDirectoryFile*>(MCdata->Get("HMResultsQA1001"));
+    TList *toplist = static_cast<TList*>(folder->Get("HMResultsQA1001"));
+    TList *QAList = dynamic_cast<TList*>(toplist->FindObject("PairQA"));
+
+    TList *pairList02 = dynamic_cast<TList*>(QAList->FindObject("QA_Particle0_Particle2"));
+    TH2F *smearMomentumMatrix02 = static_cast<TH2F*>(pairList02->FindObject("MomentumResolutionSE_Particle0_Particle2"));
+    TString smearMatrix02 = "2113122_smear_matr"; 
+    smearMatrices.push_back(smearMomentumMatrix02);
+
+    TList *pairList12 = dynamic_cast<TList*>(QAList->FindObject("QA_Particle1_Particle2"));
+    TH2F *smearMomentumMatrix12 = static_cast<TH2F*>(pairList12->FindObject("MomentumResolutionSE_Particle1_Particle2"));
+    TString smearMatrix12 = "-2113122_smear_matr"; 
+    smearMatrices.push_back(smearMomentumMatrix12);
+
+    TList *pairList03 = dynamic_cast<TList*>(QAList->FindObject("QA_Particle0_Particle3"));
+    TH2F *smearMomentumMatrix03 = static_cast<TH2F*>(pairList03->FindObject("MomentumResolutionSE_Particle0_Particle3"));
+    TString smearMatrix03 = "211-3122_smear_matr"; 
+    smearMatrices.push_back(smearMomentumMatrix03);
+
+    TList *pairList13 = dynamic_cast<TList*>(QAList->FindObject("QA_Particle1_Particle3"));
+    TH2F *smearMomentumMatrix13 = static_cast<TH2F*>(pairList13->FindObject("MomentumResolutionSE_Particle1_Particle3"));
+    TString smearMatrix13 = "-211-3122_smear_matr"; 
+    smearMatrices.push_back(smearMomentumMatrix13);
+    cout << "CIAO3" << endl;
+
+    MCdata->Close();
+
+    for(int iKey=0; iKey<keys.size(); iKey++) {
+      for(int iBin=0; iBin<hSEPairsSmeared[keys[iKey]]->GetNbinsX(); iBin++) {
+        TH1D *hProjY = smearMatrices[iKey]->ProjectionY(Form("iBin_%i", iBin+1), iBin+1, iBin+1);
+        if(hProjY->Integral() > 0) {    
+            hProjY->Scale(hSEPairs[keys[iKey]]->GetBinContent(iBin+1)/hProjY->Integral());
+            hSEPairsSmeared[keys[iKey]]->Add(hProjY);
+        }
+      }
+      for(int iBin=0; iBin<hSEPairsSmeared[keys[iKey]]->GetNbinsX(); iBin++) {
+        hSEPairsSmeared[keys[iKey]]->SetBinError(iBin+1, TMath::Sqrt(hSEPairsSmeared[keys[iKey]]->GetBinContent(iBin+1)));
+      }
+    }
+    cout << "CIAO3" << endl;
+
+    cout << "CIAO1" << endl;
+    std::string outFileName = "/home/mdicostanzo/an/LPi/Simulation/outputs/SimLambda1520_KinemXi1530_" + std::to_string(seed) + ".root";  
     TFile oFile(outFileName.data(), "recreate");
     oFile.cd();
     for(const auto &hSEPair : hSEPairs) {
         hSEPairs[hSEPair.first]->Write();
+        hSEPairsSmeared[hSEPair.first]->Write();
     }
-    fPt->Write();
+
+    TH1F * resumLPiPl = new TH1F("3122211_-3122-211", ";#it{k*};Counts", 1500, 0., 6.);
+    resumLPiPl->Add(hSEPairs["3122211"]);
+    resumLPiPl->Add(hSEPairs["-3122-211"]);
+    resumLPiPl->Write();
+    TH1F * resumLPiMin = new TH1F("3122-211_-3122211", ";#it{k*};Counts", 1500, 0., 6.);
+    resumLPiMin->Add(hSEPairs["3122-211"]);
+    resumLPiMin->Add(hSEPairs["3122-211"]);
+    resumLPiMin->Write();
+    TH1F * resumLPiPlSmear = new TH1F("3122211_-3122-211_smeared", ";#it{k*};Counts", 1500, 0., 6.);
+    resumLPiPlSmear->Add(hSEPairs["3122211"]);
+    resumLPiPlSmear->Add(hSEPairs["-3122-211"]);
+    resumLPiPlSmear->Write();
+    TH1F * resumLPiMinSmear = new TH1F("3122-211_-3122211_smeared", ";#it{k*};Counts", 1500, 0., 6.);
+    resumLPiMinSmear->Add(hSEPairs["3122-211"]);
+    resumLPiMinSmear->Add(hSEPairs["3122-211"]);
+    resumLPiMinSmear->Write();
+
+    cout << "CIAO2" << endl;
+    hAcc1530->Write();
+    cout << "CIAO3" << endl;
+    hPt1530->Write();
+    cout << "CIAO4" << endl;
     fDecay->Write();
+    cout << "CIAO5" << endl;
     oFile.Close();
+    cout << "CIAO6" << endl;
+
 }
