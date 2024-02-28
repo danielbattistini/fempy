@@ -67,6 +67,15 @@ for plot in cfg:
     pad = cPlot.cd(1)
     pad.SetLogx(plot["opt"]["logx"])
     pad.SetLogy(plot["opt"]["logy"])
+    if(plot["opt"]["padtopmargin"]):
+        pad.SetTopMargin(plot["opt"]["padtopmargin"])
+    if(plot["opt"]["padbottommargin"]):
+        pad.SetBottomMargin(plot["opt"]["padbottommargin"])
+    if(plot["opt"]["padrightmargin"]):
+        pad.SetRightMargin(plot["opt"]["padrightmargin"])
+    if(plot["opt"]["padleftmargin"]):
+        pad.SetLeftMargin(plot["opt"]["padleftmargin"])
+
 
     fx1 = plot['opt']['rangex'][0]
     fy1 = plot['opt']['rangey'][0]
