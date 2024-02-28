@@ -119,7 +119,10 @@ for plot in cfg:
         inputline.Draw("same")
         leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
         
-    leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
+    if(plot['opt']['leg']['center']):
+        leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
+    else:
+        leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']))
     leg.Draw()
 
     # Compute ratio wrt the first obj
