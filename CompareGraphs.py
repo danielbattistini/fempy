@@ -50,6 +50,9 @@ for plot in cfg:
                 inObj.Scale(1./inObj.Integral())
             if inputCfg['normalizecf']:
                 inObj.Scale(inputCfg['normalizecf'])
+            if 'shift' in inputCfg:
+                for iBin in range(inObj.GetNbinsX()):
+                    inObj.SetBinContent(iBin+1, inObj.GetBinContent(iBin+1) + inputCfg['shift'])
 
         inObj.SetLineColor(style.GetColor(inputCfg['color']))
         inObj.SetMarkerColor(style.GetColor(inputCfg['color']))
