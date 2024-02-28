@@ -3,7 +3,7 @@ import os
 import yaml
 from rich import print
 
-from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D
+from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D, gStyle
 
 import fempy
 from fempy import logger as log
@@ -75,7 +75,9 @@ for plot in cfg:
         pad.SetRightMargin(plot["opt"]["padrightmargin"])
     if(plot["opt"]["padleftmargin"]):
         pad.SetLeftMargin(plot["opt"]["padleftmargin"])
-
+    if(plot['opt']['ytitleoffset'] is not None):
+        print(plot['opt']['ytitleoffset'])
+        gStyle.SetTitleOffset(plot['opt']['ytitleoffset'],"Y")
 
     fx1 = plot['opt']['rangex'][0]
     fy1 = plot['opt']['rangey'][0]
