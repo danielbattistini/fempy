@@ -56,6 +56,7 @@ for plot in cfg:
         inObj.SetLineWidth(inputCfg.get('thickness', 1))
         drawOpts.append(inputCfg.get('drawopt', 'p' if isinstance(inObj, TH1) else 'pe'))
         inObj.SetMarkerStyle(inputCfg['markerstyle'])
+        inObj.SetMarkerSize(inputCfg['markersize'])
         inObjs.append(inObj)
         legends.append(inputCfg['legend'])
 
