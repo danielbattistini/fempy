@@ -3,7 +3,7 @@ import os
 import yaml
 from rich import print
 
-from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D, gStyle
+from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D, gStyle, TLatex
 
 import fempy
 from fempy import logger as log
@@ -135,8 +135,24 @@ for plot in cfg:
         leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
     else: 
         leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']))
-
+    leg.SetTextSize(0.055)
     leg.Draw()
+
+    for text in plot['opt']['description']:
+        if('#' in text['text']):
+            tl = TLatex()
+            tl.SetTextSize(text['textsize'])
+            tl.SetTextFont(text['textfont'])
+            tl.DrawLatexNDC(text['position'][0], text['position'][1], text['text'])
+            cPlot.Modified()
+            cPlot.Update()
+        else:
+            tl = TLatex()
+            tl.SetTextSize(text['textsize'])
+            tl.SetTextFont(text['textfont'])
+            tl.DrawTextNDC(text['position'][0], text['position'][1], text['text'])
+            cPlot.Modified()
+            cPlot.Update()
 
     cPlot.Modified()
     cPlot.Update()

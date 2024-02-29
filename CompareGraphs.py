@@ -3,7 +3,7 @@ import os
 import yaml
 from rich import print
 
-from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D, gStyle
+from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D, gStyle, TLatex
 
 import fempy
 from fempy import logger as log
@@ -127,6 +127,22 @@ for plot in cfg:
     else:
         leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']))
     leg.Draw()
+
+    for text in plot['opt']['description']:
+        if('#' in text['text']):
+            tl = TLatex()
+            tl.SetTextSize(text['textsize'])
+            tl.SetTextFont(text['textfont'])
+            tl.DrawLatexNDC(text['position'][0], text['position'][1], text['text'])
+            cPlot.Modified()
+            cPlot.Update()
+        else:
+            tl = TLatex()
+            tl.SetTextSize(text['textsize'])
+            tl.SetTextFont(text['textfont'])
+            tl.DrawTextNDC(text['position'][0], text['position'][1], text['text'])
+            cPlot.Modified()
+            cPlot.Update()
 
     # Compute ratio wrt the first obj
     if plot['ratio']['enable']:
