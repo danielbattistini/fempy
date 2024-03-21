@@ -111,6 +111,7 @@ for plot in cfg:
                 legend += f';  #sigma={inObj.GetStdDev():.3f}'
         leg.AddEntry(inObj, legend, 'lp')
         
+    inputlines = []
     for line in plot['opt']['lines']:
         x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
         y1 = plot['opt']['rangey'][0] if(line['coordinates'][1] == 'min') else line['coordinates'][1]
@@ -120,6 +121,7 @@ for plot in cfg:
         inputline.SetLineColor(style.GetColor(line['color']))
         inputline.SetLineWidth(line['thickness'])
         inputline.Draw("same")
+        inputlines.append(inputline)
         if('legendtag' in line):
             leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
         
