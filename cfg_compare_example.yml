@@ -23,26 +23,32 @@
         rangex: [0, 10]
         rangey: [800, 1600]
         rebin: 1
+        ytitleoffset: some_value # Optional
+        padtopmargin: some_value # Optional
+        padbottommargin: some_value # Optional
+        padleftmargin: some_value # Optional
+        padrightmargin: some_value # Optional
         logx: false
         logy: false
         title: ';variable (units);variable (units)'
+
+        description: # Use description: [] if you don't want text lines
+        -   text: '#Lambda purity'
+            textfont: 43
+            textsize: 30
+            position: [0.5, 0.27]
 
         lines: # Use lines: [] if you don't want to draw lines
         - coordinates: [3,'min',3,'max'] # min, max for all range, otherwise coordinates
           color: kRed
           thickness: 2
-          legendtag: 'Example line'
-
-        lines: # Use lines: [] if you don't want to draw lines
-        - coordinates: ['min','min','max','max'] # min, max for all range, otherwise coordinates
-          color: kRed
-          thickness: 2
-          legendtag: 'Example line'
+          legendtag: 'Example line' # Optional
 
         ext: [pdf]
 
         leg:
             header: 'Legend header'
+            center: null # Optional, true to center
             posx: [0.5, 0.9]
             posy: [0.7, 0.9]
             sigma: false
