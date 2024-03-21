@@ -121,7 +121,6 @@ for plot in cfg:
         inputline.SetLineColor(style.GetColor(line['color']))
         inputline.SetLineWidth(line['thickness'])
         inputline.Draw("same")
-        inputLines.append(inputline)
         if('legendtag' in line):
             leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
         
