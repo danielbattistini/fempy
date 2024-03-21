@@ -70,15 +70,15 @@ for plot in cfg:
     pad = cPlot.cd(1)
     pad.SetLogx(plot["opt"]["logx"])
     pad.SetLogy(plot["opt"]["logy"])
-    if(plot["opt"]["padtopmargin"]):
+    if("padtopmargin" in plot["opt"]):
         pad.SetTopMargin(plot["opt"]["padtopmargin"])
-    if(plot["opt"]["padbottommargin"]):
+    if("padbottommargin" in plot["opt"]):
         pad.SetBottomMargin(plot["opt"]["padbottommargin"])
-    if(plot["opt"]["padrightmargin"]):
+    if("padrightmargin" in plot["opt"]):
         pad.SetRightMargin(plot["opt"]["padrightmargin"])
-    if(plot["opt"]["padleftmargin"]):
+    if("padleftmargin" in plot["opt"]):
         pad.SetLeftMargin(plot["opt"]["padleftmargin"])
-    if(plot['opt']['ytitleoffset'] is not None):
+    if("ytitleoffset" in plot['opt']):
         print(plot['opt']['ytitleoffset'])
         gStyle.SetTitleOffset(plot['opt']['ytitleoffset'],"Y")
 
@@ -122,7 +122,7 @@ for plot in cfg:
         inputline.Draw("same")
         leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
         
-    if(plot['opt']['leg']['center']):
+    if('center' in plot['opt']['leg']):
         leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
     else:
         leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']))
