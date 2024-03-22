@@ -3,7 +3,7 @@ import os
 import yaml
 from rich import print
 
-from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D
+from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D, gStyle, TLatex
 
 import fempy
 from fempy import logger as log
@@ -50,12 +50,16 @@ for plot in cfg:
                 inObj.Scale(1./inObj.Integral())
             if inputCfg['normalizecf']:
                 inObj.Scale(inputCfg['normalizecf'])
+            if 'shift' in inputCfg:
+                for iBin in range(inObj.GetNbinsX()):
+                    inObj.SetBinContent(iBin+1, inObj.GetBinContent(iBin+1) + inputCfg['shift'])
 
         inObj.SetLineColor(style.GetColor(inputCfg['color']))
         inObj.SetMarkerColor(style.GetColor(inputCfg['color']))
         inObj.SetLineWidth(inputCfg.get('thickness', 1))
         drawOpts.append(inputCfg.get('drawopt', 'p' if isinstance(inObj, TH1) else 'pe'))
         inObj.SetMarkerStyle(inputCfg['markerstyle'])
+        inObj.SetMarkerSize(inputCfg['markersize'])
         inObjs.append(inObj)
         legends.append(inputCfg['legend'])
 
@@ -66,6 +70,16 @@ for plot in cfg:
     pad = cPlot.cd(1)
     pad.SetLogx(plot["opt"]["logx"])
     pad.SetLogy(plot["opt"]["logy"])
+    if("padtopmargin" in plot["opt"]):
+        pad.SetTopMargin(plot["opt"]["padtopmargin"])
+    if("padbottommargin" in plot["opt"]):
+        pad.SetBottomMargin(plot["opt"]["padbottommargin"])
+    if("padrightmargin" in plot["opt"]):
+        pad.SetRightMargin(plot["opt"]["padrightmargin"])
+    if("padleftmargin" in plot["opt"]):
+        pad.SetLeftMargin(plot["opt"]["padleftmargin"])
+    if("ytitleoffset" in plot['opt']):
+        gStyle.SetTitleOffset(plot['opt']['ytitleoffset'],"Y")
 
     fx1 = plot['opt']['rangex'][0]
     fy1 = plot['opt']['rangey'][0]
@@ -96,6 +110,8 @@ for plot in cfg:
             if plot['opt']['leg']['sigma']:
                 legend += f';  #sigma={inObj.GetStdDev():.3f}'
         leg.AddEntry(inObj, legend, 'lp')
+        
+    inputlines = []
     for line in plot['opt']['lines']:
         x1 = plot['opt']['rangex'][0] if(line['coordinates'][0] == 'min') else line['coordinates'][0]
         y1 = plot['opt']['rangey'][0] if(line['coordinates'][1] == 'min') else line['coordinates'][1]
@@ -105,10 +121,31 @@ for plot in cfg:
         inputline.SetLineColor(style.GetColor(line['color']))
         inputline.SetLineWidth(line['thickness'])
         inputline.Draw("same")
-        leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
+        inputlines.append(inputline)
+        if('legendtag' in line):
+            leg.AddEntry(inputline, TranslateToLatex(line['legendtag']),"l")
         
-    leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
+    if('center' in plot['opt']['leg']):
+        leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
+    else:
+        leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']))
     leg.Draw()
+
+    for text in plot['opt']['description']:
+        if('#' in text['text']):
+            tl = TLatex()
+            tl.SetTextSize(text['textsize'])
+            tl.SetTextFont(text['textfont'])
+            tl.DrawLatexNDC(text['position'][0], text['position'][1], text['text'])
+            cPlot.Modified()
+            cPlot.Update()
+        else:
+            tl = TLatex()
+            tl.SetTextSize(text['textsize'])
+            tl.SetTextFont(text['textfont'])
+            tl.DrawTextNDC(text['position'][0], text['position'][1], text['text'])
+            cPlot.Modified()
+            cPlot.Update()
 
     # Compute ratio wrt the first obj
     if plot['ratio']['enable']:
