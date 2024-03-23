@@ -3,7 +3,7 @@ Script to compute the raw correlation function.
 The output file is RawCF_suffix.root
 
 Usage:
-python3 ComputeRawCF.py cfg.yml
+python3 ComputeLambdaPars.py cfg.yml
 
 '''
 import os
