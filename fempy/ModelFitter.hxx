@@ -1,9 +1,10 @@
-#ifndef FEMPY_CORRELATIONFITTER_HXX_
-#define FEMPY_CORRELATIONFITTER_HXX_
+#ifndef FEMPY_MODELFITTER_HXX_
+#define FEMPY_MODELFITTER_HXX_
 
 #include <map>
 #include <string>
 #include <tuple>
+#include <stdexcept>
 
 #include "TF1.h"
 #include "TFitResult.h"
@@ -13,32 +14,16 @@
 #include "TFitResultPtr.h"
 #include "FitFunctions.cxx"
 
-class CorrelationFitter {
+class ModelFitter {
    public:
-    CorrelationFitter(TH1 *datahist, TH1 *mchist, double fitRangeMin, double fitRangeMax) {
-        this->fDataHist = reinterpret_cast<TH1 *>(datahist->Clone());
-        this->fMCHist = reinterpret_cast<TH1 *>(mchist->Clone());
+    ModelFitter(TH1 *fithist, double fitRangeMin, double fitRangeMax, 
+                         double rejectMin=0, double rejectMax=-1) {
+        this->fFitHist = reinterpret_cast<TH1 *>(fithist->Clone());
         this->fFitRangeMin = fitRangeMin;
         this->fFitRangeMax = fitRangeMax;
+        this->fRejectMin = rejectMin;
+        this->fRejectMax = rejectMax;
         this->fNPars = {0};  // The first parameter has index zero
-        this->fAncestorIdx = -2;
-
-        this->fFuncMap.insert({"pol0", Pol0});
-        this->fFuncMap.insert({"pol1", Pol1});
-        this->fFuncMap.insert({"pol2", Pol2});
-        this->fFuncMap.insert({"pol3", Pol3});
-        this->fFuncMap.insert({"pol4", Pol4});
-        this->fFuncMap.insert({"pol5", Pol5});
-        this->fFuncMap.insert({"gaus", Gaus});
-        this->fFuncMap.insert({"bw", BreitWigner});
-        this->fFuncMap.insert({"voigt", Voigt});
-        this->fFuncMap.insert({"ComplexLednicky_Singlet_doublegaussian_lambda", ComplexLednicky_Singlet_doublegaussian_lambda});
-        this->fFuncMap.insert({"sillkstar", BreitWignerKStar});
-        this->fFuncMap.insert({"spline3", Spline3});
-        this->fFuncMap.insert({"spline3range", Spline3Range});
-        this->fFuncMap.insert({"powerlaw", PowerLaw});
-        this->fFuncMap.insert({"flatpol3", FlatPol3});
-        this->fFuncMap.insert({"sillkstar", SillKStar});
     }
 
     void SetBaselineIdx(double basIdx) {
@@ -48,7 +33,7 @@ class CorrelationFitter {
     void DrawLegend(TVirtualPad *pad, double lowX, double lowY, double highX, double highY, 
                     std::vector<TString> labels = {}) {
         TLegend *legend = new TLegend(lowX, lowY, highX, highY);
-        legend->AddEntry(this->fDataHist, labels[0].Data(), "lp");
+        legend->AddEntry(this->fFitHist, labels[0].Data(), "lp");
         legend->AddEntry(this->fFit, labels[1].Data(), "l");
         for(int iLabel=2; iLabel<labels.size(); iLabel++) {
             if(labels[iLabel].Contains("lambda_flat")) continue;
@@ -83,6 +68,21 @@ class CorrelationFitter {
         pad->Update();
     }
 
+    void DrawTF1Comp(TVirtualPad *pad, TF1* func, 
+                     std::string name=";k* (MeV/c);Counts") {
+        pad->cd();
+        
+        double yMaxDraw = func->GetMaximum()*1.2;
+        
+        gPad->DrawFrame(fFitRangeMin, 0, fFitRangeMax, yMaxDraw, name.data());
+
+        func->SetNpx(300);
+        func->SetLineColor(kRed);
+        func->Draw();
+        func->SetLineWidth(2);
+        pad->Update();
+    }
+
     /*
     Add a term to the CF model. Available options:
         - pol0
@@ -105,8 +105,9 @@ class CorrelationFitter {
     */
 
     void Add(TString name, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, bool onbaseline) {
-        if(this->fFuncMap.find(name)!=this->fFuncMap.end()){
-            this->fFitFunc.push_back(this->fFuncMap[name]);
+        
+        if(functions.find(name)!=functions.end()){
+            this->fFitFunc.push_back(functions[name]);
             this->fFitFuncComps.push_back(name);
         } else {
             printf("Error: function '%s' is not implemented. Exit!", name.Data());
@@ -122,6 +123,19 @@ class CorrelationFitter {
         }
     }
 
+//    void AddTF1(TString name, TF1 *func, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, bool onbaseline) {
+//        
+//        this->fFitTF1s.push_back(func);
+//        this->fFitFuncComps.push_back(name);
+//        this->fAddModes.push_back(addmode);
+//        this->fDrawOnBaseline.push_back(onbaseline);
+//        this->fNPars.push_back(pars.size());
+//        // Save fit settings
+//        for (const auto &par : pars) {
+//            this->fFitPars.insert({this->fFitPars.size(), par});
+//        }
+//    }
+
     void AddSplineHisto(TString name, TH1* splinedhisto, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, bool onbaseline,
                         TString legend="ciaospl") {
 
@@ -132,7 +146,7 @@ class CorrelationFitter {
         
         this->fAddModes.push_back(addmode);
         this->fDrawOnBaseline.push_back(onbaseline);
-        cout << "SPLINE NUMBER OF PARAMETERS: " << pars.size() << endl;
+        //cout << "SPLINE NUMBER OF PARAMETERS: " << pars.size() << endl;
         this->fNPars.push_back(pars.size());
         // Save fit settings
         for (const auto &par : pars) {
@@ -140,190 +154,66 @@ class CorrelationFitter {
         }
     }
 
-    void PrefitComponent(TVirtualPad *pad, TH1 *histo, TH1 *histoSpline, TString name, int startTotPar, int nPars, 
-                         double lowFitRange, double uppFitRange, double lowReject=0, double uppReject=0) {
-        if(lowReject < 0.0001) {
-            lowReject = uppFitRange;
+    TF1 *GetComponent(int icomp) {
+        if(!this->fFit) {
+            throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
         }
-        if(uppReject < 0.0001) {
-            uppReject = lowFitRange;
+        for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
+            //cout << "iFunc name: " << this->fFitFuncComps[iFunc] << endl;
         }
+        //cout << "comp on baseline? " << this->fDrawOnBaseline[icomp] << endl;
+        if(this->fDrawOnBaseline[icomp]) {
+            TF1 *compWithoutNormAndBaseline = new TF1(this->fFitFuncComps[icomp],
+                [&, this, icomp](double *x, double *pars) {
+                   return ( this->fFitFuncEval[icomp]->Eval(x[0]) - 
+                          ( this->fFitFuncEval[this->fBaselineIdx]->Eval(x[0])/this->fNorms[this->fBaselineIdx] ) )
+                          / this->fNorms[icomp];  
+            }, this->fFitRangeMin, this->fFitRangeMax, 0);
+            return compWithoutNormAndBaseline;
+        } else {
+            TF1 *compWithoutNorm = new TF1(this->fFitFuncComps[icomp],
+                [&, this, icomp](double *x, double *pars) {
+                   return this->fFitFuncEval[icomp]->Eval(x[0]) / this->fNorms[icomp];  
+            }, this->fFitRangeMin, this->fFitRangeMax, 0);
+            return compWithoutNorm;
+        }
+    }
+
+    TH1D *GetComponentPars(int icomp) {
+        if(!this->fFit) {
+            throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
+        }
+        int startPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), icomp+1), 0);
+        std::vector<double> compPars;
+        TH1D *histoPars = new TH1D("histoPars_" + this->fFitFuncComps[icomp], "histoPars_" + this->fFitFuncComps[icomp], 
+                                    this->fNPars[icomp+1], 0, this->fNPars[icomp+1]);
         
-        TH1D *splineHisto = static_cast<TH1D*>(histoSpline);
-        splineHisto->Rebin(2);
-        TSpline3* spSigma1385 = new TSpline3(histoSpline);
-
-        TFile *sillFit = new TFile("~/an/LPi/SillFit.root", "recreate");
-        // histoSpline->Scale(1/histoSpline->Integral());
-        // cout << "Component name: " << name << endl;
-        // TF1 *sillSigma1385 = new TF1("sillSigma1385", this->fFuncMap["sillkstar"], 0, 6000, 3);
-        // cout << "Parameter initialization for fit" << endl;
-        // sillSigma1385->SetParName(0, "normsill");
-        // sillSigma1385->FixParameter(0, 3);
-        // //sillSigma1385->SetParLimits(0, 0, 100000000);
-        // cout << "0: " << sillSigma1385->GetParName(0) << " " << sillSigma1385->GetParameter(0) << endl;
-        // sillSigma1385->SetParName(1, "widthsill");
-        // sillSigma1385->FixParameter(1, 5);
-        // //sillSigma1385->SetParLimits(1, 0, 600000);
-        // cout << "1: " << sillSigma1385->GetParName(1) << " " << sillSigma1385->GetParameter(1) << endl;
-        // sillSigma1385->SetParName(2, "masssill");
-        // sillSigma1385->FixParameter(2, 1385);
-        // //sillSigma1385->SetParLimits(2, 0, 10000);
-        // cout << "2: " << sillSigma1385->GetParName(2) << " " << sillSigma1385->GetParameter(2) << endl;
-        // cout << "Eval: " << sillSigma1385->Eval(100) << endl;
-        
-        // int statusSillFit = splineHisto->Fit(sillSigma1385, "SMR+0", "")->Status();
-        // sillFit->cd();
-        TCanvas *cSillFit = new TCanvas("cSillFit", "cSillFit", 600, 600);
-        splineHisto->Draw();
-        spSigma1385->Draw("same");
-        //sillSigma1385->Draw("same");
-        cSillFit->Write();
-        sillFit->Close();
-
-        cout << "Component name: " << name << endl;
-        TF1 *prefitCompFunc = new TF1(name,
-            [&, this](double *x, double *pars) -> double {
-                if (x[0] >= lowReject && x[0] <= uppReject) {
-                    TF1::RejectPoint();
-                    //return this->fFuncMap[name](x, pars) + pars[nPars]*spSigma1385->Eval(x[0]);                    
-                    return this->fFuncMap[name](x, pars) + pars[nPars]*this->fFuncMap["sillkstar"](x, &pars[nPars+1]);
-                } else if (x[0] < lowFitRange) {
-                    TF1::RejectPoint();
-                    //return this->fFuncMap[name](x, pars) + pars[nPars]*spSigma1385->Eval(x[0]);                    
-                    return this->fFuncMap[name](x, pars) + pars[nPars]*this->fFuncMap["sillkstar"](x, &pars[nPars+1]);
-                } else {
-                    //return this->fFuncMap[name](x, pars) + pars[nPars]*spSigma1385->Eval(x[0]);                    
-                    return this->fFuncMap[name](x, pars) + pars[nPars]*this->fFuncMap["sillkstar"](x, &pars[nPars+1]);
-                }
-            //}, 0, uppFitRange, nPars+4);
-            }, 0, uppFitRange, nPars+1);
-
-        for (size_t iPar = startTotPar; iPar < startTotPar + nPars; iPar++) {
-            double lowParLimit;
-            double uppParLimit;
-            this->fFit->GetParLimits(iPar, lowParLimit, uppParLimit);
-            cout << "Setting parameters for prefit component" << endl;
-            cout << "iPar" << iPar << ": " << this->fFit->GetParName(iPar) << " " << this->fFit->GetParameter(iPar) 
-                 << " " << lowParLimit << " " << uppParLimit << endl;
-            prefitCompFunc->SetParName(iPar, this->fFit->GetParName(iPar));
-            prefitCompFunc->SetParameter(iPar, this->fFit->GetParameter(iPar));
-            prefitCompFunc->SetParLimits(iPar, lowParLimit, uppParLimit);
+        for(int iCompPar=0; iCompPar<this->fNPars[icomp+1]; iCompPar++) {
+            histoPars->SetBinContent(iCompPar+1, this->fFit->GetParameter(startPar+iCompPar));
         }
+        return histoPars;
+    }
 
-        //prefitCompFunc->SetParName(nPars, "normsill");
-        //prefitCompFunc->SetParameter(nPars, 0.000001);
-        //prefitCompFunc->SetParLimits(nPars, 0.00000001, 0.0001);
-        //cout << "Setting parameters for prefit component" << endl;
-        //cout << "iPar" << nPars << ": " << prefitCompFunc->GetParName(nPars) << " " << prefitCompFunc->GetParameter(nPars) << endl;
-
-        //for (size_t iPar = 1; iPar < prefitCompFunc->GetNpar() - nPars; iPar++) {
-        //    double lowParLimit;
-        //    double uppParLimit;
-        //    sillSigma1385->GetParLimits(iPar-1, lowParLimit, uppParLimit);
-        //    cout << "Setting parameters for prefit component" << endl;
-        //    cout << "iPar" << iPar << ": " << sillSigma1385->GetParName(iPar-1) << " " << sillSigma1385->GetParameter(iPar-1) << endl;
-        //    prefitCompFunc->SetParName(iPar+nPars, sillSigma1385->GetParName(iPar-1));
-        //    prefitCompFunc->SetParameter(iPar+nPars, sillSigma1385->GetParameter(iPar-1));
-        //    prefitCompFunc->SetParLimits(iPar+nPars, lowParLimit, uppParLimit);
-        //}
-    
-        cout << endl;
-
-        for (size_t iPar = 0; iPar < prefitCompFunc->GetNpar(); iPar++) {
-            double lowParLimit;
-            double uppParLimit;
-            prefitCompFunc->GetParLimits(iPar, lowParLimit, uppParLimit);
-            cout << "Parameters for prefit" << endl;
-            cout << "iPar" << iPar << ": " << prefitCompFunc->GetParName(iPar) << " " << prefitCompFunc->GetParameter(iPar) 
-                 << " " << lowParLimit << " " << uppParLimit << endl;
+    void FixPars(TF1 *func, int startpar) {
+        for(int iPar=0; iPar<func->GetNpar(); iPar++) {
+            this->fFit->FixParameter(startpar + iPar, func->GetParameter(iPar));
         }
-
-        cout << "Setting parameters for prefit component" << endl;
-        cout << "iPar" << nPars+1 << ": " << "splinenorm" << " " << 0.000001 
-             << " " << 0.00000001 << " " << 0.00001 << endl;
-        prefitCompFunc->SetParName(nPars+1, "splinenorm");
-        prefitCompFunc->SetParLimits(nPars+1, 0.00000001, 0.00001);
-
-        //fMCHist->Rebin(2);
-        int status = fMCHist->Fit(prefitCompFunc, "SMR+0", "")->Status();
-
-        for (size_t iPar = 0; iPar < nPars; iPar++) {
-            double lowParLimit;
-            double uppParLimit;
-            prefitCompFunc->GetParLimits(iPar, lowParLimit, uppParLimit);
-            cout << "Parameter initialization for fit" << endl;
-            cout << "iPar" << iPar + startTotPar << ": " << prefitCompFunc->GetParName(iPar) << " " << prefitCompFunc->GetParameter(iPar) << endl;
-            this->fFit->SetParName(iPar + startTotPar, prefitCompFunc->GetParName(iPar));
-            this->fFit->FixParameter(iPar + startTotPar, prefitCompFunc->GetParameter(iPar));
-        }
-
-        TF1 *prefitPol3 = new TF1("pol3",
-            [&, this](double *x, double *pars) -> double {
-                return this->fFuncMap["pol3"](x, pars);
-            }, 0, uppFitRange, nPars+1);
-
-        prefitPol3->SetParameter(0, prefitCompFunc->GetParameter(0));
-        prefitPol3->SetParameter(1, prefitCompFunc->GetParameter(1));
-        prefitPol3->SetParameter(2, prefitCompFunc->GetParameter(2));
-        prefitPol3->SetParameter(3, prefitCompFunc->GetParameter(3));
-
-        TF1 *prefitSplinedHisto = new TF1("splinedhisto",
-            [&, this](double *x, double *pars) -> double {
-                //return prefitPol3->Eval(x[0]) + prefitCompFunc->GetParameter(nPars)*spSigma1385->Eval(x[0]);
-                return 0.9 + prefitCompFunc->GetParameter(nPars)*spSigma1385->Eval(x[0]);
-            }, 0, uppFitRange, 0);
-
-        pad->cd();
-        double yMinDraw = 0;
-        double yMaxDraw = 1.3 * histo->GetMaximum();
-        gPad->DrawFrame(0, yMinDraw, uppFitRange, yMaxDraw, ";k* (GeV/c); C(k*)");
-    
-        prefitCompFunc->SetNpx(300);
-        prefitCompFunc->SetLineColor(kRed);
-        prefitCompFunc->SetLineWidth(3);
-        prefitCompFunc->Clone()->Draw("same");
-        pad->Update();
-
-        prefitSplinedHisto->SetNpx(300);
-        prefitSplinedHisto->SetLineColor(kGreen);
-        prefitSplinedHisto->SetLineWidth(3);
-        prefitSplinedHisto->Clone()->Draw("same");
-        pad->Update();
-
-        //sillSigma1385->SetNpx(300);
-        //sillSigma1385->SetLineColor(kMagenta);
-        //sillSigma1385->SetLineWidth(3);
-        //sillSigma1385->Clone()->Draw("same");
-        //pad->Update();
-
-        prefitPol3->SetNpx(300);
-        prefitPol3->SetLineColor(kBlue);
-        prefitPol3->SetLineWidth(3);
-        prefitPol3->Clone()->Draw("same");
-        pad->Update();
-
-        histo->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
-        histo->SetMarkerSize(0.3);
-        histo->SetMarkerStyle(20);
-        histo->SetMarkerColor(kBlack);
-        histo->SetLineColor(kBlack);
-        histo->SetLineWidth(3);
-        histo->DrawCopy("same pe");
-        pad->Update();
     }
 
     void BuildFitFunction() {
         cout << "----------- Building the fit function -----------" << endl;
-        int totTerms = this->fFitFunc.size() + this->fFitSplines.size() + 1;
         // Build the fit function
         this->fFit = new TF1(
             "fFit",
             [&, this](double *x, double *pars) {
+                if(x[0] >= this->fRejectMin && x[0] <= this->fRejectMax) {
+                    TF1::RejectPoint();
+                } 
                 double result = 0;
-                int nTerms = this->fFitFunc.size() + this->fFitSplines.size();
+                int nTerms = this->fFitFunc.size() + this->fFitSplines.size() + this->fFitTF1s.size();
                 int nPar = 0;
                 int nSplineComp = 0;
+                int nTF1Comp = 0;
                 int nFuncComp = 0;
                 for (int iTerm = 0; iTerm < nTerms; iTerm++) {
                     if(fFitFuncComps[iTerm].Contains("splinehisto")) {
@@ -344,6 +234,16 @@ class CorrelationFitter {
                             }
                         }
                         nSplineComp++;
+                    } else if(fFitFuncComps[iTerm].Contains("TF1")) {
+                        auto func = this->fFitTF1s[nTF1Comp];
+                        if(fAddModes[iTerm] == "mult") {
+                            double partResult = result; 
+                            result = pars[nPar]*this->fFitTF1s[nTF1Comp]->Eval(x[0])*partResult;
+                        }
+                        else {
+                            result += pars[nPar]*this->fFitTF1s[nTF1Comp]->Eval(x[0]);
+                        }
+                        nTF1Comp++;
                     } else {
                         auto func = this->fFitFunc[nFuncComp];
                         if(fAddModes[iTerm] == "mult") {
@@ -365,13 +265,6 @@ class CorrelationFitter {
         for (size_t iPar = 0; iPar < this->fFitPars.size(); iPar++) {
             auto pars = this->fFitPars[iPar];
             cout << "iPar" << iPar << ": " << std::get<0>(pars) << " " << std::get<1>(pars) << " " << std::get<2>(pars) << " " << std::get<3>(pars) << endl;        
-            //if(iPar > baselinePar+1) {
-            //    cout << "Prefit function iPar " << iPar-baselinePar << ": " << fPrefitMC->GetParameter(iPar-baselinePar-2) << endl;
-            //    cout << "Function iPar " << iPar << endl;
-            //    this->fFit->SetParName(iPar, std::get<0>(pars).data());
-            //    this->fFit->FixParameter(iPar, fPrefitMC->GetParameter(iPar-baselinePar-2));
-            //} else {
-                //cout << "Parameter name: " << std::get<0>(pars).data() << endl; 
             this->fFit->SetParName(iPar, std::get<0>(pars).data());
             if (std::get<2>(pars) >= std::get<3>(pars)) {
                 //cout << "iPar" << iPar << ": " << std::get<1>(pars) << endl;
@@ -396,37 +289,14 @@ class CorrelationFitter {
                  << " " << lowParLimit << " " << uppParLimit << endl;
         }
 
-        TFitResultPtr fitResults = fDataHist->Fit(this->fFit, "SMR+0", "");
+        cout << "Bin content: " << fFitHist->GetBinContent(1) << endl;
+        TFitResultPtr fitResults = fFitHist->Fit(this->fFit, "SMR+0", "");
         return fitResults;
     }
 
-    TF1 *GetFunction() {
+    TF1 *GetFitFunction() {
         return this->fFit;
     } 
-
-    void DrawPrefit(TVirtualPad *pad, double lowRangeUser=0.0, double uppRangeUserMult=1.05, 
-              std::string title=";k* (MeV/c);C(k*)") {
-
-        pad->cd();
-        double yMinDraw = lowRangeUser;
-        double yMaxDraw = uppRangeUserMult * fDataHist->GetMaximum();
-        
-        gPad->DrawFrame(fFitRangeMin, yMinDraw, 1000, yMaxDraw, title.data());
-        this->fPrefitMC->SetNpx(300);
-        this->fPrefitMC->SetLineColor(kRed);
-        this->fPrefitMC->SetLineWidth(3);
-        this->fPrefitMC->DrawF1(fFitRangeMin+1,1000,"same");
-        pad->Update();
-
-        fMCHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
-        fMCHist->SetMarkerSize(0.3);
-        fMCHist->SetMarkerStyle(20);
-        fMCHist->SetMarkerColor(kBlack);
-        fMCHist->SetLineColor(kBlack);
-        fMCHist->SetLineWidth(3);
-        fMCHist->Draw("same pe");
-        pad->Update();
-    }
 
     /*
     Define a canvas before calling this function and pass gPad as TVirtualPad
@@ -436,9 +306,10 @@ class CorrelationFitter {
 
         EvaluateComponents(addComps); 
 
+        cout << "CIAO1" << endl;
         pad->cd();
         double yMinDraw = lowRangeUser;
-        double yMaxDraw = uppRangeUserMult * fDataHist->GetMaximum();
+        double yMaxDraw = uppRangeUserMult * fFitHist->GetMaximum();
         
         //gPad->DrawFrame(fFitRangeMin, yMinDraw, fFitRangeMax, yMaxDraw, title.data());
         gPad->DrawFrame(fFitRangeMin, yMinDraw, 2000, yMaxDraw, title.data());
@@ -447,25 +318,28 @@ class CorrelationFitter {
         this->fFit->SetLineWidth(3);
         this->fFit->DrawF1(fFitRangeMin+1,1000,"same");
         pad->Update();
+        cout << "CIAO2" << endl;
 
         std::vector<Color_t> colors = {kBlue, kAzure + 2, kGreen, kBlue + 2, kOrange, kCyan, kBlack, kMagenta, kYellow};
         for(int iFuncEval=0; iFuncEval<fFitFuncEval.size(); iFuncEval++) {
+            cout << "iFuncEval " << iFuncEval << " fFitFuncEval size: " << fFitFuncEval.size() << endl;
             this->fFitFuncEval[iFuncEval]->SetNpx(300);
             this->fFitFuncEval[iFuncEval]->SetLineColor(colors[iFuncEval]);
             this->fFitFuncEval[iFuncEval]->SetLineWidth(3);
             this->fFitFuncEval[iFuncEval]->DrawF1(fFitRangeMin+1,1000,"same");
             pad->Update();
         }
-        this->fFitFuncEval[3]->Eval(2);
+        cout << "CIAO3" << endl;
 
-        fDataHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
-        fDataHist->SetMarkerSize(0.3);
-        fDataHist->SetMarkerStyle(20);
-        fDataHist->SetMarkerColor(kBlack);
-        fDataHist->SetLineColor(kBlack);
-        fDataHist->SetLineWidth(3);
-        fDataHist->Draw("same pe");
+        fFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
+        fFitHist->SetMarkerSize(0.3);
+        fFitHist->SetMarkerStyle(20);
+        fFitHist->SetMarkerColor(kBlack);
+        fFitHist->SetLineColor(kBlack);
+        fFitHist->SetLineWidth(3);
+        fFitHist->Draw("same pe");
         pad->Update();
+        cout << "CIAO4" << endl;
     }
 
     void Debug() {
@@ -473,10 +347,12 @@ class CorrelationFitter {
         cout << endl;
         cout << endl;
         cout << "########## Debugging fit components ##########" << endl;
+        cout << "Total TF1 terms: " << this->fFitTF1s.size() << endl;
         cout << "Total spline terms: " << this->fFitSplines.size() << endl;
         cout << "Total func terms: " << this->fFitFunc.size() << endl;
         cout << "--------------------------" << endl;    
-        for(int iTerm=0; iTerm<this->fFitSplines.size() + this->fFitFunc.size(); iTerm++) {
+        int nTerms = this->fFitFunc.size() + this->fFitSplines.size() + this->fFitTF1s.size();
+        for(int iTerm=0; iTerm<nTerms; iTerm++) {
             if(iTerm==fBaselineIdx) cout << "BASELINE" << endl;
             cout << "Term name: " << this->fFitFuncComps[iTerm] << endl;
             cout << "Add Mode: " << this->fAddModes[iTerm] << endl;
@@ -504,16 +380,19 @@ class CorrelationFitter {
         }
 
         std::vector<TF1*> components;
-        int nTerms = this->fFitFunc.size() + this->fFitSplines.size();
+        int nTerms = this->fFitFunc.size() + this->fFitSplines.size() + this->fFitTF1s.size();
         int setPars = 0;
         int iSpline = 0;
+        int iTF1 = 0;
         int iFunc = 0;
+        cout << "Fit Function terms: " << nTerms << endl;
         cout << "Fit Function number of parameters: " << this->fFit->GetNpar() << endl;
         for(int iTerm=0; iTerm<nTerms; iTerm++) {
             std::string compName = static_cast<std::string>(this->fFitFuncComps[iTerm]);
-            cout << "Set par " << this->fFit->GetParameter(setPars) << endl;
-            cout << "Set par +1 " << this->fFit->GetParameter(setPars+1) << endl;
             if(this->fFitFuncComps[iTerm].Contains("spline")) {
+                cout << "Set par " << this->fFit->GetParameter(setPars) << endl;
+                cout << "Set par +1 " << this->fFit->GetParameter(setPars+1) << endl;
+                cout << endl;
                 components.push_back(new TF1(Form("iComp_%.0f", iTerm),
                         [&, this, iSpline, iTerm, setPars](double *x, double *pars) {
                             if(this->fNPars[iTerm+1] == 2) {
@@ -523,16 +402,27 @@ class CorrelationFitter {
                             }
                         }, fFitRangeMin, fFitRangeMax, 0));
                 iSpline++;
+            } else if(this->fFitFuncComps[iTerm].Contains("TF1")) {
+                cout << "TF1 norm " << this->fFit->GetParameter(setPars) << endl;
+                cout << endl;
+                components.push_back(new TF1(Form("iComp_%.0f", iTerm),
+                        [&, this, iTF1](double *x, double *pars) {
+                            return fFitTF1s[iTF1]->Eval(x[0]);
+                        }, fFitRangeMin, fFitRangeMax, 0));
+                iTF1++;
             } else {
+                cout << "Evaluating function " << iFunc << " nPars: " << fNPars[iTerm+1] << endl;
                 components.push_back(new TF1(Form("iComp_%.0f", iTerm), fFitFunc[iFunc], fFitRangeMin, fFitRangeMax, fNPars[iTerm+1]));
                 iFunc++;                
                 for(int iPar=1; iPar<fNPars[iTerm+1]; iPar++) {
+                    cout << "Setting iPar " << iPar << endl;
+                    cout << "Value " << this->fFit->GetParameter(setPars + iPar) << endl;
                     components.back()->FixParameter(iPar-1, this->fFit->GetParameter(setPars + iPar));
                 }
             }
             setPars += fNPars[iTerm+1];
         }
-        
+        cout << "Evaluated" << endl;
         for(int iFunc=0; iFunc<nTerms; iFunc++) {
             bool toBeSummed = false;
             for(int iAddComp=0; iAddComp<addComps.size(); iAddComp++) {
@@ -544,7 +434,7 @@ class CorrelationFitter {
             }
             
             if(!toBeSummed) {
-                this->fFitFuncEval.push_back(new TF1(Form("Comp_%i", iFunc),
+                this->fFitFuncEval.push_back(new TF1(this->fFitFuncComps[iFunc],
                     [&, this, iFunc, components](double *x, double *pars) {
                         if(this->fDrawOnBaseline[iFunc]) {
                             return this->fNorms[iFunc]*components[iFunc]->Eval(x[0]) + 
@@ -557,6 +447,7 @@ class CorrelationFitter {
                     fFitRangeMin, fFitRangeMax, 0));            
             }
         }        
+        cout << "Evaluated2" << endl;
             
         if(addComps[0] != "") {
             for(int iAddComp=0; iAddComp<addComps.size(); iAddComp++) {
@@ -579,19 +470,15 @@ class CorrelationFitter {
         }
     }
 
-    TH1 *fDataHist = nullptr;
-    TH1 *fMCHist = nullptr;
+    TH1 *fFitHist = nullptr;
     TF1 *fFit = nullptr;
-    TF1 *fPrefitMC = nullptr;
 
-    std::map<TString, double (*)(double *x, double *par)> fFuncMap; // Map containing the implemented functions
     std::vector<double (*)(double *x, double *par)> fFitFunc;       // List of function describing each term of the CF model
-    double (*fBaseline)(double *x, double *par);                    // Baseline function (for drawing purposes)
     double fBaselineIdx;                                            // Index of baseline function element
-    double fAncestorIdx;                                            // Index of baseline function element
     std::vector<TString> fFitFuncComps;                             // Function names of fit components
     std::vector<bool> fDrawOnBaseline;                              // Options to draw fit components on the baseline function
     std::vector<TSpline3 *> fFitSplines;                            // Spline fit components
+    std::vector<TF1 *> fFitTF1s;                                    // TF1 fit components
     std::vector<TF1*> fFitFuncEval;                                 // Fit components evaluated after the fitting
     std::vector<int> fNPars;                                        // Keeps track of how many parameters each function has
     std::vector<std::string> fAddModes;                             // Select mode of adding the contributions to the model
@@ -599,8 +486,9 @@ class CorrelationFitter {
 
     double fFitRangeMin;
     double fFitRangeMax;
+    double fRejectMin;
+    double fRejectMax;
     std::map<int, std::tuple<std::string, double, double, double>> fFitPars;    // List of fit parameters
-    std::map<int, std::tuple<std::string, double, double, double>> fFitNorms;   // List of fit parameters
 };
 
-#endif  // FEMPY_CORRELATIONFITTER_HXX_
+#endif  // FEMPY_MODELFITTER_HXX_
