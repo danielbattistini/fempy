@@ -1,6 +1,6 @@
 '''
-Script to compute the raw correlation function.
-The output file is RawCF_suffix.root
+Script to compute the Lambda parameters of a pair.
+The output file is LambdaParams_suffix.root
 
 Usage:
 python3 ComputeLambdaPars.py cfg.yml
@@ -11,7 +11,7 @@ import argparse
 import yaml
 import numpy as np
 
-from ROOT import TFile, TH1F, TH2D, gStyle
+from ROOT import TFile, TH2D
 
 from fempy import logger as log
 from fempy.utils.io import Load
@@ -31,7 +31,7 @@ with open(args.cfg, "r") as stream:
     except yaml.YAMLError as exc:
         log.critical('Yaml configuration could not be loaded. Is it properly formatted?')
 
-# Load input file with same- and mixed-event distributions
+# Load file containing the purities of the particles
 inFilePurities = TFile(cfg['purityfilename'])
 
 # Define the output file
@@ -50,8 +50,6 @@ except OSError:
 for pair in cfg['pairs']:
 
     pairCode = str(pair['code'])
-    #print(pairCode)
-    #print(pairCode[0])
     labels = ['prim', 'res', 'trueprim', 'sec']
     nBins = len(labels) 
     hPairLambdaPars = TH2D('hLambdaPars_' + pairCode, 'hLambdaPars_' + pairCode, nBins, 0, 4, nBins, 0, 4)
@@ -64,61 +62,38 @@ for pair in cfg['pairs']:
     hPurity1 = Load(inFilePurities, pair['pairpurity1'])
     purity1 = hPurity1.GetBinContent(1)
     purity1Err = hPurity1.GetBinError(1)
-    
-    primPartFracs1 = []
-    primPartFracs1.append(pair['primfrac1'])
-    primPartFracs1.append(pair['resfrac1'])
-    primPartFracs1.append(pair['primfrac1'] - pair['resfrac1'])
-    primPartFracs1.append(1-pair['primfrac1'])
-    
-
     hPurity2 = Load(inFilePurities, pair['pairpurity2'])
     purity2 = hPurity2.GetBinContent(1)
     purity2Err = hPurity2.GetBinError(1)
-    #print(purity2)
-    #print(purity2Err)
-
-    primPartFracs2 = []
-    primPartFracs2.append(pair['primfrac2'])
-    primPartFracs2.append(pair['resfrac2'])
-    primPartFracs2.append(pair['primfrac2'] - pair['resfrac2'])
-    primPartFracs2.append(1-pair['primfrac2'])
-
     purityFactor = purity1 * purity2
     
-    #print('Purities: ')
-    #print(purity1)
-    #print(purity2)
-    #print(purityFactor)
+    primPartFracs1 = []
+    primPartFracs1.append(pair['primfracs'][0])
+    primPartFracs1.append(pair['resfracs'][0])
+    primPartFracs1.append(pair['primfracs'][0] - pair['resfracs'][0])
+    primPartFracs1.append(1-pair['primfracs'][0])
+
+    primPartFracs2 = []
+    primPartFracs2.append(pair['primfracs'][1])
+    primPartFracs2.append(pair['resfracs'][1])
+    primPartFracs2.append(pair['primfracs'][1] - pair['resfracs'][1])
+    primPartFracs2.append(1-pair['primfracs'][1])
+
     
-    #print('First part fractions: ')
-    #print(primPartFracs1)
-
-    #print('Second part fractions: ')
-    #print(primPartFracs2)
-
     LambdaPars = []
     LambdaParsErrs = []
 
     for iFrac1 in range(len(primPartFracs1)):
         for iFrac2 in range(len(primPartFracs2)):
-            hPairLambdaPars.SetBinContent(iFrac1+1, iFrac2+1, purityFactor*primPartFracs1[iFrac1]*primPartFracs2[iFrac2])
-            
-            LambdaPars.append(purityFactor*primPartFracs1[iFrac1]*primPartFracs2[iFrac2])
+            lambdaPar = purityFactor*primPartFracs1[iFrac1]*primPartFracs2[iFrac2]
+            lambdaParErr = primPartFracs1[iFrac1]*primPartFracs2[iFrac2]*np.sqrt((purity1**2)*(purity2Err**2) + (purity2**2)*(purity1Err**2))
+            hPairLambdaPars.SetBinContent(iFrac1+1, iFrac2+1, lambdaPar)
+            hPairLambdaPars.SetBinError(iFrac1+1, iFrac2+1, lambdaParErr)
+            LambdaPars.append(lambdaPar)
+            LambdaParsErrs.append(lambdaParErr)
 
-            hPairLambdaPars.SetBinError(iFrac1+1, iFrac2+1, primPartFracs1[iFrac1]*primPartFracs2[iFrac2]*
-                                        np.sqrt((purity1**2)*(purity2Err**2) + (purity2**2)*(purity1Err**2)))
-            
-            LambdaParsErrs.append(primPartFracs1[iFrac1]*primPartFracs2[iFrac2]*np.sqrt((purity1**2)*(purity2Err**2) + (purity2**2)*(purity1Err**2)))
-            #hPairLambdaPars.SetBinError(iFrac1, iFrac2, 10000)
     hPairLambdaPars.SetStats(0)
-    #hPairLambdaPars.SetOption("text e")
-    #hPairLambdaPars.Draw("text e")
     hPairLambdaPars.Write()
-
-    print(LambdaPars)
-    print(LambdaParsErrs)
-    print('\n')
 
 oFile.Close()
 print(f'output saved in {oFileName}')

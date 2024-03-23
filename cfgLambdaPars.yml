@@ -1,0 +1,12 @@
+# where to save the output
+odir: ~/path/to/output/directory
+suffix: FileNameSuffix
+
+purityfilename: /path/to/file/with/purities
+
+pairs:
+-   code: '02'                  # for axis labels and histogram name: 02, 03, 12, 13
+    pairpurity1: path/to/avgpurity/of/first/particle/of/pair
+    pairpurity2: path/to/avgpurity/of/second/particle/of/pair
+    primfracs: [0.995, 0.576]   # [first part primary fraction, second part primary fraction]   
+    resfracs: [0.122, 0.0]      # [first part residual fraction, second part residual fraction]
