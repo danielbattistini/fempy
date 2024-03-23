@@ -18,8 +18,9 @@
 #include <TF1.h>
 #include <TLorentzVector.h>
 
-//#include "AliPythia8.h"
 #include "Pythia8/Pythia.h"
+
+enum tunes {kMonash = 0, kCRMode0, kCRMode2, kCRMode3};
 
 using namespace Pythia8;
 
@@ -42,23 +43,82 @@ float RelativePairMomentum(TLorentzVector &PartOne, TLorentzVector &PartTwo) {
   return 0.5 * trackRelK.P();
 }
 
-void SimLPiBkg(int seed=42, int nEvents=250000) {
+// Macro for files NewSimStandalonePythia
+void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
+               std::string MCFilePath="/home/mdicostanzo/an/LPi/Trains/02_allpc/mc/data/AnalysisResultsAllPC.root",
+               std::string outFilePath= "/home/mdicostanzo/an/LPi/Simulation/outputs/SimLPi_allbkg_new") {
     
     Pythia pythia;
     
+    if (tune == kMonash) {
+        pythia.ReadString(Form("Tune:pp = 14"));
+    } else if (tune == kCRMode0) {
+        pythia.ReadString(Form("Tune:pp = 14"));
+        pythia.ReadString("ColourReconnection:mode = 1");
+        pythia.ReadString("ColourReconnection:allowDoubleJunRem = off");
+        pythia.ReadString("ColourReconnection:m0 = 2.9");
+        pythia.ReadString("ColourReconnection:allowJunctions = on");
+        pythia.ReadString("ColourReconnection:junctionCorrection = 1.43");
+        pythia.ReadString("ColourReconnection:timeDilationMode = 0");
+        pythia.ReadString("StringPT:sigma = 0.335");
+        pythia.ReadString("StringZ:aLund = 0.36");
+        pythia.ReadString("StringZ:bLund = 0.56");
+        pythia.ReadString("StringFlav:probQQtoQ = 0.078");
+        pythia.ReadString("StringFlav:ProbStoUD = 0.2");
+        pythia.ReadString("StringFlav:probQQ1toQQ0join = 0.0275,0.0275,0.0275,0.0275");
+        pythia.ReadString("MultiPartonInteractions:pT0Ref = 2.12");
+        pythia.ReadString("BeamRemnants:remnantMode = 1");
+        pythia.ReadString("BeamRemnants:saturation = 5");
+    } else if (tune == kCRMode2) {
+        pythia.ReadString(Form("Tune:pp = 14"));
+        pythia.ReadString("ColourReconnection:mode = 1");
+        pythia.ReadString("ColourReconnection:allowDoubleJunRem = off");
+        pythia.ReadString("ColourReconnection:m0 = 0.3");
+        pythia.ReadString("ColourReconnection:allowJunctions = on");
+        pythia.ReadString("ColourReconnection:junctionCorrection = 1.20");
+        pythia.ReadString("ColourReconnection:timeDilationMode = 2");
+        pythia.ReadString("ColourReconnection:timeDilationPar = 0.18");
+        pythia.ReadString("StringPT:sigma = 0.335");
+        pythia.ReadString("StringZ:aLund = 0.36");
+        pythia.ReadString("StringZ:bLund = 0.56");
+        pythia.ReadString("StringFlav:probQQtoQ = 0.078");
+        pythia.ReadString("StringFlav:ProbStoUD = 0.2");
+        pythia.ReadString("StringFlav:probQQ1toQQ0join = 0.0275,0.0275,0.0275,0.0275");
+        pythia.ReadString("MultiPartonInteractions:pT0Ref = 2.15");
+        pythia.ReadString("BeamRemnants:remnantMode = 1");
+        pythia.ReadString("BeamRemnants:saturation = 5");
+    } else if (tune == kCRMode3) {
+        pythia.ReadString(Form("Tune:pp = 14"));
+        pythia.ReadString("ColourReconnection:mode = 1");
+        pythia.ReadString("ColourReconnection:allowDoubleJunRem = off");
+        pythia.ReadString("ColourReconnection:m0 = 0.3");
+        pythia.ReadString("ColourReconnection:allowJunctions = on");
+        pythia.ReadString("ColourReconnection:junctionCorrection = 1.15");
+        pythia.ReadString("ColourReconnection:timeDilationMode = 3");
+        pythia.ReadString("ColourReconnection:timeDilationPar = 0.073");
+        pythia.ReadString("StringPT:sigma = 0.335");
+        pythia.ReadString("StringZ:aLund = 0.36");
+        pythia.ReadString("StringZ:bLund = 0.56");
+        pythia.ReadString("StringFlav:probQQtoQ = 0.078");
+        pythia.ReadString("StringFlav:ProbStoUD = 0.2");
+        pythia.ReadString("StringFlav:probQQ1toQQ0join = 0.0275,0.0275,0.0275,0.0275");
+        pythia.ReadString("MultiPartonInteractions:pT0Ref = 2.05");
+        pythia.ReadString("BeamRemnants:remnantMode = 1");
+        pythia.ReadString("BeamRemnants:saturation = 5");
+    }
+
     // set seed for simulation
     pythia.readString(Form("Random:seed %d", seed));
     pythia.readString("Random:setSeed = on");
     
-    pythia.readString("Tune:pp = 14");
-    pythia.readString("SoftQCD:all = on");
-    pythia.readString("Beams:eCM = 13000");
+    //pythia.readString("SoftQCD:all = on");
+    //pythia.readString("Beams:eCM = 13000");
 
     // init
     pythia.init();
 
     // save output
-    std::string outFileName = "/home/ktas/go98pog/simoutput/NewSimStandalonePythia_" + std::to_string(seed) + ".root";  
+    std::string outFileName = outFilePath + "_" + std::to_string(seed) + ".root";   
     TFile oFile(outFileName.data(), "recreate");
 
     // define histograms
@@ -206,7 +266,7 @@ void SimLPiBkg(int seed=42, int nEvents=250000) {
     }
 
     std::map<TString, TH2D*> smearMatrices;
-    TFile *MCdata = TFile::Open("/home/ktas/go98pog/hello_anton/AnalysisResultsMC.root");
+    TFile *MCdata = TFile::Open(MCFilePath.data());
     TDirectoryFile *folder = static_cast<TDirectoryFile*>(MCdata->Get("HMResultsQA1001"));
     TList *toplist = static_cast<TList*>(folder->Get("HMResultsQA1001"));
     TList *QAList = dynamic_cast<TList*>(toplist->FindObject("PairQA"));

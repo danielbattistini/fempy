@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "yaml-cpp/yaml.h"
+//#include "yaml-cpp/yaml.h"
 
 #include <TFile.h>
 #include <TROOT.h>
@@ -42,7 +42,10 @@ float RelativePairMomentum(TLorentzVector &PartOne, TLorentzVector &PartTwo) {
   return 0.5 * trackRelK.P();
 }
 
-void SimLambda1520(int nEvents=20000000, int seed=42) {
+void SimLambda1520(int nEvents=200000000, int seed=42, 
+                   std::string kinemFilePath="/home/mdicostanzo/an/LPi/Simulation/outputs/SimLambda1520Kinem_MERGED.root", 
+                   std::string MCFilePath="/home/mdicostanzo/an/LPi/Trains/02_allpc/mc/data/AnalysisResultsAllPC.root",
+                   std::string outFilePath= "/home/mdicostanzo/an/LPi/Simulation/outputs/SimLambda1520_KinemXi1530_new") {
     
     std::map<TString, TH1F*> hSEPairs;
     std::map<TString, TH1F*> hSEPairsSmeared;
@@ -105,7 +108,7 @@ void SimLambda1520(int nEvents=20000000, int seed=42) {
     fDecay->SetNpx(1500); 
   
     // Read histograms from Xi(1530) to simulate acceptance and pT of the particle
-    TFile *kinemXi1530 = TFile::Open("/home/mdicostanzo/an/LPi/Simulation/outputs/SimLambda1520Kinem_MERGED.root", "r");
+    TFile *kinemXi1530 = TFile::Open(kinemFilePath.data(), "r");
     TH1F * hAcc1530 = (TH1F*)kinemXi1530->Get("hAcc");
     TH1F * hPt1530 = (TH1F*)kinemXi1530->Get("hPt");
 
@@ -225,7 +228,7 @@ void SimLambda1520(int nEvents=20000000, int seed=42) {
 
     std::vector<TH2F*> smearMatrices;
     cout << "CIAO1" << endl;
-    TFile *MCdata = TFile::Open("/home/mdicostanzo/an/LPi/Trains/02_allpc/mc/data/AnalysisResultsAllPC.root");
+    TFile *MCdata = TFile::Open(MCFilePath.data());
     cout << "CIAO2" << endl;
     TDirectoryFile *folder = static_cast<TDirectoryFile*>(MCdata->Get("HMResultsQA1001"));
     TList *toplist = static_cast<TList*>(folder->Get("HMResultsQA1001"));
@@ -269,7 +272,7 @@ void SimLambda1520(int nEvents=20000000, int seed=42) {
     cout << "CIAO3" << endl;
 
     cout << "CIAO1" << endl;
-    std::string outFileName = "/home/mdicostanzo/an/LPi/Simulation/outputs/SimLambda1520_KinemXi1530_" + std::to_string(seed) + ".root";  
+    std::string outFileName = outFilePath + "_" + std::to_string(seed) + ".root";  
     TFile oFile(outFileName.data(), "recreate");
     oFile.cd();
     for(const auto &hSEPair : hSEPairs) {
