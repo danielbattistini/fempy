@@ -261,10 +261,9 @@ double PowEx(double *x, double *par) {
 }
 
 double Spline3(double *x, double *par){
-
     int numKnots = 10;
-    Double_t xKnots[numKnots];
-    Double_t yKnots[numKnots];
+    double xKnots[numKnots];
+    double yKnots[numKnots];
     for(int iKnot=0; iKnot<numKnots; iKnot++){
         xKnots[iKnot] = par[iKnot];
         yKnots[iKnot] = par[numKnots+iKnot];
@@ -275,8 +274,8 @@ double Spline3(double *x, double *par){
 
 double Spline5(double *x, double *par){
     int numKnots = 6;
-    Double_t xKnots[numKnots];
-    Double_t yKnots[numKnots];
+    double xKnots[numKnots];
+    double yKnots[numKnots];
     for(int iKnot=0; iKnot<numKnots; iKnot++){
         xKnots[iKnot] = par[iKnot];
         yKnots[iKnot] = par[numKnots+iKnot];
@@ -287,8 +286,8 @@ double Spline5(double *x, double *par){
 
 double Spline3Range(double *x, double *par){
     int numKnots = 10;
-    Double_t xKnots[numKnots];
-    Double_t yKnots[numKnots];
+    double xKnots[numKnots];
+    double yKnots[numKnots];
     for(int iKnot=0; iKnot<numKnots; iKnot++){
         xKnots[iKnot] = par[iKnot];
         yKnots[iKnot] = par[numKnots+iKnot];
@@ -431,7 +430,7 @@ double ComplexLednicky_Singlet_doublegaussian_lambda(double *x, double *par)
            + (1 - sourcePar2) * GeneralLednicky(kStar, sourcePar1, ScatLen, potPar2)) + 1. - sourcePar3;
 }
 
- double Landau(double *x, double *par)
+double Landau(double *x, double *par)
  {
     // par[0]: norm
     // par[1]: mean
