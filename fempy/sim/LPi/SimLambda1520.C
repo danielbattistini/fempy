@@ -51,9 +51,9 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
     std::map<TString, TH1F*> hSEPairsSmeared;
     std::vector<TString> keys = {"3122211", "3122-211", "-3122211", "-3122-211"};
     for(int iKey=0; iKey<keys.size(); iKey++) {
-      TString smearHistoName = keys[iKey] + "_smeared";
-      hSEPairs.insert({keys[iKey], new TH1F(keys[iKey].Data(), ";#it{k*};Counts", 1500, 0., 6.)});
-      hSEPairsSmeared.insert({keys[iKey], new TH1F(smearHistoName.Data(), ";#it{k*};Counts", 1500, 0., 6.)});
+        TString smearHistoName = keys[iKey] + "_smeared";
+        hSEPairs.insert({keys[iKey], new TH1F(keys[iKey].Data(), ";#it{k*};Counts", 1500, 0., 6.)});
+        hSEPairsSmeared.insert({keys[iKey], new TH1F(smearHistoName.Data(), ";#it{k*};Counts", 1500, 0., 6.)});
     }
     
     Pythia pythia;

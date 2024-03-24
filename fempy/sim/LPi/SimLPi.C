@@ -52,6 +52,7 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
     
     if (tune == kMonash) {
         pythia.ReadString(Form("Tune:pp = 14"));
+        pythia.readString("SoftQCD:all = on");
     } else if (tune == kCRMode0) {
         pythia.ReadString(Form("Tune:pp = 14"));
         pythia.ReadString("ColourReconnection:mode = 1");
@@ -132,7 +133,6 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
     std::vector<std::tuple<int, int, int, int>> pionsDirectSigma;
     std::vector<std::tuple<int, int, int, int>> lambdasDirectSigma;
 
-    int countLambda1520 = 0;
     for (int iEvent = 0; iEvent < nEvents; ++iEvent) {
         if(iEvent%10000 == 0) {
             std::cout << Form("Processing event... ", iEvent) << endl;
@@ -142,18 +142,10 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
         } 
         for (int iPart = 2; iPart < pythia.event.size(); iPart++) {
             Particle part = pythia.event.at(iPart);
-            if(abs(part.id()) == 3124) {
-                countLambda1520++;
-            }
             if(abs(part.id()) == 211 || abs(part.id()) == 3122) {
                 
-                if(abs(part.eta())>0.8) {
-                    continue;
-                } 
-                if(abs(part.pT())<0.3) {
-                    continue;
-                } 
-
+                if(abs(part.eta())>0.8) { continue; } 
+                if(abs(part.pT())<0.3)  { continue; } 
                 if(part.daughter1() == part.daughter2() && part.daughter1()>0 && part.daughter2()>0) {
                     continue;
                 }  
