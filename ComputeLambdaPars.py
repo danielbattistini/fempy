@@ -46,7 +46,6 @@ try:
 except OSError:
     log.critical('The output file %s is not writable', oFileName)
 
-
 for pair in cfg['pairs']:
 
     pairCode = str(pair['code'])
