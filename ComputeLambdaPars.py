@@ -77,7 +77,6 @@ for pair in cfg['pairs']:
     primPartFracs2.append(pair['primfracs'][1] - pair['resfracs'][1])
     primPartFracs2.append(1-pair['primfracs'][1])
 
-    
     LambdaPars = []
     LambdaParsErrs = []
 
