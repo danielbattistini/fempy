@@ -261,7 +261,6 @@ double PowEx(double *x, double *par) {
 }
 
 double Spline3(double *x, double *par){
-
     int numKnots = 10;
     double xKnots[numKnots];
     double yKnots[numKnots];
