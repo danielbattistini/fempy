@@ -181,7 +181,6 @@ double BreitWigner(double *x, double *par) {
 }
 
 double BreitWignerKStar(double *x, double *par) {
-
   // p0: normalisation
   // p1: mass
   // p2: width
@@ -293,11 +292,7 @@ double Spline3Range(double *x, double *par){
         yKnots[iKnot] = par[numKnots+iKnot];
     }
     TSpline3* sp3 = new TSpline3("sp3", xKnots, yKnots, numKnots, "");
-    
-    //if(x[0]<95 || x[0]>) return 0;
-    //else {
-    //    return sp3->Eval(x[0]);
-    //}
+
     return sp3->Eval(x[0]);
 }
 
