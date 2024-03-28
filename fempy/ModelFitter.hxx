@@ -26,10 +26,6 @@ class ModelFitter {
         this->fNPars = {0};  // The first parameter has index zero
     }
 
-    void SetBaselineIdx(double basIdx) {
-        this->fBaselineIdx = basIdx; 
-    }
-
     void DrawSpline(TVirtualPad *pad, TH1* hist, 
                     std::string name=";k* (MeV/c);Counts") {
         pad->cd();
@@ -74,7 +70,7 @@ class ModelFitter {
     It is your responsibility to give the correct number of parameters. All fit parameters must be initialized.
     */
 
-    void Add(TString name, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, bool onbaseline) {
+    void Add(TString name, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode) {
         
         cout << "Adding " << name << endl;
         if(functions.find(name)!=functions.end()){
@@ -93,15 +89,14 @@ class ModelFitter {
         }
 
         this->fAddModes.push_back(addmode);
-        this->fDrawOnBaseline.push_back(onbaseline);
+        
         // Save fit settings
         for (const auto &par : pars) {
             this->fFitPars.insert({this->fFitPars.size(), par});
         }
     }
 
-    void AddSplineHisto(TString name, TH1* splinedhisto, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, bool onbaseline,
-                        TString legend="ciaospl") {
+    void AddSplineHisto(TString name, TH1* splinedhisto, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode) {
 
         TH1D *splineHisto = static_cast<TH1D*>(splinedhisto);
         TSpline3* sp3 = new TSpline3(splinedhisto);
@@ -109,7 +104,7 @@ class ModelFitter {
         this->fFitFuncComps.push_back(name);
         
         this->fAddModes.push_back(addmode);
-        this->fDrawOnBaseline.push_back(onbaseline);
+        
         this->fNPars.push_back(pars.size());
         // Save fit settings
         for (const auto &par : pars) {
@@ -117,16 +112,16 @@ class ModelFitter {
         }
     }
 
-    TF1 *GetComponent(int icomp) {
+    TF1 *GetComponent(int icomp, int ibaseline=-1) {
         if(!this->fFit) {
             throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
         }
         
-        if(this->fDrawOnBaseline[icomp]) {
+        if(ibaseline != -1) {
             TF1 *compWithoutNormAndBaseline = new TF1(this->fFitFuncComps[icomp],
-                [&, this, icomp](double *x, double *pars) {
+                [&, this, icomp, ibaseline](double *x, double *pars) {
                    return ( this->fFitFuncEval[icomp]->Eval(x[0]) - 
-                          ( this->fFitFuncEval[this->fBaselineIdx]->Eval(x[0])/this->fNorms[this->fBaselineIdx] ) )
+                          ( this->fFitFuncEval[ibaseline]->Eval(x[0])/this->fNorms[ibaseline] ) )
                           / this->fNorms[icomp];  
             }, this->fFitRangeMin, this->fFitRangeMax, 0);
             return compWithoutNormAndBaseline;
@@ -201,8 +196,6 @@ class ModelFitter {
             return result;}, 
             fFitRangeMin, fFitRangeMax, this->fFitPars.size());
 
-        int baselinePar = accumulate(fNPars.begin(), std::next(fNPars.begin(), fBaselineIdx), 0);
-        
         for (size_t iPar = 0; iPar < this->fFitPars.size(); iPar++) {
             auto pars = this->fFitPars[iPar];
             cout << "iPar" << iPar << ": " << std::get<0>(pars) << " " << std::get<1>(pars) << " " << std::get<2>(pars) << " " << std::get<3>(pars) << endl;        
@@ -239,20 +232,22 @@ class ModelFitter {
     /*
     Define a canvas before calling this function and pass gPad as TVirtualPad
     */
-    void Draw(TVirtualPad *pad, std::vector<TString> legLabels, std::vector<double> legCoords, 
-              std::vector<bool> onBaseline, int linesThickness, std::vector<TString> addComps = {""}, 
+    void Draw(TVirtualPad *pad, std::vector<TString> legLabels, std::vector<double> legCoords,
+              std::vector<bool> onBaseline, int linesThickness, int basIdx=-1, std::vector<TString> addComps = {""},
               double lowRangeUser=0.0, double uppRangeUser=1.05, std::string title=";k* (MeV/c);C(k*)") {
 
-        EvaluateComponents(onBaseline, addComps); 
-    
+        EvaluateComponents(basIdx, onBaseline, addComps); 
+        cout << "Drawing" << endl;
         pad->cd();
         double yMinDraw = lowRangeUser;
         double yMaxDraw = uppRangeUser + fFitHist->GetMaximum();
         
+        cout << "Drawing" << endl;
         TLegend *legend = new TLegend(legCoords[0], legCoords[1], legCoords[2], legCoords[3]);
         legend->AddEntry(this->fFitHist, legLabels[0].Data(), "lp");
         legend->AddEntry(this->fFit, legLabels[1].Data(), "l");
 
+        cout << "Drawing" << endl;
         //gPad->DrawFrame(fFitRangeMin, yMinDraw, fFitRangeMax, yMaxDraw, title.data());
         gPad->DrawFrame(fFitRangeMin, yMinDraw, 2000, yMaxDraw, title.data());
         this->fFit->SetNpx(300);
@@ -261,18 +256,27 @@ class ModelFitter {
         this->fFit->DrawF1(fFitRangeMin+1,1000,"same");
         pad->Update();
         
-        std::vector<Color_t> colors = {kMagenta + 3, kAzure + 2, kGreen, kBlue + 2, kOrange, kCyan, kBlack};
+        cout << "Drawingciao" << endl;
+        std::vector<Color_t> colors = {kMagenta + 3, kAzure + 2, kGreen, kBlue + 2, kOrange, kCyan, kBlack, kGreen+2};
         for(int iFuncEval=0; iFuncEval<fFitFuncEval.size(); iFuncEval++) {
+            cout << "Ciao1" << endl;
             this->fFitFuncEval[iFuncEval]->SetNpx(300);
+            cout << "Ciao2" << endl;
             this->fFitFuncEval[iFuncEval]->SetLineColor(colors[iFuncEval]); //.data());
+            cout << "Ciao3" << endl;
             this->fFitFuncEval[iFuncEval]->SetLineWidth(linesThickness);
+            cout << "Ciao4" << endl;
             this->fFitFuncEval[iFuncEval]->DrawF1(fFitRangeMin+1,1000,"same");
+            cout << "Ciao5" << endl;
             pad->Update();
+            cout << "Ciao6" << endl;
             if(legLabels[iFuncEval+2].Contains("lambda_flat")) continue;
-            //legend->AddEntry(this->fFitFuncEval[iLabel-2], labels[iLabel].Data(), "l");
+            cout << "Ciao7" << endl;
             legend->AddEntry(this->fFitFuncEval[iFuncEval], legLabels[iFuncEval+2].Data(), "l");
+            cout << "Ciao8" << endl;
         }
     
+        cout << "Drawing" << endl;
         fFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
         fFitHist->SetMarkerSize(0.3);
         fFitHist->SetMarkerStyle(20);
@@ -286,7 +290,7 @@ class ModelFitter {
         legend->SetTextSize(0.045);
         legend->Draw("same");
         pad->Update();
-
+        cout << "Drawn!" << endl;
     }
 
     void Debug() {
@@ -299,7 +303,6 @@ class ModelFitter {
         cout << "--------------------------" << endl;    
         int nTerms = this->fFitFunc.size() + this->fFitSplines.size();
         for(int iTerm=0; iTerm<nTerms; iTerm++) {
-            if(iTerm==fBaselineIdx) cout << "BASELINE" << endl;
             cout << "Term name: " << this->fFitFuncComps[iTerm] << endl;
             cout << "Add Mode: " << this->fAddModes[iTerm] << endl;
             cout << "Number of parameters of term: " << this->fNPars[iTerm+1] << endl;
@@ -317,7 +320,7 @@ class ModelFitter {
 
    private:
 
-    void EvaluateComponents(std::vector<bool> onBaseline, std::vector<TString> addComps = {""}) {
+    void EvaluateComponents(int basIdx, std::vector<bool> onBaseline, std::vector<TString> addComps = {""}) {
         
         int normParNumber = 0;
         for(int iNorm=0; iNorm<fNPars.size()-1; iNorm++) {
@@ -326,6 +329,7 @@ class ModelFitter {
         }
 
         std::vector<TF1*> components;
+        cout << 'bas' << basIdx << endl;
         int nTerms = this->fFitFunc.size() + this->fFitSplines.size();
         int setPars = 0;
         int iSpline = 0;
@@ -373,10 +377,10 @@ class ModelFitter {
             
             if(!toBeSummed) {
                 this->fFitFuncEval.push_back(new TF1(this->fFitFuncComps[iFunc],
-                    [&, this, iFunc, components](double *x, double *pars) {
-                        if(this->fDrawOnBaseline[iFunc]) {
+                    [&, this, iFunc, components, onBaseline, basIdx](double *x, double *pars) {
+                        if(onBaseline[iFunc]) {
                             return this->fNorms[iFunc]*components[iFunc]->Eval(x[0]) + 
-                                   this->fNorms[this->fBaselineIdx]*components[this->fBaselineIdx]->Eval(x[0]);
+                                   this->fNorms[basIdx]*components[basIdx]->Eval(x[0]);
                         } else if(this->fFitFuncComps[iFunc].Contains("Lednicky")) {
                             return components[iFunc]->Eval(x[0]);
                         } else {
@@ -390,30 +394,29 @@ class ModelFitter {
             for(int iAddComp=0; iAddComp<addComps.size(); iAddComp++) {
                 int compNumber = this->fFitFuncEval.size();
                 this->fFitFuncEval.push_back(new TF1(Form("Comp_%i", compNumber),
-                        [&, this, nTerms, addComps, iAddComp, components](double *x, double *pars) {
+                        [&, this, nTerms, addComps, iAddComp, components, onBaseline, basIdx](double *x, double *pars) {
                         double sum = 0.;
                         bool addBaseline = true;
                         for(int iComp=0; iComp<nTerms; iComp++) {
                             if(addComps[iAddComp].Contains(std::to_string(iComp))) {
                                 sum += this->fNorms[iComp]*components[iComp]->Eval(x[0]);
-                                if(!this->fDrawOnBaseline[iComp]) addBaseline=false;
+                                if(!onBaseline[iComp]) addBaseline=false;
                             }
                         }
                         if(addBaseline) {
-                            sum += this->fNorms[this->fBaselineIdx]*components[this->fBaselineIdx]->Eval(x[0]);
+                            sum += this->fNorms[basIdx]*components[basIdx]->Eval(x[0]);
                         }
                         return sum;}, fFitRangeMin, fFitRangeMax, 0));
             }
         }
+        cout << "Evaluated" << endl;
     }
 
     TH1 *fFitHist = nullptr;
     TF1 *fFit = nullptr;
 
     std::vector<double (*)(double *x, double *par)> fFitFunc;       // List of function describing each term of the CF model
-    double fBaselineIdx;                                            // Index of baseline function element
     std::vector<TString> fFitFuncComps;                             // Function names of fit components
-    std::vector<bool> fDrawOnBaseline;                              // Options to draw fit components on the baseline function
     std::vector<TSpline3 *> fFitSplines;                            // Spline fit components
     std::vector<TF1*> fFitFuncEval;                                 // Fit components evaluated after the fitting
     std::vector<int> fNPars;                                        // Keeps track of how many parameters each function has
