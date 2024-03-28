@@ -48,6 +48,12 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
                std::string MCFilePath="/home/mdicostanzo/an/LPi/Trains/02_allpc/mc/data/AnalysisResultsAllPC.root",
                std::string outFilePath= "/home/mdicostanzo/an/LPi/Simulation/outputs/SimLPi_allbkg_new") {
     
+
+    /*
+        Macro to compute the same event distribution for all cases of Lambda
+        and Pion being produced from a common mother
+    */
+
     Pythia pythia;
     
     if (tune == kMonash) {
@@ -118,11 +124,11 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
     // init
     pythia.init();
 
-    // save output
+    // output file
     std::string outFileName = outFilePath + "_" + std::to_string(seed) + ".root";   
     TFile oFile(outFileName.data(), "recreate");
 
-    // define histograms
+    // define histograms for the specific mothers
     std::map<TString, TH1D*> hSEMothersPairs;
     std::map<TString, TH1D*> hSEMothersPairsSmeared;
     std::vector<TString> histoKeys;
@@ -142,14 +148,18 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
         } 
         for (int iPart = 2; iPart < pythia.event.size(); iPart++) {
             Particle part = pythia.event.at(iPart);
+
+            // pick only lambdas and pions
             if(abs(part.id()) == 211 || abs(part.id()) == 3122) {
                 
+                // acceptance and pT cuts
                 if(abs(part.eta())>0.8) { continue; } 
                 if(abs(part.pT())<0.3)  { continue; } 
                 if(part.daughter1() == part.daughter2() && part.daughter1()>0 && part.daughter2()>0) {
                     continue;
                 }  
 
+                // exclude primary lambdas and pions
                 if(pythia.event.at(part.mother1()).isHadron()) {
 
                     int moth1Idx = part.mother1();
@@ -159,9 +169,13 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
                     int partPrimMothIdx = moth1Idx;
                     int checkDirectDecay = 0;
                     bool foundMother = false;
+
+                    // such status codes identify the primary hadrons produced by hadronization process 
                     if(abs(intermPart.status())>=81 && abs(intermPart.status())<=89) {
                         foundMother = true;
                      }
+
+                    // look at the decay history until the corresponding primary hadron is found
                     while(!foundMother) {
                         partPrimMothIdx = moth1Idx;
                         Particle intermPart = pythia.event.at(moth1Idx);
@@ -170,22 +184,28 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
                         Particle moth1 = pythia.event.at(moth1Idx);
                         Particle moth2 = pythia.event.at(moth2Idx);
                         
+
                         if(abs(intermPart.status())>=81 && abs(intermPart.status())<=89 || !moth1.isHadron()) {
                             foundMother = true;
                         }
                         
                         checkDirectDecay++;
-                        if(checkDirectDecay>=3)  {
-                            if(intermPart.id() == 90) return;
-                        }
                     }
                     
+                    // pick the mother of the particle
                     Particle primMoth = pythia.event.at(partPrimMothIdx);
                     int finalPartPdg = part.id(); 
                     int primMothPdg = primMoth.id(); 
+
+                    // for each particle, the PDG codes of the particle and its mother are saved (needed for a correct filling of the
+                    // SE histogram). The stack indexes are also stored, to check which particles originate from a common mother 
                     std::tuple<int, int, int, int> partInfo = {finalPartPdg, iPart, primMothPdg, partPrimMothIdx};
-                    if(finalPartPdg == -211 && primMothPdg == 3122 && checkDirectDecay == 1) continue;  // pair cleaner
-                    if(finalPartPdg == 211 && primMothPdg == -3122 && checkDirectDecay == 1) continue;  // pair cleaner
+
+                    // before pushing the information on the particle, exclude pions directly coming from a lambda
+                    if(finalPartPdg == -211 && primMothPdg == 3122 && checkDirectDecay == 1) continue;  
+                    if(finalPartPdg == 211 && primMothPdg == -3122 && checkDirectDecay == 1) continue;  
+
+                    // Separate case for direct decay of the Sigma(1385) into Lambda Pi
                     if( (abs(primMothPdg) == 3114 || abs(primMothPdg) == 3224 ) && checkDirectDecay == 0) {
                         if(abs(finalPartPdg) == 211) {
                             pionsDirectSigma.push_back(partInfo);
@@ -202,23 +222,31 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
                 }
             }
         }
-                
+
+        // Loop over the Pions and the Lambdas of the event 
         for(int iPion = 0; iPion < pions.size(); iPion++) {
             Particle pion = pythia.event.at(std::get<1>(pions[iPion]));
             TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
             for(int iLambda = 0; iLambda < lambdas.size(); iLambda++) {
+
+                // check if the mothers of one pair LPi have the same PDG code and the same stack index, namely they are the
+                // same particle 
                 if( std::get<2>(pions[iPion]) == std::get<2>(lambdas[iLambda]) && std::get<3>(pions[iPion]) == std::get<3>(lambdas[iLambda])) {
                     
+                    // construct the key entry to pick the right histogram from the map
                     TString pairKey = std::to_string(std::get<0>(pions[iPion])) + std::to_string(std::get<0>(lambdas[iLambda]));
                     TString motherKey = std::to_string(std::get<2>(pions[iPion]));
                     TString histoKey = "hSE_" + pairKey + "_" + motherKey; 
                     
+                    // check whether the histogram has already been created, if not create it
                     if(std::find(histoKeys.begin(), histoKeys.end(), histoKey.Data()) == histoKeys.end()) { 
                         histoKeys.push_back(histoKey);
                         TString histoKeySmeared = "hSE_" + pairKey + "_" + motherKey + "_SMEARED"; 
                         hSEMothersPairs.insert({histoKey, new TH1D(histoKey.Data(), ";#it{k*};Counts", 1500, 0., 6.)});
                         hSEMothersPairsSmeared.insert({histoKey, new TH1D(histoKeySmeared.Data(), ";#it{k*};Counts", 1500, 0., 6.)});
                     }
+
+                    // compute the kstar and fill the right histogram
                     Particle lambda = pythia.event.at(std::get<1>(lambdas[iLambda]));
                     TLorentzVector momLambda = TLorentzVector(lambda.px(), lambda.py(), lambda.pz(), lambda.e());
                     float kStar = RelativePairMomentum(momPion, momLambda);
@@ -226,6 +254,8 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
                 }
             }
         }
+
+        // repeat the same procedure for the vectors containing the Lambdas and pions coming directly from Sigma(1385)
         for(int iDirPion = 0; iDirPion < pionsDirectSigma.size(); iDirPion++) {
             Particle pion = pythia.event.at(std::get<1>(pionsDirectSigma[iDirPion]));
             TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
@@ -235,6 +265,8 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
                     
                     TString pairKey = std::to_string(std::get<0>(pionsDirectSigma[iDirPion])) + std::to_string(std::get<0>(lambdasDirectSigma[iDirLambda]));
                     TString motherKey = std::to_string(std::get<2>(pionsDirectSigma[iDirPion]));
+                        
+                    // Specific pair key for the direct key
                     TString histoKey = "hSE_" + pairKey + "_" + motherKey + "_" + "DIRECT_SIGMA"; 
                     if(std::find(histoKeys.begin(), histoKeys.end(), histoKey.Data()) == histoKeys.end()) { 
                         histoKeys.push_back(histoKey);
@@ -250,6 +282,7 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
             }
         }
         
+        // clear the vectors containing the pions and lambdas for the event
         pions.clear();
         lambdas.clear();
         pionsDirectSigma.clear();
@@ -257,6 +290,7 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
 
     }
 
+    // Load matrices to compute the distributions smeared in momentum
     std::map<TString, TH2D*> smearMatrices;
     TFile *MCdata = TFile::Open(MCFilePath.data());
     TDirectoryFile *folder = static_cast<TDirectoryFile*>(MCdata->Get("HMResultsQA1001"));
@@ -285,6 +319,7 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
 
     MCdata->Close();
 
+    // Save the histograms in the file 
     oFile.cd();
     std::vector<std::string> directories = {"_2113122", "_211-3122", "_-2113122", "_-211-3122"};
     std::vector<std::string> smearedDirectories = {"_2113122_SMEARED", "_211-3122_SMEARED", "_-2113122_SMEARED", "_-211-3122_SMEARED"};
@@ -320,14 +355,9 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
                 
                 mergedHistos[iDir]->Add(hSEMothersPairs[hSEMothersPair.first]);
                 
-                // cout << "CIAO1" << endl;
                 TString smearMatrixKey = "SMEARMATRIX" + checkPair;
-                // cout << smearMatrixKey << endl;
-                // cout << "CIAO2" << endl;
                 for(int iBin=0; iBin<hSEMothersPairs[hSEMothersPair.first]->GetNbinsX(); iBin++) {
-                // cout << "CIAO3" << endl;
                     TH1D *hProjY = smearMatrices[smearMatrixKey]->ProjectionY(Form("iBin_%i", iBin+1), iBin+1, iBin+1);
-                // cout << "CIAO4" << endl;
                     if(hProjY->Integral() > 0) {    
                         hProjY->Scale(hSEMothersPairs[hSEMothersPair.first]->GetBinContent(iBin+1)/hProjY->Integral());
                         hSEMothersPairsSmeared[hSEMothersPair.first]->Add(hProjY);
@@ -365,8 +395,6 @@ void SimLPiBkg(int seed=42, int nEvents=250000, tunes = kCRMode2,
         mergedHistosNoDirect[iDir]->Write();
     }
 
-    // cout << "WRITING MERGED" << endl;
-    
     for(int iDir=0; iDir<smearedDirectories.size(); iDir++) {
         oFile.cd(smearedDirectories[iDir].data());
         mergedHistosSmeared[iDir]->Write();

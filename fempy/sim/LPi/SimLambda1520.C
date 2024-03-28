@@ -43,10 +43,11 @@ float RelativePairMomentum(TLorentzVector &PartOne, TLorentzVector &PartTwo) {
 }
 
 void SimLambda1520(int nEvents=200000000, int seed=42, 
-                   std::string kinemFilePath="/home/mdicostanzo/an/LPi/Simulation/outputs/SimLambda1520Kinem_MERGED.root", 
-                   std::string MCFilePath="/home/mdicostanzo/an/LPi/Trains/02_allpc/mc/data/AnalysisResultsAllPC.root",
+                   std::string kinemFilePath="/home/mdicostanzo/an/LPi/Simulation/outputs/SimLambda1520Kinem_MERGED.root", // kinematic information
+                   std::string MCFilePath="/home/mdicostanzo/an/LPi/Trains/02_allpc/mc/data/AnalysisResultsAllPC.root",    // momentum smearing
                    std::string outFilePath= "/home/mdicostanzo/an/LPi/Simulation/outputs/SimLambda1520_KinemXi1530_new") {
     
+    // map to fill the histograms
     std::map<TString, TH1F*> hSEPairs;
     std::map<TString, TH1F*> hSEPairsSmeared;
     std::vector<TString> keys = {"3122211", "3122-211", "-3122211", "-3122-211"};
@@ -65,7 +66,7 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
     pythia.readString("Tune:pp = 14");
     pythia.readString("SoftQCD:all = on");
 
-    // keep only interesting decays, to be reweighted a posteriori
+    // decay mode of interest, from PYTHIA config file
 
     // <particle id="3124" name="Lambda(1520)0" antiName="Lambda(1520)bar0" spinType="4" chargeType="0" colType="0" 
     //           m0="1.51950" mWidth="0.01560" mMin="1.40000" mMax="1.65000">
@@ -73,6 +74,7 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
     //  <channel onMode="1" bRatio="0.0020000" products="3212 211 -211"/>
     // </particle>
 
+    // switch off lambda(1520) decays and switch on only the relevant ones
     pythia.readString("3124:onMode = off");
     pythia.readString("3122:onMode = off");
     pythia.readString("211:onMode = off");
@@ -81,23 +83,13 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
     pythia.readString("3212:onIfMatch = 3122 111");
     pythia.readString("3212:onIfMatch = 3122 22");
 
-    //pythia.readString("3124:tau0=4.41000e-01"); // bRatio="0.0800000"
-
-    //pythia.readString("102134:oneChannel = 1 1 0 3122 211 -211");
-
     // init
     pythia.init();
 
-    // perform the simulation
-
-    // define histograms
-    std::map<TString, TH1F*> hSEMothersPairs;
-    std::vector<TString> histoKeys;
-    
     // define vectors to store particles for every event
     std::vector<std::tuple<int, int, int, int>> pions;
     std::vector<std::tuple<int, int, int, int>> lambdas;
-    //
+
     int pdgLambda1520 = 3124;
     double massLambda1520 = TDatabasePDG::Instance()->GetParticle(pdgLambda1520)->Mass();
     // Lifetime of TDatabasePDG in s, in Pythia the unity [mm/c] are used, so a conversion factor of 3*10^11 is needed
@@ -116,14 +108,13 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
     Particle lambda1520Feature;
     lambda1520Feature.id(pdgLambda1520);
     lambda1520Feature.m(massLambda1520);
-    // cout << "Lambda(1520) mass: " << lambda1520Feature.m() << endl;
 
     for (int iEvent = 0; iEvent < nEvents; ++iEvent) {
-        // cout << endl;
-        // cout << "-------------------------" << endl;
+
         if(iEvent%5000 == 0)
           std::cout << "Processing event " << iEvent << endl;
         
+        // initialize particle properties of Lambda(1520)
         double tauLambda1520 = fDecay->GetRandom();
         double phiLambda1520 = gRandom->Rndm() * 2 * TMath::Pi();
         double etaLambda1520 = hAcc1530->GetRandom();
@@ -135,7 +126,6 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
         double pLambda1520 = TMath::Sqrt(ptLambda1520 * ptLambda1520 + pzLambda1520 * pzLambda1520);
         double ELambda1520 = TMath::Sqrt(massLambda1520 * massLambda1520 + pLambda1520 * pLambda1520);
         
-        // Lambda 1520
         Particle lambda1520;
         lambda1520.id(pdgLambda1520);
         lambda1520.status(81);
@@ -150,35 +140,38 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
         lambda1520.pz(pzLambda1520);
         lambda1520.tau(tauLambda1520);
         
+        // remove all particles generated in the event and append the Lambda(1520)
         pythia.event.reset();
         pythia.event.append(lambda1520);
         int idPartLambda = pythia.event[1].id();
-        // cout << idPartLambda << endl;
         pythia.particleData.mayDecay(idPartLambda, true);
+        
+        // force the decay of the Lambda
         pythia.moreDecays();
 
+
         for(int iPart=2; iPart<pythia.event.size(); iPart++) {
-          if(pythia.event[iPart].id()==3122) {
-            Particle lambda = pythia.event[iPart];
-            TLorentzVector momLambda = TLorentzVector(lambda.px(), lambda.py(), lambda.pz(), lambda.e());
-            
-            for(int jPart=3; jPart<pythia.event.size(); jPart++) {
-              if(abs(pythia.event[jPart].id())==211) {
-                Particle pion = pythia.event[jPart];
-                TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
-            
-                if(lambda.pT()>=0.3 && abs(lambda.eta())<=0.8 && pion.pT()>=0.3 && abs(pion.eta())<=0.8) {
-                  TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
-                  float kStar = RelativePairMomentum(momPion, momLambda);
-                  hSEPairs[histoKey]->Fill(kStar); 
+            if(pythia.event[iPart].id()==3122) {
+                  Particle lambda = pythia.event[iPart];
+                  TLorentzVector momLambda = TLorentzVector(lambda.px(), lambda.py(), lambda.pz(), lambda.e());
+
+                for(int jPart=3; jPart<pythia.event.size(); jPart++) {
+                    if(abs(pythia.event[jPart].id())==211) {
+                        Particle pion = pythia.event[jPart];
+                        TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
+
+                        // acceptance and momentum cuts on the decay products
+                        if(lambda.pT()>=0.3 && abs(lambda.eta())<=0.8 && pion.pT()>=0.3 && abs(pion.eta())<=0.8) {
+                            TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
+                            float kStar = RelativePairMomentum(momPion, momLambda);
+                            hSEPairs[histoKey]->Fill(kStar); 
+                        }
+                    }
                 }
-            
-              }
             }
-          
-          }
         }
 
+        // repeat the same procedure for the AntiLambda(1520), using same initialization as the Lambda(1520)
         pythia.event.reset();
 
         // AntiLambda 1520
@@ -198,38 +191,33 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
         
         pythia.event.append(antiLambda1520);
         int idPartAntiLambda = pythia.event[1].id();
-        // cout << idPartAntiLambda << endl;
         pythia.particleData.mayDecay(idPartAntiLambda, true);
         pythia.moreDecays();
 
         for(int iPart=2; iPart<pythia.event.size(); iPart++) {
-          if(pythia.event[iPart].id()==-3122) {
-            Particle lambda = pythia.event[iPart];
-            TLorentzVector momLambda = TLorentzVector(lambda.px(), lambda.py(), lambda.pz(), lambda.e());
+            if(pythia.event[iPart].id()==-3122) {
+                Particle lambda = pythia.event[iPart];
+                TLorentzVector momLambda = TLorentzVector(lambda.px(), lambda.py(), lambda.pz(), lambda.e());
             
-            for(int jPart=3; jPart<pythia.event.size(); jPart++) {  
-              if(abs(pythia.event[jPart].id())==211) {
-                Particle pion = pythia.event[jPart];
-                TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
-                
-                if(lambda.pT()>=0.3 && abs(lambda.eta())<=0.8 && pion.pT()>=0.3 && abs(pion.eta())<=0.8) {
-                  TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
-                  float kStar = RelativePairMomentum(momPion, momLambda);
-                  // cout << "Histo key: " << histoKey << endl;
-                  hSEPairs[histoKey]->Fill(kStar); 
-                }
-              
-              }
-            }
-          
-          }
-        }
-      }
+                for(int jPart=3; jPart<pythia.event.size(); jPart++) {  
+                    if(abs(pythia.event[jPart].id())==211) {
+                      Particle pion = pythia.event[jPart];
+                      TLorentzVector momPion = TLorentzVector(pion.px(), pion.py(), pion.pz(), pion.e());
 
+                        if(lambda.pT()>=0.3 && abs(lambda.eta())<=0.8 && pion.pT()>=0.3 && abs(pion.eta())<=0.8) {
+                            TString histoKey =  std::to_string(pythia.event[iPart].id()) + std::to_string(pythia.event[jPart].id());
+                            float kStar = RelativePairMomentum(momPion, momLambda);
+                            hSEPairs[histoKey]->Fill(kStar); 
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // load smearing matrices
     std::vector<TH2F*> smearMatrices;
-    cout << "CIAO1" << endl;
     TFile *MCdata = TFile::Open(MCFilePath.data());
-    cout << "CIAO2" << endl;
     TDirectoryFile *folder = static_cast<TDirectoryFile*>(MCdata->Get("HMResultsQA1001"));
     TList *toplist = static_cast<TList*>(folder->Get("HMResultsQA1001"));
     TList *QAList = dynamic_cast<TList*>(toplist->FindObject("PairQA"));
@@ -253,10 +241,10 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
     TH2F *smearMomentumMatrix13 = static_cast<TH2F*>(pairList13->FindObject("MomentumResolutionSE_Particle1_Particle3"));
     TString smearMatrix13 = "-211-3122_smear_matr"; 
     smearMatrices.push_back(smearMomentumMatrix13);
-    cout << "CIAO3" << endl;
 
     MCdata->Close();
 
+    // compute the smeared histograms
     for(int iKey=0; iKey<keys.size(); iKey++) {
       for(int iBin=0; iBin<hSEPairsSmeared[keys[iKey]]->GetNbinsX(); iBin++) {
         TH1D *hProjY = smearMatrices[iKey]->ProjectionY(Form("iBin_%i", iBin+1), iBin+1, iBin+1);
@@ -269,9 +257,8 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
         hSEPairsSmeared[keys[iKey]]->SetBinError(iBin+1, TMath::Sqrt(hSEPairsSmeared[keys[iKey]]->GetBinContent(iBin+1)));
       }
     }
-    cout << "CIAO3" << endl;
 
-    cout << "CIAO1" << endl;
+    // Write histograms to file
     std::string outFileName = outFilePath + "_" + std::to_string(seed) + ".root";  
     TFile oFile(outFileName.data(), "recreate");
     oFile.cd();
@@ -280,6 +267,7 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
         hSEPairsSmeared[hSEPair.first]->Write();
     }
 
+    // Resum pair and antipair
     TH1F * resumLPiPl = new TH1F("3122211_-3122-211", ";#it{k*};Counts", 1500, 0., 6.);
     resumLPiPl->Add(hSEPairs["3122211"]);
     resumLPiPl->Add(hSEPairs["-3122-211"]);
@@ -297,14 +285,9 @@ void SimLambda1520(int nEvents=200000000, int seed=42,
     resumLPiMinSmear->Add(hSEPairs["3122-211"]);
     resumLPiMinSmear->Write();
 
-    cout << "CIAO2" << endl;
     hAcc1530->Write();
-    cout << "CIAO3" << endl;
     hPt1530->Write();
-    cout << "CIAO4" << endl;
     fDecay->Write();
-    cout << "CIAO5" << endl;
     oFile.Close();
-    cout << "CIAO6" << endl;
-
+ 
 }
