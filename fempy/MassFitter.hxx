@@ -382,8 +382,7 @@ class MassFitter {
         pad->cd();
         fHist->GetYaxis()->SetRangeUser(0, 1.3 * fHist->GetMaximum());
         gPad->DrawFrame(fFitRangeMin, 0, fFitRangeMax, 1.3 * fHist->GetMaximum(),
-                        Form("%s;%s;%s", this->fHist->GetTitle(), this->fHist->GetXaxis()->GetTitle(),
-                             this->fHist->GetYaxis()->GetTitle()));
+                        ";M(p#pi) (GeV/c^{2});Counts");
 
         if(fitDrawOpts.Contains('i')) {
             TLatex tl;
@@ -422,7 +421,7 @@ class MassFitter {
         if(fitDrawOpts.Contains('s')) {
             canvaLine->SetLineStyle(1);
             canvaLine->SetLineWidth(3);
-            canvaLine->SetLineColor(8);
+            canvaLine->SetLineColor(6);
 
             double lowBinContent = fHist->GetBinContent(fHist->FindBin(fIntLowEdge));
             canvaLine->DrawLine(fIntLowEdge, pad->GetUymin() * padCoord + lowBinContent * lowMult,
@@ -482,6 +481,7 @@ class MassFitter {
         fPrefit->Draw("same");
 
         fFit->SetLineColor(kRed);
+        fFit->SetLineWidth(3);
         fFit->Draw("same");
 
         hist->SetMarkerSize(1);
