@@ -30,7 +30,11 @@ with open(args.cfg, "r") as stream:
     except yaml.YAMLError as exc:
         log.critical('Yaml configuration could not be loaded. Is it properly formatted?')
 
-regions = ['sgn']
+if('CFancestor' in cfg):
+    if(cfg['CFancestor']):
+        regions = ['Common', 'NonCommon']
+else:
+    regions = ['sgn']
 combs = ['p02', 'p03', 'p12', 'p13']
 
 # Load input file with same- and mixed-event distributions
@@ -62,7 +66,21 @@ for comb in combs:
     hMErew[comb] = {}
     for region in regions:
         runSuffix = cfg['runsuffix']
-        if f'HMResults{runSuffix}' in GetKeyNames(inFile): # Make correlation functions from FemtoDream
+        if('CFancestor' in cfg):
+            if(cfg['CFancestor']):
+                fdcomb = f'Particle{iPart1}_Particle{iPart2}'
+                # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
+                hSE[comb][region] = TH1D()
+                Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEDist{region}_{fdcomb}').Copy(hSE[comb][region])
+
+                # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
+                hME[comb][region] = TH1D()
+                Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEDist_{fdcomb}').Copy(hME[comb][region])
+
+                # No need to cast the these because the projection of TH2D and TH2F is always TH1D
+                hSEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEMultDist_{fdcomb}')
+                hMEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEMultDist_{fdcomb}')        
+        elif f'HMResults{runSuffix}' in GetKeyNames(inFile): # Make correlation functions from FemtoDream
             fdcomb = f'Particle{iPart1}_Particle{iPart2}'
             # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
             hSE[comb][region] = TH1D()
