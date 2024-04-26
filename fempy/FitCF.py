@@ -10,8 +10,9 @@ python3 CorrelationFitter.py cfg.yml
 import os
 import argparse
 import yaml
+import ctypes
 
-from ROOT import TFile, TCanvas, gInterpreter, TH1D
+from ROOT import TFile, TCanvas, gInterpreter, TH1, TH1D
 gInterpreter.ProcessLine(f'#include "{os.environ.get("FEMPY")}fempy/CorrelationFitter.hxx"')
 from ROOT import CorrelationFitter
 
@@ -66,6 +67,8 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     
     # change unity of measure of histograms from GeV to MeV
     fitHisto = ChangeUnits(Load(inFileFit, fitcf['cfpath']), 1000)
+    if('rebin' in fitcf):
+        fitHisto.Rebin(fitcf['rebin'])
 
     # fit range
     lowFitRange = fitcf['fitrange'][0]
@@ -85,7 +88,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     linesThickness = fitcf['linethick']
     compsToFile = []
     onBaseline = []
-    colors = []
+    shifts = []
     legLabels = []
     legLabels.append(fitcf['datalabel'])
     legLabels.append(fitcf['fitfunclabel'])
@@ -95,25 +98,28 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
         if('isbaseline' in term):
             if(term['isbaseline']):
                 baselineIdx = iTerm
-        if('savetofile' in term):
-            compsToFile.append(iTerm)
-        
-        legLabels.append(term['legentry'])
-        colors.append(term['linecolor'])
-        onBaseline.append(term['onbaseline'])
 
+        legLabels.append(term['legentry'])
+        onBaseline.append(term['onbaseline'])
+        if('shift' in term):
+            shifts.append(term['shift'])
+        else: 
+            shifts.append(0.)
+        
         if('template' in term):
-            histoFile = TFile(term['histofile'])
-            splinedHisto = ChangeUnits(Load(histoFile, term['histopath']), 1000)
-            if('rebin' in term):
-                splinedHisto.Rebin(term['rebin'])
+            templFile = TFile(term['templfile'])
+            splinedTempl = Load(templFile, term['templpath'])
+            if(isinstance(splinedTempl, TH1)):
+                splinedTempl = ChangeUnits(splinedTempl, 1000)
+                if('rebin' in term):
+                    splinedTempl.Rebin(term['rebin'])
             initPars = [(key, term['params'][key][0], term['params'][key][1], 
-                         term['params'][key][2]) for key in term['params']]
-            modelFitters[-1].Add(term['template'], splinedHisto, initPars, term['addmode'])
-            cSplinedHisto = TCanvas(f'c{term["template"]}', '', 600, 600)
-            modelFitters[-1].DrawSpline(cSplinedHisto, splinedHisto)
+                         term['params'][key][2]) for key in term['params']]    
+            modelFitters[-1].Add(term['template'], splinedTempl, initPars, term['addmode'])
+            cSplinedTempl = TCanvas(f'c{term["template"]}', '', 600, 600)
+            modelFitters[-1].DrawSpline(cSplinedTempl, splinedTempl)
             oFile.cd(fitcf['fitname'])
-            cSplinedHisto.Write()
+            cSplinedTempl.Write()
         
         elif('spline' in term):
             histoFile = TFile(term['histofile'])
@@ -132,55 +138,88 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
         
         elif('func' in term):
             if('fixparsfromfuncts' in term):
-                histoFuncFile = TFile(term['histofuncfile'])
-                histoFuncParams = Load(histoFuncFile, term['histofuncpath'])
+                histoFuncFiles = []
+                histoFuncHistoPars = []
+                for histoFuncFile, histoFuncHistoParsPath in zip(term['histofuncfile'], term['histofuncpath']):
+                    histoFuncFiles.append(TFile(histoFuncFile))
+                    histoFuncHistoPars.append(Load(histoFuncFiles[-1], histoFuncHistoParsPath))
 
             initPars = []
             for key in term['params']:
                 if("fromfunct" == term['params'][key][0]):
-                    initPars.append((key, histoFuncParams.GetBinContent(term['params'][key][1]), 0, -1))
+                    initPars.append((key, histoFuncHistoPars[term['params'][key][1]].GetBinContent(term['params'][key][2]), 0, -1))
                 else:
                     initPars.append((key, term['params'][key][0], term['params'][key][1], 
                                      term['params'][key][2]))
 
-            print(initPars)
             modelFitters[-1].Add(term['func'], initPars, term['addmode'])
                 
     # perform the fit and save the result
+    if('globnorm' in fitcf):
+        modelFitters[-1].AddGlobNorm('globnorm', fitcf['globnorm'][0], fitcf['globnorm'][1], fitcf['globnorm'][2])    
     oFile.cd(fitcf['fitname'])
     modelFitters[-1].BuildFitFunction()
     oFile.cd(fitcf['fitname'])
     modelFitters[-1].Fit()
+    hChi2DOF = TH1D('hChi2DOF', 'hChi2DOF', 1, 0, 1)
+    hChi2DOF.Fill(0.5, modelFitters[-1].GetChi2Ndf())
+    print('Chi2 / DOF: ' + str(modelFitters[-1].GetChi2Ndf()))
+    print('\n\n')
+    hChi2DOFManual = TH1D('hChi2DOFManual', 'hChi2DOFManual', 1, 0, 1)
+    hChi2DOFManual.Fill(0.5, modelFitters[-1].GetChi2NdfManual())
     cFit = TCanvas('cFit', '', 600, 600)
-    print(colors)
     if('drawsumcomps' in fitcf):
         modelFitters[-1].Draw(cFit, legLabels, fitcf['legcoords'], onBaseline,
                               linesThickness, baselineIdx, fitcf['drawsumcomps'])
     else:
-        modelFitters[-1].Draw(cFit, legLabels, fitcf['legcoords'], onBaseline,
-                              linesThickness, baselineIdx)
+        modelFitters[-1].Draw(cFit, legLabels, fitcf['legcoords'], linesThickness,
+                              onBaseline, shifts, baselineIdx)
+    if('isfitcf' in fitcf):
+        modelFitters[-1].GetGenuine().Write("fGenuine")
+    if('debug' in fitcf):
+        modelFitters[-1].Debug()
         
     cFit.Write()
     fitHisto.Write()
     fitFunction = modelFitters[-1].GetFitFunction()
+    modelFitters[-1].SaveFitPars().Write()
+    modelFitters[-1].SaveFreeFixPars().Write()
+    modelFitters[-1].PullDistribution().Write()
+    if('isfitcf' in fitcf):
+        modelFitters[-1].SaveScatPars().Write()
     fitFunction.Write()
-    for iCompToFile, compToFile in enumerate(compsToFile):
-        if('spline' not in fitcf['model'][iTerm] and 'template' not in fitcf['model'][iTerm]):
-            modelFitters[-1].GetComponent(compToFile, baselineIdx).Write(term['func'])
-        modelFitters[-1].GetComponentPars(compToFile).Write('h' + fitcf['model'][compToFile]['func'][0].upper() + 
-                                                            fitcf['model'][compToFile]['func'][1:])
-    for iPar in range(fitFunction.GetNpar()):
-        cfg[f'Fit n°{iFit}, par {iPar}'] = fitFunction.GetParName(iPar) + ", " + str(fitFunction.GetParameter(iPar))
-    modelFitters[-1].Debug()
+    hChi2DOF.Write()
+    hChi2DOFManual.Write()
+
+    print('Getting components ...')
+    for iTerm, term in enumerate(fitcf['model']):
+        if('savetofile' in term):
+            if(term['savetofile']):
+                compsToFile.append([iTerm, term.get('onbaseline', 0), baselineIdx])
+
+    print(compsToFile)
+    print('Saved, now writing to file ...')
+    compsToBeWritten = modelFitters[-1].GetComponents([idx[0] for idx in compsToFile], 
+                                                      [onBas[1] for onBas in compsToFile],
+                                                      baselineIdx)
+    print(len(compsToBeWritten))
+    for comp in compsToBeWritten:
+        comp.Write("f" + comp.GetName())
+    print('Saved components!')
+    #for iPar in range(fitFunction.GetNpar()):
+    #    cfg[f'Fit n°{iFit}, par {iPar}'] = fitFunction.GetParName(iPar) + ", " + str(fitFunction.GetParameter(iPar))
     #pdfFileName = fitcf['fitname'] + cfg["suffix"] + ".pdf"
     #pdfFilePath = os.path.join(cfg['odir'], pdfFileName) 
     #cFit.SaveAs(pdfFilePath)
     
-oFileNameCfg = os.path.join(cfg['odir'], oFileBaseName + '_cfg.txt')            
-print(cfg)
-with open(oFileNameCfg, 'w') as outfile:
-    yaml.dump(cfg, outfile, default_flow_style=False)
-    
+#os.makedirs(cfg['odir'], exist_ok=True)
+#oFileNameCfg = os.path.join(cfg['odir'], oFileBaseName + '_cfg.txt')            
+#with open(oFileNameCfg, 'w') as file:
+#    for line in fileLines:
+#        file.write(line + '\n')
+#with open(oFileNameCfg, 'w') as outfile:
+#    yaml.dump(cfg, outfile, default_flow_style=False)
+
 oFile.Close()
-print(f'Config saved in {oFileNameCfg}')
+#print(f'Config saved in {oFileNameCfg}')
 print(f'output saved in {oFileName}')
