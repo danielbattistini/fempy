@@ -91,8 +91,16 @@ for comb in combs:
             Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEDist_{fdcomb}').Copy(hME[comb][region])
 
             # No need to cast the these because the projection of TH2D and TH2F is always TH1D
-            hSEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEMultDist_{fdcomb}')
-            hMEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEMultDist_{fdcomb}')
+            if('multrewMCwithdata' in cfg):
+                print('Reweighting MC with data!')
+                inFileData = TFile(cfg['infilerew'])
+                runSuffixData = cfg['runsuffixrew']
+                hSEmultk = Load(inFileData, f'HMResults{runSuffixData}/HMResults{runSuffixData}/{fdcomb}/SEMultDist_{fdcomb}')
+                hMEmultk = Load(inFileData, f'HMResults{runSuffixData}/HMResults{runSuffixData}/{fdcomb}/MEMultDist_{fdcomb}')
+                oFile.cd(comb)
+            else:
+                hSEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEMultDist_{fdcomb}')
+                hMEmultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEMultDist_{fdcomb}')
 
         elif comb in GetKeyNames(inFile): # Make correlation functions from ALICE3 simulations
             # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
