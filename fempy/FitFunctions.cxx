@@ -3,11 +3,15 @@
 #include <tuple>
 #include <complex>
 
+#include "TDatabasePDG.h"
 #include "TF1.h"
+#include "TFile.h"
 #include "TFitResult.h"
 #include "TH1.h"
+#include "TSpline.h"
 #include "TMath.h"
 #include "gsl/gsl_sf_dawson.h"
+// #include <boost/python.hpp>
 
 double GlobNorm(double *x, double *par);
 double Pol0(double *x, double *par);
