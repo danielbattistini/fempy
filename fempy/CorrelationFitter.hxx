@@ -163,33 +163,41 @@ class CorrelationFitter {
         this->fFitPars.insert({this->fFitPars.size(), init});
     }
 
-    TF1 *GetComponent(int icomp, int ibaseline=-1, bool onbaseline=true) {
+    std::vector<TF1 *> GetComponents(std::vector<int> compsidxs, std::vector<bool> onbaseline, int idxBaseline=-1) {
         if(!this->fFit) {
             throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
         }
-        if(ibaseline != -1 && onbaseline) {
-            // cout << "Evaluating with baseline" << endl;
-            // cout << this->fFitFuncComps[icomp] << endl;
-            // cout << "Evaluating with baseline" << endl;
-            // cout << this->fFitFuncEval[icomp]->Eval(2) << endl;
-            // cout << this->fNorms[ibaseline] << endl;
-            // cout << this->fFitFuncEval[ibaseline]->Eval(2) << endl;
-            TF1 *compWithoutNormAndBaseline = new TF1(this->fFitFuncComps[icomp],
-                [&, this, icomp, ibaseline](double *x, double *pars) {
-                   return ( this->fFitFuncEval[icomp]->Eval(x[0]) - 
-                          ( this->fFitFuncEval[ibaseline]->Eval(x[0])/this->fNorms[ibaseline] ) )
-                          / this->fNorms[icomp];  
-            }, this->fFitRangeMin, this->fFitRangeMax, 0);
-            return compWithoutNormAndBaseline;
-        } else {
-            // cout << "Evaluating without baseline" << endl;
-            // cout << icomp << " " << this->fFitFuncEval[icomp]->Eval(2) << this->fNorms[icomp] << endl;
-            TF1 *compWithoutNorm = new TF1(this->fFitFuncComps[icomp],
-                [&, this, icomp](double *x, double *pars) {
-                   return this->fFitFuncEval[icomp]->Eval(x[0]) / this->fNorms[icomp];  
-            }, this->fFitRangeMin, this->fFitRangeMax, 0);
-            return compWithoutNorm;
+        if(compsidxs.size() != onbaseline.size()) {
+            throw std::invalid_argument("Number of components does not match onbaseline information!");
         }
+
+        std::vector<TF1 *> comps;
+        for(int iToBeSavedComp=0; iToBeSavedComp<compsidxs.size(); iToBeSavedComp++) { 
+            if(idxBaseline != -1 && onbaseline[iToBeSavedComp]) {
+                // cout << "Evaluating with baseline" << endl;
+                // cout << this->fFitFuncComps[compsidxs[iToBeSavedComp]] << endl;
+                // cout << "Evaluating with baseline" << endl;
+                // cout << this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(2) << endl;
+                // cout << this->fNorms[idxBaseline] << endl;
+                // cout << this->fFitFuncEval[idxBaseline]->Eval(2) << endl;
+                comps.push_back(new TF1(this->fFitFuncComps[compsidxs[iToBeSavedComp]],
+                    [&, this, compsidxs, iToBeSavedComp, idxBaseline](double *x, double *pars) {
+                       return ( this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(x[0]) - 
+                              ( this->fFitFuncEval[idxBaseline]->Eval(x[0])/this->fNorms[idxBaseline] ) )
+                              / this->fNorms[compsidxs[iToBeSavedComp]];  
+                }, this->fFitRangeMin, this->fFitRangeMax, 0));
+                // return compWithoutNormAndBaseline;
+            } else {
+                // cout << "Evaluating without baseline" << endl;
+                // cout << compsidxs[iToBeSavedComp] << " " << this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(2) << this->fNorms[compsidxs[iToBeSavedComp]] << endl;
+                comps.push_back(new TF1(this->fFitFuncComps[compsidxs[iToBeSavedComp]],
+                    [&, this, compsidxs, iToBeSavedComp](double *x, double *pars) {
+                       return this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(x[0]) / this->fNorms[compsidxs[iToBeSavedComp]];  
+                }, this->fFitRangeMin, this->fFitRangeMax, 0));
+                // return compWithoutNorm;
+            }
+        }
+        return comps;
     }
 
     TH1D *GetComponentPars(int icomp) {
@@ -205,6 +213,33 @@ class CorrelationFitter {
             histoPars->SetBinContent(iCompPar+1, this->fFit->GetParameter(startPar+iCompPar));
         }
         return histoPars;
+    }
+
+    TF1 *GetGenuine() {
+
+        int genuineIdx;
+        for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
+            if(this->fFitFuncComps[iFunc].Contains("Lednicky")) {
+                genuineIdx = iFunc;
+                return this->fFitFuncEval[iFunc];
+            }
+        }
+        
+        int startGenuinePar;
+        for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
+            std::string parName = this->fFit->GetParName(iPar);
+            if (parName.find("re_a0") != std::string::npos) {
+                startGenuinePar = iPar;
+            }
+        }
+
+        TF1 *fGenuine = new TF1("fGenuine", std::get<0>(functions[this->fFitFuncComps[genuineIdx]]), fFitRangeMin, fFitRangeMax, 
+                                std::get<1>(functions[this->fFitFuncComps[genuineIdx]]));
+        for(int iGenPar=0; iGenPar<fGenuine->GetNpar(); iGenPar++) {
+            fGenuine->FixParameter(iGenPar, this->fFit->GetParameter(iGenPar + startGenuinePar));
+        }
+
+        return fGenuine;
     }
 
     TH1D *SaveFreeFixPars() {
@@ -252,40 +287,34 @@ class CorrelationFitter {
         return histoPars;
     }
 
-    TH1D *SaveScatPars() {
+    TGraph *SaveScatPars() {
         if(!this->fFit) {
             throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
         }
-    
-        int genuineComp = 0;
-        for(int icomp=0; icomp<fFitFuncComps.size(); icomp++) {
-            // std::string funcName = this->fFitFuncComps[icomp];
-            if(this->fFitFuncComps[icomp].Contains("Lednicky")){
-                genuineComp = icomp;
-            }
-        }
-        int startPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), genuineComp+1), 0);
-        
-        std::vector<double> scatPars;
-        std::vector<double> scatParsErrors;
-        std::vector<std::string> scatParsLabels;
+     
+        double reScatLength;
+        double imScatLength;
+        double reScatLengthError;
+        double imScatLengthError;
+        double effRange;
         for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
             std::string parName = this->fFit->GetParName(iPar);
-            if (parName.find("sp_") != std::string::npos) {
-                cout << "Par name: " << this->fFit->GetParName(iPar) << endl;
-                scatPars.push_back(this->fFit->GetParameter(iPar));
-                scatParsErrors.push_back(this->fFit->GetParError(iPar));
-                scatParsLabels.push_back(this->fFit->GetParName(iPar));
+            if (parName.find("re_a0") != std::string::npos) {
+                reScatLength = this->fFit->GetParameter(iPar);
+                reScatLengthError = this->fFit->GetParError(iPar);
+            } 
+            if (parName.find("im_a0") != std::string::npos) {
+                imScatLength = this->fFit->GetParameter(iPar);
+                imScatLengthError = this->fFit->GetParError(iPar);
             } 
         }
 
-        TH1D *histoScatPars = new TH1D("hScatPars", "hScatPars", scatPars.size(), 0, scatPars.size());
-        for(int iScatPar=0; iScatPar<scatPars.size(); iScatPar++) {    
-            histoScatPars->SetBinContent(iScatPar+1, scatPars[iScatPar]);
-            histoScatPars->SetBinError(iScatPar+1, scatParsErrors[iScatPar]);
-            histoScatPars->GetXaxis()->SetBinLabel(iScatPar+1, scatParsLabels[iScatPar].c_str());
-        }
-        return histoScatPars;
+        TGraphErrors *gScatPars = new TGraphErrors(1, &reScatLength, &imScatLength, &reScatLengthError, &imScatLengthError); // 1);
+        gScatPars->SetTitle("Scattering parameters;Re_a0;Im_a0");
+        gScatPars->SetName("gScatPars");
+        // gScatPars->SetPoint(1, reScatLength, imScatLength);
+        // gScatPars->SetPointError(1, reScatLengthError, imScatLengthError);
+        return gScatPars;
     }
     
     TH1D *PullDistribution() {
@@ -392,6 +421,19 @@ class CorrelationFitter {
 
     double GetChi2Ndf() { return fFit->GetChisquare() / fFit->GetNDF(); }
 
+    double GetChi2NdfManual() { 
+        double chi2 = 0.;
+        for(int iBin=0; iBin<this->fFitHist->GetNbinsX(); iBin++) {
+            if(this->fFitHist->GetBinError(iBin+1) != 0) {
+                chi2 += ( (this->fFit->Eval(this->fFitHist->GetBinCenter(iBin+1)) - this->fFitHist->GetBinContent(iBin+1)) * 
+                          (this->fFit->Eval(this->fFitHist->GetBinCenter(iBin+1)) - this->fFitHist->GetBinContent(iBin+1)) ) /
+                          (this->fFitHist->GetBinError(iBin+1) * this->fFitHist->GetBinError(iBin+1));
+            }
+        }
+
+        return chi2 / fFit->GetNDF(); 
+    }
+
     /*
     Define a canvas before calling this function and pass gPad as TVirtualPad
     */
@@ -480,7 +522,7 @@ class CorrelationFitter {
         legend->SetTextSize(0.045);
         legend->Draw("same");
         pad->Update();
-        // cout << "Drawn!" << endl;
+        cout << "Drawn!" << endl;
 
     }
 
