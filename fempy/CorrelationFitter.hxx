@@ -7,12 +7,17 @@
 #include <stdexcept>
 
 #include "TF1.h"
-#include "TFitResult.h"
 #include "TH1.h"
+#include "TFitResult.h"
 #include "TMath.h"
-#include "TLegend.h"
 #include "TFitResultPtr.h"
 #include "FitFunctions.cxx"
+
+#if LOG_LEVEL_FIT
+#define DEBUG(msg) std::cout << msg << std::endl
+#else
+#define DEBUG(msg)
+#endif
 
 class CorrelationFitter {
    public:
@@ -95,7 +100,7 @@ class CorrelationFitter {
 
     void Add(TString name, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode) {
         
-        // cout << "Adding " << name << endl;
+        DEBUG("Adding " << name);
         if(functions.find(name)!=functions.end()){
             this->fFitFunc.push_back(std::get<0>(functions[name]));
             this->fFitFuncComps.push_back(name);
@@ -119,13 +124,9 @@ class CorrelationFitter {
         }
     }
 
-
     void Add(TString name, TH1* hist, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode) {
         TH1D *splineHisto = static_cast<TH1D*>(hist);
-        cout << "First bin content: " << splineHisto->GetBinContent(1) << endl;
-        cout << "First bin error: " << splineHisto->GetBinError(1) << endl;
         TSpline3* sp3 = new TSpline3(hist);
-        
         this->Add(name, sp3, pars, addmode);
     }
 
@@ -135,10 +136,6 @@ class CorrelationFitter {
     }
 
     void Add(TString name, TSpline3* spline, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode) {
-        cout << "Spline eval first bin: " << spline->Eval(2) << endl;
-        cout << "Spline eval second bin: " << spline->Eval(6) << endl;
-        cout << "Spline eval flat: " << spline->Eval(89) << endl;
-        cout << "Spline eval flat: " << spline->Eval(570) << endl;
         this->fFitSplines.push_back(spline);
         this->fFitFuncComps.push_back(name);
         this->fAddModes.push_back(addmode); 
@@ -163,43 +160,6 @@ class CorrelationFitter {
         this->fFitPars.insert({this->fFitPars.size(), init});
     }
 
-    std::vector<TF1 *> GetComponents(std::vector<int> compsidxs, std::vector<bool> onbaseline, int idxBaseline=-1) {
-        if(!this->fFit) {
-            throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
-        }
-        if(compsidxs.size() != onbaseline.size()) {
-            throw std::invalid_argument("Number of components does not match onbaseline information!");
-        }
-
-        std::vector<TF1 *> comps;
-        for(int iToBeSavedComp=0; iToBeSavedComp<compsidxs.size(); iToBeSavedComp++) { 
-            if(idxBaseline != -1 && onbaseline[iToBeSavedComp]) {
-                // cout << "Evaluating with baseline" << endl;
-                // cout << this->fFitFuncComps[compsidxs[iToBeSavedComp]] << endl;
-                // cout << "Evaluating with baseline" << endl;
-                // cout << this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(2) << endl;
-                // cout << this->fNorms[idxBaseline] << endl;
-                // cout << this->fFitFuncEval[idxBaseline]->Eval(2) << endl;
-                comps.push_back(new TF1(this->fFitFuncComps[compsidxs[iToBeSavedComp]],
-                    [&, this, compsidxs, iToBeSavedComp, idxBaseline](double *x, double *pars) {
-                       return ( this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(x[0]) - 
-                              ( this->fFitFuncEval[idxBaseline]->Eval(x[0])/this->fNorms[idxBaseline] ) )
-                              / this->fNorms[compsidxs[iToBeSavedComp]];  
-                }, this->fFitRangeMin, this->fFitRangeMax, 0));
-                // return compWithoutNormAndBaseline;
-            } else {
-                // cout << "Evaluating without baseline" << endl;
-                // cout << compsidxs[iToBeSavedComp] << " " << this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(2) << this->fNorms[compsidxs[iToBeSavedComp]] << endl;
-                comps.push_back(new TF1(this->fFitFuncComps[compsidxs[iToBeSavedComp]],
-                    [&, this, compsidxs, iToBeSavedComp](double *x, double *pars) {
-                       return this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(x[0]) / this->fNorms[compsidxs[iToBeSavedComp]];  
-                }, this->fFitRangeMin, this->fFitRangeMax, 0));
-                // return compWithoutNorm;
-            }
-        }
-        return comps;
-    }
-
     TH1D *GetComponentPars(int icomp) {
         if(!this->fFit) {
             throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
@@ -221,7 +181,6 @@ class CorrelationFitter {
         for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
             if(this->fFitFuncComps[iFunc].Contains("Lednicky")) {
                 genuineIdx = iFunc;
-                return this->fFitFuncEval[iFunc];
             }
         }
         
@@ -287,11 +246,112 @@ class CorrelationFitter {
         return histoPars;
     }
 
+    TH1D *SaveFitParsSplitComponents(std::vector<std::string> subcompsmothers, std::vector<int> compstosplit, std::vector<std::vector<int>> compsnormsidx, 
+                                     std::vector<std::vector<std::string>> compsnames, std::vector<std::vector<std::string>> normslabels) {
+        if(!this->fFit) {
+            throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
+        }
+        
+        // Calculate the number of bins needed, considering that each component will have its normalization factor
+        int nCompsPars = 0;
+        for(int iSplitComp=0; iSplitComp<compsnames.size(); iSplitComp++) {
+            DEBUG("Extracting subcomps of funct " << subcompsmothers[iSplitComp]);
+            for(int iSubComp=0; iSubComp<compsnames[iSplitComp].size(); iSubComp++) {
+                DEBUG(compsnames[iSplitComp][iSubComp]);
+                nCompsPars += std::get<1>(functions[compsnames[iSplitComp][iSubComp]]) + 1;
+            }
+            DEBUG("");
+        }
+        int nBinNewCompPar = this->fFit->GetNpar();
+        DEBUG("Global fit function parameters no. " << nBinNewCompPar << endl; 
+              cout << "Total parameters of subcomponents: " << nCompsPars);
+        TH1D *histoAllCompsPars = new TH1D("hAllCompsPars", "hAllCompsPars", this->fFit->GetNpar() + nCompsPars, 0, this->fFit->GetNpar() + nCompsPars);
+        DEBUG("Number of bins of the histo containing subcomps pars: " << histoAllCompsPars->GetNbinsX());
+        if(this->fGlobNorm) {
+            DEBUG("Global norm"); 
+            // put the global norm at the beginning
+            histoAllCompsPars->SetBinContent(1, this->fFit->GetParameter(this->fFit->GetNpar()-1));
+            histoAllCompsPars->GetXaxis()->SetBinLabel(1, this->fFit->GetParName(this->fFit->GetNpar()-1));
+            for(int iPar=0; iPar<this->fFit->GetNpar()-1; iPar++) {
+                histoAllCompsPars->SetBinContent(iPar+2, this->fFit->GetParameter(iPar));
+                histoAllCompsPars->GetXaxis()->SetBinLabel(iPar+2, this->fFit->GetParName(iPar));
+            }
+        } else {
+            DEBUG("No global norm"); 
+            for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
+                DEBUG("Setting ipar " << iPar << " of " << this->fFit->GetNpar()); 
+                histoAllCompsPars->SetBinContent(iPar+1, this->fFit->GetParameter(iPar));
+                histoAllCompsPars->GetXaxis()->SetBinLabel(iPar+1, this->fFit->GetParName(iPar));
+            }
+        }
+
+        DEBUG("Parameters set");
+        DEBUG("Size of compstosplit: " << compstosplit.size());
+        for(int iSplitComp=0; iSplitComp<compstosplit.size(); iSplitComp++) {
+            int previousCompsPars = 0; 
+            DEBUG("Size of fNpars: " << fNPars.size());
+            DEBUG("Compstosplit: " << compstosplit[iSplitComp]);
+            DEBUG("fGlobNorm: " << this->fGlobNorm);
+            // int startCompPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), 1), 0) + this->fGlobNorm + compstosplit[iSplitComp];
+            int startCompPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), compstosplit[iSplitComp]), 0) + this->fGlobNorm + compstosplit[iSplitComp];
+            DEBUG("Initializing subcomponents");
+            for(int iComp=0; iComp<compsnames[iSplitComp].size(); iComp++) {
+
+                    std::cout << std::showpos;
+                    cout.precision(4);
+                    std::cout << std::scientific;
+                    
+                    DEBUG("--------------------------------"); 
+                    DEBUG("SUBCOMPONENT " << compsnames[iSplitComp][iComp] << endl;
+                          cout << "Start picking the parameters from  bin no. " << startCompPar);
+
+                    // Setting the norm
+                    if(compsnormsidx[iSplitComp][iComp] > 0) {
+                        DEBUG(std::setw(30) << "[Norm] Filling bin no. " << nBinNewCompPar+1;
+                        cout << " with " << histoAllCompsPars->GetBinContent(startCompPar + compsnormsidx[iSplitComp][iComp] - 1);
+                        cout << ", copied from bin no. " << startCompPar + compsnormsidx[iSplitComp][iComp] - 1);
+                        
+                        histoAllCompsPars->SetBinContent(nBinNewCompPar+1, histoAllCompsPars->GetBinContent(startCompPar+compsnormsidx[iSplitComp][iComp]-1));
+                    } 
+                    if (compsnormsidx[iSplitComp][iComp] < 0) {
+                        DEBUG(std::setw(30) << "[Norm] Filling bin no. " << nBinNewCompPar+1;
+                        cout << " with " << 1-histoAllCompsPars->GetBinContent(startCompPar + compsnormsidx[iSplitComp][iComp] - 1);
+                        cout << ", complementary of bin no. " << startCompPar + compsnormsidx[iSplitComp][iComp] - 1);
+                        histoAllCompsPars->SetBinContent(nBinNewCompPar+1, 1 - histoAllCompsPars->GetBinContent(startCompPar+compsnormsidx[iSplitComp][iComp]-1));
+                    } 
+                    if (compsnormsidx[iSplitComp][iComp] == 0) {
+                        DEBUG(std::setw(30) << "[Norm] Filling bin no. " << nBinNewCompPar+1;
+                        cout << " with unitary norm");
+                        histoAllCompsPars->SetBinContent(nBinNewCompPar+1, 1);
+                    } 
+                    
+                    histoAllCompsPars->GetXaxis()->SetBinLabel(nBinNewCompPar+1, normslabels[iSplitComp][iComp].c_str());
+                    
+                    int compPar = std::get<1>(functions[compsnames[iSplitComp][iComp]]);
+                    for(int iCompPar=0; iCompPar<compPar; iCompPar++) {
+                        DEBUG(std::setw(30) << "Filling bin no. " << nBinNewCompPar+iCompPar+2;
+                        cout << " with " << histoAllCompsPars->GetBinContent(startCompPar+iCompPar+previousCompsPars+1);
+                        cout << ", copied from bin no. " << startCompPar+iCompPar+previousCompsPars+1);
+                        histoAllCompsPars->SetBinContent(nBinNewCompPar+iCompPar+2, histoAllCompsPars->GetBinContent(startCompPar+iCompPar+previousCompsPars+1));
+                        histoAllCompsPars->GetXaxis()->SetBinLabel(nBinNewCompPar+iCompPar+2, this->fFit->GetParName(startCompPar+iCompPar+previousCompsPars-this->fGlobNorm));
+                    }       
+                    std::cout << std::noshowpos;  
+                    previousCompsPars += compPar;
+                    nBinNewCompPar += compPar + 1;
+                    DEBUG("Finished component");
+                    DEBUG("--------------------------------");    
+            }
+        }
+
+        histoAllCompsPars->SetStats(0);
+        histoAllCompsPars->GetXaxis()->SetLabelSize(100);
+        return histoAllCompsPars;
+    }
+
     TGraph *SaveScatPars() {
         if(!this->fFit) {
             throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
         }
-     
         double reScatLength;
         double imScatLength;
         double reScatLengthError;
@@ -308,6 +368,7 @@ class CorrelationFitter {
                 imScatLengthError = this->fFit->GetParError(iPar);
             } 
         }
+        DEBUG("--------------------------------");
 
         TGraphErrors *gScatPars = new TGraphErrors(1, &reScatLength, &imScatLength, &reScatLengthError, &imScatLengthError); // 1);
         gScatPars->SetTitle("Scattering parameters;Re_a0;Im_a0");
@@ -388,7 +449,15 @@ class CorrelationFitter {
 
         for (size_t iPar = 0; iPar < this->fFitPars.size(); iPar++) {
             auto pars = this->fFitPars[iPar];
-            cout << "iPar" << iPar << ": " << std::get<0>(pars) << " " << std::get<1>(pars) << " " << std::get<2>(pars) << " " << std::get<3>(pars) << endl;        
+            std::cout << std::showpos;
+            cout.precision(4);
+            std::cout << std::scientific;
+            DEBUG(std::setw(25) << std::get<0>(pars) << "  ----->  ";
+                  cout << std::setw(8) << " Init: " << static_cast<double>(std::get<1>(pars)) << ",";
+                  cout << std::setw(8) << " Lowlim: " << static_cast<double>(std::get<2>(pars)) << ",";
+                  cout << std::setw(8) << " Upplim: " << static_cast<double>(std::get<3>(pars)));
+            std::cout << std::noshowpos;    
+
             this->fFit->SetParName(iPar, std::get<0>(pars).data());
             if (std::get<2>(pars) >= std::get<3>(pars)) {
                 this->fFit->FixParameter(iPar, std::get<1>(pars));
@@ -399,19 +468,28 @@ class CorrelationFitter {
         }
     }
 
-    // Perform the fit
     TFitResultPtr Fit() {
-        // cout << "----------- Fit Parameter initialization -----------" << endl;
+        DEBUG("----------- Fit Parameter initialization -----------");
         for (size_t iPar = 0; iPar < this->fFitPars.size(); iPar++) {
             double lowParLimit;
             double uppParLimit;
             this->fFit->GetParLimits(iPar, lowParLimit, uppParLimit);
-            // cout << "iPar" << iPar << ": " << this->fFit->GetParName(iPar) << " " << this->fFit->GetParameter(iPar) 
-            //  << " " << lowParLimit << " " << uppParLimit << endl;
-        }
+            std::cout << std::showpos;
+            cout.precision(4);
+            std::cout << std::scientific;
+            DEBUG(std::setw(25) << this->fFit->GetParName(iPar) << "  ----->  ";
+                  cout << std::setw(8) << " Init: " << static_cast<double>(this->fFit->GetParameter(iPar)) << ",";
+                  cout << std::setw(8) << " Lowlim: " << static_cast<double>(lowParLimit) << ",";
+                  cout << std::setw(8) << " Upplim: " << static_cast<double>(uppParLimit));
+            std::cout << std::noshowpos;        }
 
-        // cout << "Bin content: " << fFitHist->GetBinContent(1) << endl;
+        DEBUG("Bin content: " << fFitHist->GetBinContent(1));
         TFitResultPtr fitResults = fFitHist->Fit(this->fFit, "SMR+0", "");
+
+        #ifdef DEBUG
+            Debug();
+        #endif
+
         return fitResults;
     }
 
@@ -434,232 +512,40 @@ class CorrelationFitter {
         return chi2 / fFit->GetNDF(); 
     }
 
-    /*
-    Define a canvas before calling this function and pass gPad as TVirtualPad
-    */
-    void Draw(TVirtualPad *pad, std::vector<TString> legLabels, std::vector<double> legCoords, int linesThickness, 
-              std::vector<bool> onBaseline, std::vector<double> shifts, int basIdx=-1, std::vector<TString> addComps = {""},
-              double lowRangeUser=0.0, double uppRangeUser=1.05, std::string title=";k* (MeV/c);C(k*)") {
-
-        EvaluateComponents(basIdx, onBaseline, shifts, addComps); 
-        pad->cd();
-        double yMinDraw = lowRangeUser;
-        double yMaxDraw = uppRangeUser + fFitHist->GetMaximum();
-        
-        TLegend *legend = new TLegend(legCoords[0], legCoords[1], legCoords[2], legCoords[3]);
-        legend->AddEntry(this->fFitHist, legLabels[0].Data(), "lp");
-        legend->AddEntry(this->fFit, legLabels[1].Data(), "l");
-
-        //gPad->DrawFrame(fFitRangeMin, yMinDraw, fFitRangeMax, yMaxDraw, title.data());
-        gPad->DrawFrame(1, yMinDraw, fFitRangeMax, yMaxDraw, title.data());
-        //gPad->DrawFrame(fFitRangeMin, yMinDraw, 2000, yMaxDraw, title.data());
-        //gPad->DrawFrame(fFitRangeMin, yMinDraw, 2000, yMaxDraw, Form("%s;%s;%s", 
-        //                this->fFitHist->GetTitle(), this->fFitHist->GetXaxis()->GetTitle(),
-        //                this->fFitHist->GetYaxis()->GetTitle()));
-        
-        if(basIdx == -1){
-            std::cerr << "Warning: Baseline is not fixed!" << std::endl;
-        }
-        std::vector<TF1 *> gaussians;
-        std::vector<Color_t> colors = {kMagenta + 3, kAzure + 2, kGreen, kOrange, kBlue + 2, kCyan, kBlack, kGreen+2};
-        cout << "Number of functions to evaluate " << fFitFuncEval.size() << endl; 
-        cout << "Number of legend entries " << legLabels.size() << endl; 
-        for(int iFuncEval=0; iFuncEval<fFitFuncEval.size(); iFuncEval++) {
-            // cout << "Iteration: " << iFuncEval << " " << fFitFuncEval.size() << endl;
-            this->fFitFuncEval[iFuncEval]->SetNpx(300);
-            this->fFitFuncEval[iFuncEval]->SetLineColor(colors[iFuncEval]); //.data());
-            this->fFitFuncEval[iFuncEval]->SetLineWidth(linesThickness);
-            this->fFitFuncEval[iFuncEval]->DrawF1(fFitRangeMin+1,fFitRangeMax,"same");
-            this->fFitFuncEval[iFuncEval]->DrawF1(1,fFitRangeMax,"same");
-            cout << fFitFuncComps[iFuncEval] << endl; 
-            if(fFitFuncComps[iFuncEval] == "gaus") {
-                cout << "Ciao gaus " << fFitFuncComps[iFuncEval] << endl;
-                gaussians.push_back(new TF1(Form("Gaus%i", iFuncEval),
-                    [&, this, iFuncEval](double *x, double *pars) {
-                    return this->fFitFuncEval[iFuncEval]->Eval(x[0]);
-                    }, fFitRangeMin, fFitRangeMax, 0));
-                gaussians.back()->SetLineColor(colors[iFuncEval]); //.data());
-                gaussians.back()->DrawF1(fFitRangeMin+1,fFitRangeMax,"same");
-                gaussians.back()->Draw("same");
-            }
-            this->fFitFuncEval[iFuncEval]->Draw("same");
-            cout << "Evaluating component at 100 MeV: " << this->fFitFuncEval[iFuncEval]->Eval(120) << endl; 
-            pad->Update();
-            cout << "Legend label: " << legLabels[iFuncEval+2] << endl;
-            if(legLabels[iFuncEval+2].Contains("lambda_flat")) continue;
-            legend->AddEntry(this->fFitFuncEval[iFuncEval], legLabels[iFuncEval+2].Data(), "l");
-        }
-        cout << "Evaluate last fit component: " << this->fFitFuncEval[fFitFuncEval.size()-1]->Eval(120) << " "
-                                                << this->fFitFuncEval[fFitFuncEval.size()-1]->Eval(130) << " "
-                                                << this->fFitFuncEval[fFitFuncEval.size()-1]->Eval(140) << " "
-                                                << this->fFitFuncEval[fFitFuncEval.size()-1]->Eval(150) << " "
-                                                << this->fFitFuncEval[fFitFuncEval.size()-1]->Eval(160) << " "
-                                                << this->fFitFuncEval[fFitFuncEval.size()-1]->Eval(170) << " "
-                                                << this->fFitFuncEval[fFitFuncEval.size()-1]->Eval(180) << " " << endl;
-
-        // for(int iGaus=0; iGaus<gaussians.size(); iGaus++) {
-        //     gaussians[iGaus]->DrawF1(fFitRangeMin+1,fFitRangeMax,"same");
-        // }
-
-        this->fFit->SetNpx(300);
-        this->fFit->SetLineColor(kRed);
-        this->fFit->SetLineWidth(linesThickness);
-        //this->fFit->DrawF1(fFitRangeMin+1,fFitRangeMax,"same");
-        this->fFit->DrawF1(1,fFitRangeMax,"same");
-        pad->Update();
-
-        // cout << "Drawing" << endl;
-        fFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
-        fFitHist->SetMarkerSize(0.1);
-        fFitHist->SetMarkerStyle(20);
-        fFitHist->SetMarkerColor(kBlack);
-        fFitHist->SetLineColor(kBlack);
-        fFitHist->SetLineWidth(3);
-        fFitHist->Draw("same pe");
-        pad->Update();
-
-        legend->SetBorderSize(0);
-        legend->SetTextSize(0.045);
-        legend->Draw("same");
-        pad->Update();
-        cout << "Drawn!" << endl;
-
-    }
-
-    void Debug() {
-        cout << endl;
-        cout << endl;
-        cout << endl;
-        cout << "########## Debugging fit components ##########" << endl;
-        cout << "Total spline terms: " << this->fFitSplines.size() << endl;
-        cout << "Total func terms: " << this->fFitFunc.size() << endl;
-        cout << "--------------------------" << endl;    
-        int nTerms = this->fFitFunc.size() + this->fFitSplines.size();
-        for(int iTerm=0; iTerm<nTerms; iTerm++) {
-            cout << "Term name: " << this->fFitFuncComps[iTerm] << endl;
-            cout << "Add Mode: " << this->fAddModes[iTerm] << endl;
-            cout << "Number of parameters of term: " << this->fNPars[iTerm+1] << endl;
-            cout << "Normalization factor: " << this->fNorms[iTerm] << endl;
-            int startPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), iTerm+1), 0);
-            for(int iPar=1; iPar<this->fNPars[iTerm+1]; iPar++) {
-                cout << "Parameter " << iPar-1 << " value: " << this->fFit->GetParameter(startPar + iPar) << endl;
-            }
-            cout << "--------------------------" << endl;
-        }
-        cout << endl;
-        cout << endl;
-        cout << endl;
-    }
-
    private:
 
-    void EvaluateComponents(int basIdx, std::vector<bool> onBaseline, std::vector<double> shifts, std::vector<TString> addComps = {""}) {
-        
-        double globNorm;
-        if(this->fGlobNorm) {
-            globNorm = this->fFit->GetParameter(this->fFit->GetNpar()-1);
-        } else {
-            globNorm = 1;
-        }
-        cout << "GLOBAL NORM: " << globNorm << endl;
+    void Debug() {
+        DEBUG("");
+        DEBUG("");
+        DEBUG("");
         int normParNumber = 0;
         for(int iNorm=0; iNorm<fNPars.size()-1; iNorm++) {
             fNorms.push_back(this->fFit->GetParameter(normParNumber));
-            // cout << "Norm: " << this->fFit->GetParameter(normParNumber) << endl;
             normParNumber += fNPars[iNorm+1];
         }
-        for(int iShift=0; iShift<shifts.size()-1; iShift++) {
-            cout << "Shift: " << shifts[iShift] << endl;
-            normParNumber += fNPars[iShift+1];
-        }
-        std::vector<TF1*> components;
-        // cout << "bas " << basIdx << endl;
-        int nTerms = this->fFitFunc.size() + this->fFitSplines.size() - this->fGlobNorm;
-        int setPars = 0;
-        int iSpline = 0;
-        int iFunc = 0;
-        cout << "Fit Function terms: " << nTerms << endl;
-        cout << "Fit Function number of parameters: " << this->fFit->GetNpar() << endl;
+        DEBUG("########## Debugging fit components ##########");
+        DEBUG("Total spline terms: " << this->fFitSplines.size());
+        DEBUG("Total func terms: " << this->fFitFunc.size());
+        DEBUG("--------------------------");
+        int nTerms = this->fFitFunc.size() + this->fFitSplines.size();
+        DEBUG("Size of norms vector: " << this->fNorms.size());
+        std::cout << std::showpos;
+        cout.precision(4);
+        std::cout << std::scientific;
         for(int iTerm=0; iTerm<nTerms; iTerm++) {
-            std::string compName = static_cast<std::string>(this->fFitFuncComps[iTerm]);
-            cout << "Name of the component: " << compName << endl;
-            if(this->fFitFuncComps[iTerm].Contains("spline") && !this->fFitFuncComps[iTerm].Contains("spline3")) {
-                cout << "SPLINE" << endl;
-                cout << "Set par " << this->fFit->GetParameter(setPars) << endl;
-                cout << "Set par +1 " << this->fFit->GetParameter(setPars+1) << endl;
-                cout << endl;
-                components.push_back(new TF1(Form("iComp_%.0f", iTerm),
-                        [&, this, iSpline, iTerm, setPars](double *x, double *pars) {
-                            if(this->fNPars[iTerm+1] == 2) {
-                                return fFitSplines[iSpline]->Eval(x[0] - this->fFit->GetParameter(setPars+1));
-                            } else {
-                                return fFitSplines[iSpline]->Eval(x[0]);
-                            }
-                        }, fFitRangeMin, fFitRangeMax, 0));
-                iSpline++;
-            } else {
-                cout << "Evaluating function " << iFunc << " nPars: " << fNPars[iTerm+1] << endl;
-                components.push_back(new TF1(Form("iComp_%.0f", iTerm), fFitFunc[iFunc], fFitRangeMin, fFitRangeMax, fNPars[iTerm+1]));
-                iFunc++;                
-                for(int iPar=1; iPar<fNPars[iTerm+1]; iPar++) {
-                    // cout << "Setting iPar " << iPar << ": " << this->fFit->GetParameter(setPars + iPar) << endl;
-                    components.back()->FixParameter(iPar-1, this->fFit->GetParameter(setPars + iPar));
-                }
-                // cout << endl;
+            DEBUG("Term name: " << this->fFitFuncComps[iTerm]);
+            DEBUG("Add Mode: " << this->fAddModes[iTerm]);
+            DEBUG("No. pars of term: " << std::to_string(this->fNPars[iTerm+1]));
+            int startPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), iTerm+1), 0);
+            for(int iPar=0; iPar<this->fNPars[iTerm+1]; iPar++) {
+                DEBUG(std::setw(30) << this->fFit->GetParName(startPar + iPar) << ": " << std::setw(5) << this->fFit->GetParameter(startPar + iPar));
             }
-            setPars += fNPars[iTerm+1];
+            DEBUG("--------------------------");
         }
-
-        for(int iFunc=0; iFunc<nTerms; iFunc++) {
-            bool toBeSummed = false;
-            for(int iAddComp=0; iAddComp<addComps.size(); iAddComp++) {
-                
-                if(addComps[iAddComp].Contains(std::to_string(iFunc))) {
-                    toBeSummed = true;
-                    continue;
-                }
-            }
-            
-            if(!toBeSummed) {
-                // cout << "Component: " << this->fFitFuncComps[iFunc] << endl;
-                // cout << iFunc << endl;
-                // cout << onBaseline[iFunc] << endl;
-                // cout << basIdx << endl;
-                // cout << this->fFitFuncComps[iFunc] << endl;
-                this->fFitFuncEval.push_back(new TF1(this->fFitFuncComps[iFunc],
-                    [&, this, iFunc, components, onBaseline, basIdx, globNorm, shifts](double *x, double *pars) {
-                        if(onBaseline[iFunc]) {
-                            return globNorm * (this->fNorms[iFunc]*components[iFunc]->Eval(x[0]) + 
-                                   this->fNorms[basIdx]*components[basIdx]->Eval(x[0])) + shifts[iFunc];
-                        } else if(this->fFitFuncComps[iFunc].Contains("Lednicky")) {
-                            return components[iFunc]->Eval(x[0]);
-                        } else {
-                            return globNorm * this->fNorms[iFunc]*components[iFunc]->Eval(x[0]) + shifts[iFunc];
-                        }},
-                    fFitRangeMin, fFitRangeMax, 0));            
-            }
-        }        
-            
-        if(addComps[0] != "") {
-            for(int iAddComp=0; iAddComp<addComps.size(); iAddComp++) {
-                int compNumber = this->fFitFuncEval.size();
-                this->fFitFuncEval.push_back(new TF1(Form("Comp_%i", compNumber),
-                        [&, this, nTerms, addComps, iAddComp, components, onBaseline, basIdx, globNorm](double *x, double *pars) {
-                        double sum = 0.;
-                        bool addBaseline = true;
-                        for(int iComp=0; iComp<nTerms; iComp++) {
-                            if(addComps[iAddComp].Contains(std::to_string(iComp))) {
-                                sum += this->fNorms[iComp]*components[iComp]->Eval(x[0]);
-                                if(!onBaseline[iComp]) addBaseline=false;
-                            }
-                        }
-                        if(addBaseline) {
-                            sum += this->fNorms[basIdx]*components[basIdx]->Eval(x[0]);
-                        }
-                        return globNorm * sum;}, fFitRangeMin, fFitRangeMax, 0));
-            }
-        }
-        // cout << "Evaluated" << endl;
+        std::cout << std::noshowpos;
+        DEBUG("");
+        DEBUG("");
+        DEBUG("");
     }
 
     TH1 *fFitHist = nullptr;
@@ -667,8 +553,7 @@ class CorrelationFitter {
 
     std::vector<double (*)(double *x, double *par)> fFitFunc;       // List of function describing each term of the CF model
     std::vector<TString> fFitFuncComps;                             // Function names of fit components
-    std::vector<TSpline3 *> fFitSplines;                            // Spline fit components
-    std::vector<TF1*> fFitFuncEval;                                 // Fit components evaluated after the fitting
+    std::vector<TSpline3 *> fFitSplines;                            // Fit components evaluated after the fitting
     std::vector<int> fNPars;                                        // Keeps track of how many parameters each function has
     std::vector<std::string> fAddModes;                             // Select mode of adding the contributions to the model
     std::vector<double> fNorms;                                     // Vector saving the norm factor of each term
