@@ -55,6 +55,7 @@ except OSError:
 hSE = {}
 hME = {}
 hMErew = {}
+hWeightsRew = {}
 for comb in combs:
     iPart1 = int(comb[1])
     iPart2 = int(comb[2])
@@ -64,6 +65,7 @@ for comb in combs:
     hSE[comb] = {}
     hME[comb] = {}
     hMErew[comb] = {}
+    hWeightsRew[comb] = {}
     for region in regions:
         runSuffix = cfg['runsuffix']
         if('CFancestor' in cfg):
@@ -119,13 +121,17 @@ for comb in combs:
             hMEmultk = TH2F('hMEMult', '', nbins, xMin, xMax, 200, 0, 200)
 
         nbins = hMEmultk.ProjectionX().GetNbinsX()
+        hWeights = TH1D("Weights", "Weights", hMEmultk.ProjectionY().GetNbinsX() + 2, 
+                        hMEmultk.GetYaxis().GetXmin(), hMEmultk.GetYaxis().GetXmax())
         hMEreweightk = TH1D("MErewdistr", "MErewdistr", nbins, hMEmultk.GetXaxis().GetXmin(), hMEmultk.GetXaxis().GetXmax())
         for iBin in range(hMEmultk.ProjectionY().GetNbinsX() + 2): # Loop over underflow, all bins, and overflow
             hSEbinmult = hSEmultk.ProjectionX(f'{comb}SEdistr', iBin, iBin)
             hMEbinmult = hMEmultk.ProjectionX(f'{comb}MEdistr', iBin, iBin)
             if(hMEbinmult.Integral() > 0):
                 hMEreweightk.Add(hMEbinmult, hSEbinmult.Integral()/hMEbinmult.Integral())
+                hWeights.SetBinContent(iBin, hSEbinmult.Integral()/hMEbinmult.Integral())
         hMErew[comb][region] = hMEreweightk
+        hWeightsRew[comb][region] = hWeights
 
 # Sum pair and antipair
 for comb in combs:
@@ -135,15 +141,19 @@ for comb in combs:
     hME['p03_12'] = {}
     hMErew['p02_13'] = {}
     hMErew['p03_12'] = {}
+    hWeightsRew['p02_13'] = {}
+    hWeightsRew['p03_12'] = {}
 
     for region in regions:
         hSE['p02_13'][region] = hSE['p02'][region] + hSE['p13'][region]
         hME['p02_13'][region] = hME['p02'][region] + hME['p13'][region]
         hMErew['p02_13'][region] = hMErew['p02'][region] + hMErew['p13'][region]
+        hWeightsRew['p02_13'][region] = hWeightsRew['p02'][region] + hWeightsRew['p13'][region]
         
         hSE['p03_12'][region] = hSE['p03'][region] + hSE['p12'][region]
         hME['p03_12'][region] = hME['p03'][region] + hME['p12'][region]
         hMErew['p03_12'][region] = hMErew['p03'][region] + hMErew['p12'][region]
+        hWeightsRew['p03_12'][region] = hWeightsRew['p03'][region] + hWeightsRew['p12'][region]
 
 # Compute the CF and write to file
 for comb in combs + ['p02_13', 'p03_12']:
@@ -182,6 +192,10 @@ for comb in combs + ['p02_13', 'p03_12']:
         
         hMErew[comb][region].SetName('hMErew')
         hMErew[comb][region].SetTitle(';#it{k}* (GeV/#it{c});Counts')
+
+        hWeightsRew[comb][region].SetName('hWeightsRew')
+        hWeightsRew[comb][region].SetTitle(';Mult bin;Weight')
+        hWeightsRew[comb][region].Write()
 
         hCF.SetName('hCF')
         hCF.SetTitle(';#it{k}* (GeV/#it{c});#it{C}(#it{k}*)')
