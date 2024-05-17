@@ -61,7 +61,11 @@ for comb in combs:
     iPart2 = int(comb[2])
     oFile.mkdir(comb)
     oFile.cd(comb)
-    
+
+    if('savemultbinCF' in cfg):
+        if(cfg['savemultbinCF']):
+            oFile.mkdir(f'{comb}/multbins')
+
     hSE[comb] = {}
     hME[comb] = {}
     hMErew[comb] = {}
@@ -125,11 +129,38 @@ for comb in combs:
                         hMEmultk.GetYaxis().GetXmin(), hMEmultk.GetYaxis().GetXmax())
         hMEreweightk = TH1D("MErewdistr", "MErewdistr", nbins, hMEmultk.GetXaxis().GetXmin(), hMEmultk.GetXaxis().GetXmax())
         for iBin in range(hMEmultk.ProjectionY().GetNbinsX() + 2): # Loop over underflow, all bins, and overflow
-            hSEbinmult = hSEmultk.ProjectionX(f'{comb}SEdistr', iBin, iBin)
-            hMEbinmult = hMEmultk.ProjectionX(f'{comb}MEdistr', iBin, iBin)
-            if(hMEbinmult.Integral() > 0):
-                hMEreweightk.Add(hMEbinmult, hSEbinmult.Integral()/hMEbinmult.Integral())
-                hWeights.SetBinContent(iBin, hSEbinmult.Integral()/hMEbinmult.Integral())
+            compute = True
+            if('skipmultbinCF' in cfg):
+                for iRange in cfg['skipmultbinCF']:
+                    print(iRange)
+                    if(iBin>=iRange[0] and iBin<=iRange[1]):
+                        compute = False
+        
+            if(compute):
+                print(f'Computing bin{iBin}')
+                hSEbinmult = hSEmultk.ProjectionX(f'{comb}SEdistr', iBin, iBin)
+                hMEbinmult = hMEmultk.ProjectionX(f'{comb}MEdistr', iBin, iBin)
+                if(hMEbinmult.Integral() > 0):
+                    #hSEbinmult.Sumw2()
+                    #hMEbinmult.Sumw2() # Just to trigger the same draw option as for hSE        
+                    if('savemultbinCF' in cfg):
+                        if(cfg['savemultbinCF']):
+                            #print(f'Computing CF for bin {iBin}')
+                            oFile.mkdir(f'{comb}/multbins/{iBin}')
+                            oFile.cd(f'{comb}/multbins/{iBin}')
+                            firstBin = hSEbinmult.FindBin(cfg['norm'][0]*1.0001)
+                            lastBin = hSEbinmult.FindBin(cfg['norm'][1]*0.9999)
+                            norm = hMEbinmult.Integral(firstBin, lastBin) / hSEbinmult.Integral(firstBin, lastBin)
+                            hCFbinmult = norm * hSEbinmult / hMEbinmult
+                            hCFbinmult.SetTitle(';#it{k}* (GeV/#it{c});#it{C}(#it{k}*)')
+                            hCFbinmult.Write(f'hCF_multbin{iBin}')
+                            hSEbinmult.Write(f'hSE_multbin{iBin}')
+                            hMEbinmult.Write(f'hME_multbin{iBin}')
+                            oFile.cd(comb)
+                    hMEreweightk.Add(hMEbinmult, hSEbinmult.Integral()/hMEbinmult.Integral())
+                    hWeights.SetBinContent(iBin, hSEbinmult.Integral()/hMEbinmult.Integral())
+            else:
+                print(f'Skipping bin{iBin}')
         hMErew[comb][region] = hMEreweightk
         hWeightsRew[comb][region] = hWeights
 
