@@ -33,7 +33,7 @@ with open(args.cfg, "r") as stream:
 regions = ['CFsystvar']
 
 # Define the output file
-oFileBaseName = 'SystCFs'
+oFileBaseName = 'RawSystCF'
 if cfg['suffix'] != '' and cfg['suffix'] is not None:
     oFileBaseName += f'_{cfg["suffix"]}'
 oFileName = os.path.join(cfg['odir'], oFileBaseName + '.root')
@@ -46,15 +46,6 @@ except OSError:
 combs = ['p02', 'p03', 'p12', 'p13']
 for comb in combs:
     oFile.mkdir(comb)
-
-# list of histograms each containing the CF entries for
-# all variations for a specific bin 
-hCFBinEntries = []
-for iBin in range(cfg['systevalnbins']):
-    hCFBinEntries.append(TH1D(f"h{cfg['binwidth']*iBin+(cfg['binwidth']/2)}MeV", 
-                              f"h{cfg['binwidth']*iBin+(cfg['binwidth']/2)}MeV", 
-                              cfg['systhistobins'], cfg['systhistolowedge'], 
-                              cfg['systhistouppedge']))
 
 # Compute the correlation functions for all systematic variations
 hSE = {}
@@ -160,60 +151,7 @@ for iSystFile, systFileName in enumerate(cfg['infilessyst']):
                 hCFrew.SetTitle(';#it{k}* (GeV/#it{c});#it{C}(#it{k}*)')
                 hCFrew.Write()
 
-                for iBin in range(cfg['systevalnbins']):
-                    hCFBinEntries[iBin].Fill(hCFrew.GetBinContent(iBin+1))
-
                 print(f'Finished systematic variation n° {iSystVar}')
 
-#hCFselected = TH1D() Load(TFile(cfg['infileCF']), cfg['infileCFpath'])
-#
-#oFile.cd()
-#oFile.mkdir('binsfits')
-#hCFYields = TH1D("hCFYields", "hCFYields", cfg['systevalnbins'], 
-#                 cfg['systevalnbins'][0]*cfg['binwidth'], 
-#                 cfg['systevalnbins'][1]*cfg['binwidth'])
-#hCFmeans = TH1D("hCFmeans", "hCFmeans", cfg['systevalnbins'], 
-#                 cfg['systevalnbins'][0]*cfg['binwidth'], 
-#                 cfg['systevalnbins'][1]*cfg['binwidth'])
-#hSystUnc = TH1D("hSystUnc", "hSystUnc", cfg['systevalnbins'], 
-#                 cfg['systevalnbins'][0]*cfg['binwidth'], 
-#                 cfg['systevalnbins'][1]*cfg['binwidth'])
-#hRelSystUnc = TH1D("hRelSystUnc", "hRelSystUnc", cfg['systevalnbins'], 
-#                 cfg['systevalnbins'][0]*cfg['binwidth'], 
-#                 cfg['systevalnbins'][1]*cfg['binwidth'])
-#hRelStatUnc = TH1D("hRelStatUnc", "hRelStatUnc", cfg['systevalnbins'], 
-#                   cfg['systevalnbins'][0]*cfg['binwidth'], 
-#                   cfg['systevalnbins'][1]*cfg['binwidth'])
-#hRatioStatSystUnc = TH1D("hRatioStatSystUnc", "hRatioStatSystUnc", cfg['systevalnbins'], 
-#                         cfg['systevalnbins'][0]*cfg['binwidth'], 
-#                         cfg['systevalnbins'][1]*cfg['binwidth'])
-#hCFWithStatSystUnc = TH1D("hCFWithStatSystUnc", "hCFWithStatSystUnc", cfg['systevalnbins'], 
-#                          cfg['systevalnbins'][0]*cfg['binwidth'], 
-#                          cfg['systevalnbins'][1]*cfg['binwidth'])
-#for iBin, ihCFbin in enumerate(hCFBinEntries):
-#    oFile.cd('binsfits')
-#    ihCFbin.Fit("gaus")
-#    ihCFbin.Write(f"hCFbin{cfg['binwidth']*iBin+(cfg['binwidth']/2)}MeV")
-#    gausFit = ihCFbin.GetListOfFunctions().FindObject("gaus")
-#    hCFYields.SetBinContent(iBin+1, gausFit.GetParameter(0))
-#    hCFMeans.SetBinContent(iBin+1, gausFit.GetParameter(1))
-#    hSystUnc.SetBinContent(iBin+1, gausFit.GetParameter(2))
-#    hRelSystUnc.SetBinContent(iBin+1, hSystUnc.GetBinContent(iBin+1)/hCFselected.GetBinContent(iBin+1))
-#    hRelStatUnc.SetBinContent(iBin+1, hCFselected.GetBinError(iBin+1)/hCFselected.GetBinContent(iBin+1))
-#    hRelStatUnc.SetBinContent(iBin+1, hCFselected.GetBinError(iBin+1)/hSystUnc.GetBinContent(iBin+1))
-#    hCFWithStatSystUnc.SetBinContent(iBin+1, hCFselected.GetBinContent(iBin+1))
-#    hCFWithStatSystUnc.SetBinError(iBin+1, np.sqrt(hCFselected.GetBinError(iBin+1)**2 + 
-#                                                   hSystUnc.GetBinContent(iBin+1)**2 ) )
-#    
-#oFile.mkdir('systunc')
-#oFile.cd('systunc')    
-#hCFYields.Write()
-#hCFMeans.Write()
-#hSystUnc.Write()
-#hRelSystUnc.Write()
-#hRelStatUnc.Write()
-#hRelStatUnc.Write()
-#hCFWithStatSystUnc.Write()
-#
 oFile.Close()
 print(f'output saved in {oFileName}')
