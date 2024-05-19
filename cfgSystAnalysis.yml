@@ -1,0 +1,22 @@
+# where to save the output
+odir: path/to/output/dir
+suffix: suffix
+
+infileCFselected: /path/to/CF/used/in/data/analysis.root
+binwidth: 4      # MeV/c
+norm: [0.7, 0.8] # yield normalization with null
+
+infilessyst: ['/path/to/AnalysisResults1.root',
+              '/path/to/AnalysisResults2.root',
+              '/path/to/AnalysisResults3.root']
+
+suffixessyst: [[var1_AnRes1.root, var2_AnRes1.root, var3_AnRes1.root], # each AnalysisResults can
+               [var1_AnRes2.root, var2_AnRes2.root, var3_AnRes2.root], # have a custom number
+               [var1_AnRes3.root, var2_AnRes3.root, var3_AnRes3.root]] # of variations
+
+gaussianfits: true  # to evaluate the systematics uncertainties with gaussian
+                    # fits to the bin entry distributions
+systevalmaxbin: 150   # maximum kstar bin for systematics evaluation
+systhistobins: 50     # nbins for the histo of the kstar bin entry variations
+systhistointerval: 0.05 # range of the histo of the kstar bin entry variations,
+                        # computed from the value of the selected CF for the bin
