@@ -150,3 +150,16 @@ def WeightedAverage(hQuantity, hWeight):
     avgQuantityErr = math.sqrt(avgQuantityErr)        
 
     return avgQuantity, avgQuantityErr
+
+def ChangeUnits(hist, multiplier):
+    '''
+    Only for histogram with constant binwidth!
+    '''
+    nbins = hist.GetNbinsX()
+    lowEdge = hist.GetBinLowEdge(1)
+    upEdge = hist.GetBinLowEdge(nbins+1)
+    hNew = TH1F(f'{hist.GetName()}_new', '', nbins, lowEdge*multiplier, upEdge*multiplier)
+    for i in range(0, nbins+2):
+        hNew.SetBinContent(i, hist.GetBinContent(i))
+        hNew.SetBinError(i, hist.GetBinError(i))
+    return hNew
