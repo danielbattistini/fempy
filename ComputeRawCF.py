@@ -10,7 +10,7 @@ import os
 import argparse
 import yaml
 
-from ROOT import TFile, TH2F, TH1D
+from ROOT import TFile, TH2F, TH1D, TH2D
 
 from fempy import logger as log
 from fempy.utils.io import Load, GetKeyNames
@@ -56,7 +56,11 @@ hSE = {}
 hME = {}
 hMErew = {}
 hWeightsRew = {}
-for comb in combs:
+hFemtoPairs = TH2D("hFemtoPairs", "Pairs in femto region", 1, 0, 1, len(combs), 0, len(combs))
+hFemtoPairs.SetStats(0)
+hFemtoPairs.GetYaxis().SetLabelSize(50)
+hFemtoPairs.GetXaxis().SetBinLabel(1, "")
+for ncomb, comb in enumerate(combs):
     iPart1 = int(comb[1])
     iPart2 = int(comb[2])
     oFile.mkdir(comb)
@@ -124,6 +128,9 @@ for comb in combs:
             hSEmultk = TH2F('hSEMult', '', nbins, xMin, xMax, 200, 0, 200)
             hMEmultk = TH2F('hMEMult', '', nbins, xMin, xMax, 200, 0, 200)
 
+        hFemtoPairs.Fill(0.5, len(combs)-ncomb-0.5, hSE[comb][region].Integral(hSE[comb][region].FindBin(0.0001), 
+                                                                               hSE[comb][region].FindBin(0.2*0.9999)))
+        hFemtoPairs.GetYaxis().SetBinLabel(len(combs)-ncomb, comb)
         nbins = hMEmultk.ProjectionX().GetNbinsX()
         hWeights = TH1D("Weights", "Weights", hMEmultk.ProjectionY().GetNbinsX() + 2, 
                         hMEmultk.GetYaxis().GetXmin(), hMEmultk.GetYaxis().GetXmax())
@@ -137,7 +144,6 @@ for comb in combs:
                         compute = False
         
             if(compute):
-                print(f'Computing bin{iBin}')
                 hSEbinmult = hSEmultk.ProjectionX(f'{comb}SEdistr', iBin, iBin)
                 hMEbinmult = hMEmultk.ProjectionX(f'{comb}MEdistr', iBin, iBin)
                 if(hMEbinmult.Integral() > 0):
@@ -236,5 +242,7 @@ for comb in combs + ['p02_13', 'p03_12']:
         hCFrew.SetTitle(';#it{k}* (GeV/#it{c});#it{C}(#it{k}*)')
         hCFrew.Write()
 
+oFile.cd()
+hFemtoPairs.Write()
 oFile.Close()
 print(f'output saved in {oFileName}')
