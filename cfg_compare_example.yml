@@ -5,6 +5,10 @@
     -   file:  AnalysisResultsExample.root
         name: very/complicated/path/h1
         legend: 'Distr1'
+        drawopt: 'drawopt'      # for TH1
+        linethickness: 3 
+        linestyle: 10
+        changeunits: 1000 # the histo scale will be scaled by 10^3
         rebin: 1
         color: kRed
         markerstyle: 4
@@ -13,11 +17,53 @@
     -   file:  AnalysisResultsExample.root
         name: very/complicated/path/h2
         legend: 'Distr2'
+        drawopt: 'drawopt'      # for TH1
+        linethickness: 3 
+        linestyle: 10
         rebin: 1
         color: kBlue
         markerstyle: 4
         normalize: true
         normalizecf: false
+    -   file:  FileWithTF1.root
+        name: path/to/TF1
+        legend: 'Distr2'
+        chi2: true  # to print in the legend the chi2 
+                    # associated to the fit
+        rebin: 1
+        linethickness: 3 
+        linestyle: 10
+        color: kBlue
+        markerstyle: 4
+        normalize: true
+        normalizecf: false
+    -   file:  FileWithTH2.root
+        name: very/complicated/path/h2
+        legend: 'Distr2'
+        projX: false    # which axis to project
+        projY: true     
+        drawopt: 'drawopt'      # for TH1
+        linethickness: 3 
+        linestyle: 10
+        binrange: [startbin, endbin] # which range to consider for the projection
+        rebin: 1
+        color: kBlue
+        markerstyle: 4
+        normalize: true
+        normalizecf: false
+    -   file:  FileWithSystUncHisto.root
+        name: very/complicated/path/systunchisto
+        legend: 'Distr2'
+        drawopt: 'drawopt'      # for TGraphAsymçmErrors
+        errbarfillstyle: 1001   # for TGraphAsymmErrors
+        errbarfillalpha: 0.3    # for TGraphAsymmErrors
+        rebin: 1
+        color: kBlue
+        markerstyle: 4
+        normalize: true
+        normalizecf: false
+
+
 
     opt:
         rangex: [0, 10]

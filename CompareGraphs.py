@@ -3,7 +3,7 @@ import os
 import yaml
 from rich import print
 
-from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D, gStyle, TLatex, TH2, TF1, TH1F
+from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D, gStyle, TLatex, TH2, TF1
 
 import fempy
 from fempy import logger as log
@@ -46,47 +46,18 @@ for plot in cfg:
             inObj = ChangeUnits(inObj, inputCfg['changeunits'])
         
         if isinstance(inObj, TH2):
-            print(type(inObj))
             inObj.SetDirectory(0)
-            print(type(inObj))
-            if('projX' in inputCfg):
-                if(inputCfg['projX']):
-                    if(inputCfg['startproj'] == 'all'): 
-                        startBin = 1
-                    else: 
-                        startBin = inputCfg['startproj']
-                    if(inputCfg['endproj'] == 'all'): 
-                        endBin = inObj.GetXaxis().GetNbins()
-                        print('End bin: ' + str(endBin))
-                    else: 
-                        startBin = inputCfg['endproj']
-                    inObjProj = inObj.ProjectionX(inputCfg['name'] + "_px_" + str(inputCfg['startproj']) + str(inputCfg['endproj']),
-                                                  startBin, endBin)
-                    inObj = inObjProj
-            if('projY' in inputCfg):
-                if(inputCfg['projY']):
-                    if(inputCfg['startproj'] == 'all'): 
-                        startBin = 1
-                    else: 
-                        startBin = inputCfg['startproj']
-                    if(inputCfg['endproj'] == 'all'): 
-                        endBin = inObj.GetXaxis().GetNbins()
-                        print('End bin: ' + str(endBin))
-                    else: 
-                        startBin = inputCfg['endproj']
-                    print(type(inObj))
-                    inObjProj = inObj.ProjectionY(inputCfg['name'] + "_py_" + str(inputCfg['startproj']) + str(inputCfg['endproj']),
-                                                  startBin, endBin)
-                    inObj = inObjProj
+            if inputCfg.get('projX'):
+                firstBin, lastBin = inputCfg.get('binrange', [1, inObj.GetXaxis().GetNbins()])
+                inObj = inObj.ProjectionX(f'{inputCfg["name"]}_px_{firstBin}_{lastBin}', firstBin, lastBin)
+            if inputCfg.get('projY'):
+                firstBin, lastBin = inputCfg.get('binrange', [1, inObj.GetYaxis().GetNbins()])
+                inObj = inObj.ProjectionY(f'{inputCfg["name"]}_px_{firstBin}_{lastBin}', firstBin, lastBin)
             inObj.Rebin(inputCfg['rebin'])
 
         if isinstance(inObj, TH1):
             inObj.SetDirectory(0)
             inObj.Rebin(inputCfg['rebin'])
-
-            if not inObjs:
-                drawTF1low = inObj.GetBinCenter(1)
-                drawTF1upp = inObj.GetBinCenter(inObj.GetNbinsX())
 
             if inputCfg['normalize']:
                 inObj.Scale(1./inObj.Integral())
@@ -100,8 +71,6 @@ for plot in cfg:
                 inObjAsymm = TGraphAsymmErrors(inObj)
                 for iPoint in range(inObj.GetNbinsX()):
                     errX = inObj.GetBinWidth(iPoint)/4
-                    inObjAsymm.SetPointEXlow(iPoint, errX*2)
-                    inObjAsymm.SetPointEXhigh(iPoint, errX*2)
                     inObjAsymm.SetPointEXlow(iPoint, errX)
                     inObjAsymm.SetPointEXhigh(iPoint, errX) 
                 inObj = inObjAsymm
@@ -115,25 +84,17 @@ for plot in cfg:
 
         drawOpts.append(inputCfg.get('drawopt', 'p' if isinstance(inObj, TH1) else 'pe'))
         inObj.SetLineColor(style.GetColor(inputCfg['color']))
-        inObj.SetLineWidth(inputCfg.get('thickness', 1))
+        inObj.SetLineWidth(inputCfg.get('linethickness', 1))
         inObj.SetLineStyle(inputCfg.get('linestyle', 1))
         inObjs.append(inObj)
 
-        if('chi2' in inputCfg):
+        legend = inputCfg.get('legend', '')
+        if inputCfg.get('chi2'):
             folder, file_name = os.path.split(inputCfg['name'])
             chi2Histo = Load(inFile, os.path.join(folder, 'hChi2DOF'))
             chi2DOF = '#chi^{2}/DOF=' + str("{:.2f}".format(chi2Histo.GetBinContent(1)))
-        
-        if('legend' in inputCfg):
-            if 'chi2' in inputCfg:
-                legends.append("#splitline{" + inputCfg['legend'] + "}{" + chi2DOF + "}")
-            else:
-                legends.append(inputCfg['legend'])
-        else:
-            if 'chi2' in inputCfg:
-                legends.append(chi2DOF)
-            else:
-                legends.append('')
+            legend = "#splitline{" + legend + "}{" + chi2DOF + "}"
+        legends.append(legend)
 
     # Define the canvas
     nPanelsX, nPanelsY = fempy.utils.GetNPanels(len(panels))
@@ -166,15 +127,9 @@ for plot in cfg:
     leg = TLegend(legx1, legy1, legx2, legy2)
 
     for iObj, (inObj, legend) in enumerate(zip(inObjs, legends)):
-        if isinstance(inObj, TGraph):
-            if('drawoptsyst' in plot['input'][iObj]):
-                inObj.Draw('same' + plot['input'][iObj]['drawoptsyst'])
-            else:
-                inObj.Draw('same ' + drawOpts[iObj])
-
         if isinstance(inObj, TF1):
             inObj.DrawF1(fx1, fx2, "same")
-        elif isinstance(inObj, TH1):
+        else:
             inObj.Draw("same " + drawOpts[iObj])
 
         # Compute statistics for hist in the displayed range
@@ -187,7 +142,7 @@ for plot in cfg:
                 legend += f';  #mu={inObj.GetMean():.3f}'
             if plot['opt']['leg']['sigma']:
                 legend += f';  #sigma={inObj.GetStdDev():.3f}'
-        if(legend != ''):
+        if legend:
             leg.AddEntry(inObj, legend, 'lp')
         
     inputlines = []
