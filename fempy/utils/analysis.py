@@ -6,7 +6,7 @@ import sys
 
 import yaml
 
-from ROOT import TDatabasePDG, TGraphErrors
+from ROOT import TDatabasePDG, TGraphErrors, TH1F
 import math
 from math import sqrt
 import fempy
