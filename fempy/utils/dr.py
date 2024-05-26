@@ -25,6 +25,8 @@ if 'CF' in train:
     pwg = 'CF'
 elif 'D2H' in train:
     pwg = 'HF'
+elif 'NanoAOD' in train:
+    pwg = 'ZZ'
 else:
     log.critical('Unknown train')
 
