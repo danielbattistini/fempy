@@ -177,6 +177,13 @@ for comb in combs + ['p02_13', 'p03_12']:
         hME[comb][region].Rebin(rebin)
         hMErew[comb][region].Rebin(rebin)
 
+        if(hSE[comb][region].Integral() == 0):
+            log.warning("The integral of SE is 0, skipping this case!")
+            continue
+        if(hMErew[comb][region].Integral() == 0):
+            log.warning("The integral of ME is 0, skipping this case!")
+            continue
+
         if cfg['norm'] is None:  # if not specified, normalize to the yields
             norm = hME[comb][region].GetEntries() / hSE[comb][region].GetEntries()
             normrew = hMErew[comb][region].GetEntries() / hSE[comb][region].GetEntries()
