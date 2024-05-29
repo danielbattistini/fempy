@@ -120,7 +120,7 @@ for ncomb, comb in enumerate(combs):
                          hSE[comb][region].Integral(hSE[comb][region].FindBin(0.0001), hSE[comb][region].FindBin(0.2*0.9999)))
         hFemtoPairs.GetYaxis().SetBinLabel(len(combs)-ncomb, comb)
         nbins = hMEmultk.ProjectionX().GetNbinsX()
-        hWeights = TH1D(f"Weights{region}_{comb}", f"Weights{region}_{comb}", hMEmultk.ProjectionY().GetNbinsX() + 2, 
+        hWeights = TH1D(f"Weights{region}_{comb}", f"Weights{region}_{comb}", hMEmultk.ProjectionY().GetNbinsX(), 
                         hMEmultk.GetYaxis().GetXmin(), hMEmultk.GetYaxis().GetXmax())
         hMEreweightk = TH1D(f"MErewdistr{region}_{comb}", f"MErewdistr{region}_{comb}", nbins, hMEmultk.GetXaxis().GetXmin(), hMEmultk.GetXaxis().GetXmax())
         
