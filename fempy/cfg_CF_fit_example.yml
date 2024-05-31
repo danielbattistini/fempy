@@ -10,45 +10,57 @@ fitcfs:
     fitrange: [0, 500]          
     rejectrange: [150, 300]                         # range not considered for the fit
     linethick: 3                                    # thickness of lines in the Canva
+    globnorm: [1, 0, 2]                             # global norm of the fit function, inserted only if specified
     datalabel: "legend label for data points"
     fitfunclabel: "legend label for total fit function"
     legcoords: [0.6, 0.65, 0.8, 0.85]               # [x_low, y_low, x_upp, y_upp]
     model:                                      # three types of contributions to the fit model: func, spline, template                              
     -   func: name_of_func                      # the corresponding function in Functions.cxx will be considered
         fixparsfromfuncts: true                 # true if some parameters come from some already fitted functions
-        histofuncfile: /path/to/file/containing/histo/with/parameters/values.root
-        histofuncpath: internal/path
+        histofuncfile: [/path/to/file/containing/histo/with/parameters/values1.root,
+                        /path/to/file/containing/histo/with/parameters/values2.root] 
+        histofuncpath: [internal/path1, internal/path2] 
         params:
             iparname: [guess, low_bound, upp_bound]     # every function is multiplied by a normalization constant, which comes as a
                                                         # free fit parameter, to fix it put low_bound>upp_bound. In case of the lambda
                                                         # parameters, they are fixed and it is only required the numerical value
             parFixedFromFuncName: ['fromfunct', bin_of_histofuncpath_of_interest]
         legentry: "label"
-        linecolor: EColor.kOrange
         addmode: '+'                            # or '*', determines if the function multiplies or sums to the result given by
                                                 # the combination of the previous components
         isbaseline: true                        # flag this component as baseline for drawing purposes
         onbaseline: false                       # option to draw this component adding the baseline or not 
         savetofile: true                        # save this function to file
+        multnorm: true                      # true to draw the component multiplied by its normalization
+        multglobnorm: true                  # true to draw the component multiplied by the global normalization
+        shift: 0.97                     # in the final drawing, shift the subcomponent by a custom quantity
+        subcomps: ["namesubcomp1", "namesubcomp2"]
+        normssubcomps: [1, 1]
+        normssubcompslabels: ["graph_label_subcomp1", "graph_label_subcomp2"]
+        sub_onbaseline: [false, false]          # draw each subcomponent on the baseline
+        sub_legentry: ['leg_label_subcomp1', 'leg_label_subcomp1']
+        sub_multnorm: [true, true]              # draw each subcomponent multiplied by its normalization
+        sub_multglobnorm: [true, true]          # draw each subcomponent multiplied by the global normalization
+        sub_shifts: [0, 0]                      # shift each subcomponent by a specific value
     -   template: name_of_spline
         templfile: /file/of/histo/to/be/splined.root
         templpath: /internal/path/of/histo/to/be/splined
         rebin: 2                                # rebin the histo
         legentry: "label"
-        linecolor: EColor.kMagenta
         linethickness: 3
         params:
             norm_par_name: [0, -1, 1]
             shift_par_name: [0, -1, 1]
         addmode: '+'
         onbaseline: true
+        multnorm: true
+        multglobnorm: true
     -   spline: spline3             # name of spline function to be considered
         templfile: /path/of/file/of/interest.root
         templpath: 'internal/path/of/histo'
         changeunits: 1000           # optional, to change the histo units
         rebin: 2
         legentry: 'spline'
-        linecolor: EColor.kMagenta
         linethickness: 3
         params:
             splnorm_parname: [1, 0, -1]
@@ -56,3 +68,5 @@ fitcfs:
         yboundperc: 20              # bounds, in percentage, for variation of the y parameters with respect to histo values
         addmode: '+'
         onbaseline: false
+        multnorm: true
+        multglobnorm: true
