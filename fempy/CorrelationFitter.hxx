@@ -160,67 +160,6 @@ class CorrelationFitter {
         this->fFitPars.insert({this->fFitPars.size(), init});
     }
 
-    std::vector<TF1 *> GetComponents(std::vector<int> compsidxs, std::vector<bool> onbaseline, int idxBaseline=-1) {
-        if(!this->fFit) {
-            throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
-        }
-
-        if(compsidxs.size() != onbaseline.size()) {
-            throw std::invalid_argument("Number of components does not match onbaseline information!");
-
-        if(ibaseline != -1 && onbaseline) {
-            DEBUG("Evaluating with baseline" << endl;
-                  cout << this->fFitFuncComps[icomp] << endl;
-                  cout << "Evaluating with baseline" << endl;
-                  cout << this->fFitFuncEval[icomp]->Eval(2) << endl;
-                  cout << this->fNorms[ibaseline] << endl;
-                  cout << this->fFitFuncEval[ibaseline]->Eval(2));
-            TF1 *compWithoutNormAndBaseline = new TF1(this->fFitFuncComps[icomp],
-                [&, this, icomp, ibaseline](double *x, double *pars) {
-                   return ( this->fFitFuncEval[icomp]->Eval(x[0]) - 
-                          ( this->fFitFuncEval[ibaseline]->Eval(x[0])/this->fNorms[ibaseline] ) )
-                          / this->fNorms[icomp];  
-            }, this->fFitRangeMin, this->fFitRangeMax, 0);
-            return compWithoutNormAndBaseline;
-        } else {
-            DEBUG("Evaluating without baseline");
-            DEBUG(icomp << " " << this->fFitFuncEval[icomp]->Eval(2) << this->fNorms[icomp]);
-            TF1 *compWithoutNorm = new TF1(this->fFitFuncComps[icomp],
-                [&, this, icomp](double *x, double *pars) {
-                   return this->fFitFuncEval[icomp]->Eval(x[0]) / this->fNorms[icomp];  
-            }, this->fFitRangeMin, this->fFitRangeMax, 0);
-            return compWithoutNorm;
-        }
-
-        std::vector<TF1 *> comps;
-        for(int iToBeSavedComp=0; iToBeSavedComp<compsidxs.size(); iToBeSavedComp++) { 
-            if(idxBaseline != -1 && onbaseline[iToBeSavedComp]) {
-                // cout << "Evaluating with baseline" << endl;
-                // cout << this->fFitFuncComps[compsidxs[iToBeSavedComp]] << endl;
-                // cout << "Evaluating with baseline" << endl;
-                // cout << this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(2) << endl;
-                // cout << this->fNorms[idxBaseline] << endl;
-                // cout << this->fFitFuncEval[idxBaseline]->Eval(2) << endl;
-                comps.push_back(new TF1(this->fFitFuncComps[compsidxs[iToBeSavedComp]],
-                    [&, this, compsidxs, iToBeSavedComp, idxBaseline](double *x, double *pars) {
-                       return ( this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(x[0]) - 
-                              ( this->fFitFuncEval[idxBaseline]->Eval(x[0])/this->fNorms[idxBaseline] ) )
-                              / this->fNorms[compsidxs[iToBeSavedComp]];  
-                }, this->fFitRangeMin, this->fFitRangeMax, 0));
-                // return compWithoutNormAndBaseline;
-            } else {
-                // cout << "Evaluating without baseline" << endl;
-                // cout << compsidxs[iToBeSavedComp] << " " << this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(2) << this->fNorms[compsidxs[iToBeSavedComp]] << endl;
-                comps.push_back(new TF1(this->fFitFuncComps[compsidxs[iToBeSavedComp]],
-                    [&, this, compsidxs, iToBeSavedComp](double *x, double *pars) {
-                       return this->fFitFuncEval[compsidxs[iToBeSavedComp]]->Eval(x[0]) / this->fNorms[compsidxs[iToBeSavedComp]];  
-                }, this->fFitRangeMin, this->fFitRangeMax, 0));
-                // return compWithoutNorm;
-            }
-        }
-        return comps;
-    }
-
     TH1D *GetComponentPars(int icomp) {
         if(!this->fFit) {
             throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
@@ -242,7 +181,6 @@ class CorrelationFitter {
         for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
             if(this->fFitFuncComps[iFunc].Contains("Lednicky")) {
                 genuineIdx = iFunc;
-                return this->fFitFuncEval[iFunc];
             }
         }
         
@@ -605,8 +543,7 @@ class CorrelationFitter {
 
     std::vector<double (*)(double *x, double *par)> fFitFunc;       // List of function describing each term of the CF model
     std::vector<TString> fFitFuncComps;                             // Function names of fit components
-    std::vector<TSpline3 *> fFitSplines;                            // Spline fit components
-    std::vector<TF1*> fFitFuncEval;                                 // Fit components evaluated after the fitting
+    std::vector<TSpline3 *> fFitSplines;                            // Fit components evaluated after the fitting
     std::vector<int> fNPars;                                        // Keeps track of how many parameters each function has
     std::vector<std::string> fAddModes;                             // Select mode of adding the contributions to the model
     std::vector<double> fNorms;                                     // Vector saving the norm factor of each term

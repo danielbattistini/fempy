@@ -264,31 +264,6 @@ double Spline3Range(double *x, double *par){
     return sp3->Eval(x[0]);
 }
 
-double Spline5(double *x, double *par){
-    int numKnots = 6;
-    double xKnots[numKnots];
-    double yKnots[numKnots];
-    for(int iKnot=0; iKnot<numKnots; iKnot++){
-        xKnots[iKnot] = par[iKnot];
-        yKnots[iKnot] = par[numKnots+iKnot];
-    }
-    TSpline5* sp5 = new TSpline5("sp5", xKnots, yKnots, numKnots, "");
-    return sp5->Eval(x[0]);
-}
-
-double Spline3(double *x, double *par){
-    int numKnots = 10;
-    double xKnots[numKnots];
-    double yKnots[numKnots];
-    for(int iKnot=0; iKnot<numKnots; iKnot++){
-        xKnots[iKnot] = par[iKnot];
-        yKnots[iKnot] = par[numKnots+iKnot];
-    }
-    TSpline3* sp3 = new TSpline3("sp3", xKnots, yKnots, numKnots, "");
-
-    return sp3->Eval(x[0]);
-}
-
 double SillKStar(double *x, double *par) {
 
   // x[0]: k*

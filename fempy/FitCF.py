@@ -193,24 +193,15 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     oFile.cd(fitcf['fitname'])
     modelFitters[-1].BuildFitFunction()
     modelFitters[-1].Fit()
-    fitHisto.Write()
     fitFunction = modelFitters[-1].GetFitFunction()
-    fitFunction.Write()
     hChi2DOF = TH1D('hChi2DOF', 'hChi2DOF', 1, 0, 1)
     hChi2DOF.Fill(0.5, modelFitters[-1].GetChi2Ndf())
     print('Chi2 / DOF: ' + str(modelFitters[-1].GetChi2Ndf()))
     print('\n\n')
     hChi2DOFManual = TH1D('hChi2DOFManual', 'hChi2DOFManual', 1, 0, 1)
     hChi2DOFManual.Fill(0.5, modelFitters[-1].GetChi2NdfManual())
-    hChi2DOF.Write()
-    modelFitters[-1].SaveFreeFixPars().Write()
-    modelFitters[-1].SaveFitPars().Write()
-    modelFitters[-1].PullDistribution().Write()
-    if fitcf.get('isfitcf'):
-        modelFitters[-1].SaveScatPars().Write()
 
     hAllCompsParHisto = modelFitters[-1].SaveFitParsSplitComponents(subCompsMothers, saveSubComps, normsSubComps, subComps, normsSubCompsLabels)
-    hAllCompsParHisto.Write()    
     cFit = TCanvas('cFit', '', 600, 600)
     drawFits[-1].SetTotalFitFunc(fitFunction)
     drawFits[-1].SetParHist(hAllCompsParHisto)
@@ -223,39 +214,18 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     
     drawFits[-1].Draw(cFit, legLabels, fitcf['legcoords'], linesThickness)
     
-    if('isfitcf' in fitcf):
-        modelFitters[-1].GetGenuine().Write("fGenuine")
-    if('debug' in fitcf):
-        modelFitters[-1].Debug()
-    
-    cFit.Write()
-
-    fitHisto.Write()
-    fitFunction = modelFitters[-1].GetFitFunction()
-    modelFitters[-1].SaveFitPars().Write()
-    modelFitters[-1].SaveFreeFixPars().Write()
-    modelFitters[-1].PullDistribution().Write()
-    if('isfitcf' in fitcf):
-        modelFitters[-1].SaveScatPars().Write()
+    hAllCompsParHisto.Write()    
     fitFunction.Write()
     hChi2DOF.Write()
     hChi2DOFManual.Write()
-
-    print('Getting components ...')
-    for iTerm, term in enumerate(fitcf['model']):
-        if('savetofile' in term):
-            if(term['savetofile']):
-                compsToFile.append([iTerm, term.get('onbaseline', 0), baselineIdx])
-
-    print(compsToFile)
-    print('Saved, now writing to file ...')
-    compsToBeWritten = modelFitters[-1].GetComponents([idx[0] for idx in compsToFile], 
-                                                      [onBas[1] for onBas in compsToFile],
-                                                      baselineIdx)
-    print(len(compsToBeWritten))
-    for comp in compsToBeWritten:
-        comp.Write("f" + comp.GetName())
-    print('Saved components!')
+    modelFitters[-1].SaveFreeFixPars().Write()
+    modelFitters[-1].SaveFitPars().Write()
+    modelFitters[-1].PullDistribution().Write()
+    cFit.Write()
+    fitHisto.Write()
+    if fitcf.get('isfitcf'):
+        modelFitters[-1].GetGenuine().Write("fGenuine")
+        modelFitters[-1].SaveScatPars().Write()
 
 oFile.Close()
 print(f'output saved in {oFileName}')
