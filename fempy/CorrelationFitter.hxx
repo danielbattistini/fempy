@@ -268,6 +268,7 @@ class CorrelationFitter {
         TH1D *histoAllCompsPars = new TH1D("hAllCompsPars", "hAllCompsPars", this->fFit->GetNpar() + nCompsPars, 0, this->fFit->GetNpar() + nCompsPars);
         DEBUG("Number of bins of the histo containing subcomps pars: " << histoAllCompsPars->GetNbinsX());
         if(this->fGlobNorm) {
+            DEBUG("Global norm"); 
             // put the global norm at the beginning
             histoAllCompsPars->SetBinContent(1, this->fFit->GetParameter(this->fFit->GetNpar()-1));
             histoAllCompsPars->GetXaxis()->SetBinLabel(1, this->fFit->GetParName(this->fFit->GetNpar()-1));
@@ -276,15 +277,24 @@ class CorrelationFitter {
                 histoAllCompsPars->GetXaxis()->SetBinLabel(iPar+2, this->fFit->GetParName(iPar));
             }
         } else {
+            DEBUG("No global norm"); 
             for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
+                DEBUG("Setting ipar " << iPar << " of " << this->fFit->GetNpar()); 
                 histoAllCompsPars->SetBinContent(iPar+1, this->fFit->GetParameter(iPar));
                 histoAllCompsPars->GetXaxis()->SetBinLabel(iPar+1, this->fFit->GetParName(iPar));
             }
         }
 
+        DEBUG("Parameters set");
+        DEBUG("Size of compstosplit: " << compstosplit.size());
         for(int iSplitComp=0; iSplitComp<compstosplit.size(); iSplitComp++) {
             int previousCompsPars = 0; 
+            DEBUG("Size of fNpars: " << fNPars.size());
+            DEBUG("Compstosplit: " << compstosplit[iSplitComp]);
+            DEBUG("fGlobNorm: " << this->fGlobNorm);
+            // int startCompPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), 1), 0) + this->fGlobNorm + compstosplit[iSplitComp];
             int startCompPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), compstosplit[iSplitComp]), 0) + this->fGlobNorm + compstosplit[iSplitComp];
+            DEBUG("Initializing subcomponents");
             for(int iComp=0; iComp<compsnames[iSplitComp].size(); iComp++) {
 
                     std::cout << std::showpos;

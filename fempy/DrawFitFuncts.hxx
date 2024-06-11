@@ -27,6 +27,7 @@ class DrawFitFuncts {
     
         this->fFitHist = fithist;
         this->fBasIdx = basIdx; 
+        this->fMult = false; 
         this->fDrawRangeMin = drawRangeMin;
         this->fDrawRangeMax = drawRangeMax;
         this->fGlobNorm = globNorm; 
@@ -40,8 +41,9 @@ class DrawFitFuncts {
         this->fFit = totalFitFunc;
     }
 
-    void SetBasIdx(int basIdx) {
+    void SetBasIdx(int basIdx, bool multoradd) {
         this->fBasIdx = basIdx;
+        this->fMult = multoradd;
     }
 
     void SetGlobNorm(bool setGlobNorm) {
@@ -271,18 +273,25 @@ class DrawFitFuncts {
             }
         } 
         DEBUG("--------------------------------");
-
+        DEBUG("Global norm mult or add: " << this->fMult); 
         // Define the final functions that will be drawn on the canvas
         for(int iRawComp=0; iRawComp<rawComps.size(); iRawComp++) {
             DEBUG("Global norm of the component: " << globNorms[iRawComp]);
             this->fDrawFuncs.push_back(new TF1(this->fFitFuncComps[iRawComp],
                 [&, this, globNorms, iRawComp, norms, shifts, rawComps, onBasNorms, bas]
                 (double *x, double *pars) {
-                   return globNorms[iRawComp] * (norms[iRawComp]*rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp] + onBasNorms[iRawComp]*bas->Eval(x[0]));  
+                    if(iRawComp != this->fBasIdx) {
+                        if(fMult) {
+                            return globNorms[iRawComp] * onBasNorms[iRawComp] * norms[this->fBasIdx] * bas->Eval(x[0]) + (norms[iRawComp] * rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp]);  
+                        } else {
+                            return globNorms[iRawComp] * (norms[iRawComp] * rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp] + onBasNorms[iRawComp] * norms[this->fBasIdx] * bas->Eval(x[0]));  
+                        }
+                    } else {
+                        return globNorms[iRawComp] * (norms[iRawComp]*rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp]);  
+                    }
                 }, this->fDrawRangeMin, this->fDrawRangeMax, 0));
         }
         DEBUG("Raw components defined!");
-
     }
 
     /*
@@ -321,9 +330,15 @@ class DrawFitFuncts {
             this->fDrawFuncs[iFuncEval]->SetNpx(300);
             this->fDrawFuncs[iFuncEval]->SetLineColor(colors[iFuncEval]); //.data());
             this->fDrawFuncs[iFuncEval]->SetLineWidth(linesThickness);
+            // if(fFitFuncComps[iFuncEval] == "gaus") {
+                // 
+            // } else {
+// 
+            // }
             this->fDrawFuncs[iFuncEval]->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
-            this->fDrawFuncs[iFuncEval]->Draw("same");
+            // this->fDrawFuncs[iFuncEval]->Draw("same");
             DEBUG("Drawing the component " << iFuncEval << " with legend label: " << legLabels[iFuncEval+2]);
+            cout << "Evaluate component " << iFuncEval << ": " << this->fDrawFuncs[iFuncEval]->Eval(400) << endl; 
             if(legLabels[iFuncEval+2].Contains("lambda_flat")) continue;
             legend->AddEntry(this->fDrawFuncs[iFuncEval], legLabels[iFuncEval+2].Data(), "l");
         }
@@ -332,6 +347,7 @@ class DrawFitFuncts {
         this->fFit->SetNpx(300);
         this->fFit->SetLineColor(kRed);
         this->fFit->SetLineWidth(linesThickness);
+        cout << "Evaluate global fit function " << this->fFit->Eval(400) << endl; 
         this->fFit->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
         pad->Update();
 
@@ -359,13 +375,14 @@ class DrawFitFuncts {
     TF1 *fFit = nullptr;
     bool fGlobNorm; 
     int fBasIdx; 
+    bool fMult;         // True if the baseline is multiplicative, false if it is additive
     double fDrawRangeMin;
     double fDrawRangeMax;
 
-    std::vector<TString> fFitFuncComps;                             // Function names of fit components
-    std::vector<TF1*> fDrawFuncs;                                   // Fit components evaluated after the fitting
-    std::vector<TF1*> fRawFuncs;                                    // Fit components evaluated after the fitting
-    std::vector<TSpline3*> fSplines;                           // Fit components evaluated after the fitting
+    std::vector<TString> fFitFuncComps;     // Function names of fit components
+    std::vector<TF1*> fDrawFuncs;           // Fit components evaluated after the fitting
+    std::vector<TF1*> fRawFuncs;            // Fit components evaluated after the fitting
+    std::vector<TSpline3*> fSplines;        // Fit components evaluated after the fitting
 
 };
 

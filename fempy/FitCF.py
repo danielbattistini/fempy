@@ -111,7 +111,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
         multGlobNorm.append(term.get('multglobnorm', 0))
 
         if term.get('subcomps'):
-            saveSubComps.append(iTerm-1)
+            saveSubComps.append(iTerm)
             normsSubComps.append(term['normssubcomps'])
             normsSubCompsLabels.append(term['normssubcompslabels'])
             subCompsMothers.append(term['func'])
@@ -125,7 +125,10 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                 multGlobNorm.append(term.get('sub_multglobnorm', [1]*len(term['subcomps']))[iSubComp])
 
         if term.get('isbaseline'):
-            drawFits[-1].SetBasIdx(iTerm)
+            if term['addmode'] == "*":
+                drawFits[-1].SetBasIdx(iTerm, True)
+            else: 
+                drawFits[-1].SetBasIdx(iTerm, False)
             baselineIdx = iTerm
                 
         if term.get('template'):
