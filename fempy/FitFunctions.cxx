@@ -395,9 +395,10 @@ double Landau(double *x, double *par)
     //if (!par[0]) return den;
     //return den/par[2];
  
-    if (par[2] <= 0) return 0;
-    double den = ::ROOT::Math::landau_pdf( (x[0]-par[1])/par[2] );
-    if (!par[0]) return den;
-    return par[0]*den;
- 
+    // if (par[2] <= 0) return 0;
+    // // double den = ::ROOT::Math::landau_pdf( (x[0]-par[1])/par[2] );
+    // double den = ::ROOT::Math::landau_pdf( (x[0]-par[1])/par[2] );
+    // if (!par[0]) return den;
+    // return par[0]*den;
+    return 1;
 }
