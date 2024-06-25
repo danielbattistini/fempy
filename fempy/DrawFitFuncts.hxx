@@ -12,6 +12,7 @@
 #include "TLegend.h"
 #include "TSpline.h"
 #include "TVirtualPad.h"
+#include "TCanvas.h"
 #include "THashList.h"
 
 #if LOG_LEVEL_DRAW
@@ -65,7 +66,7 @@ class DrawFitFuncts {
     }
 
     void EvaluateToBeDrawnComponents(std::vector<bool> onBaseline, std::vector<bool> multNorm, std::vector<bool> multGlobNorm, 
-                            std::vector<double> funcshifts, int basIdx=-1, std::vector<TString> addComps = {""}, bool debug=1) {
+                            std::vector<double> funcshifts, int basIdx=-1, std::vector<TString> addComps = {""}) {
 
         // Warnings that prevent the evaluation from being successful
         if(basIdx == -1){
@@ -124,6 +125,7 @@ class DrawFitFuncts {
                 DEBUG("--------------------------------");
             }
         }
+        DEBUG("Number of raw components pre-sum: " << rawComps.size()); 
 
         // save the normalization constant for which each component has to be multiplied when drawing
         std::vector<double> norms;
@@ -161,12 +163,16 @@ class DrawFitFuncts {
         std::cout << std::noshowpos;
 
         // append to the raw components vector the functions that are sum of more than one component
+        DEBUG("Number of raw components: " << rawComps.size());
         if(addComps[0] != "") {
             for(int iAddComp=0; iAddComp<addComps.size(); iAddComp++) {
+                DEBUG("Evaluating sum of components " << addComps[iAddComp]);
+                DEBUG("Function name " << "SumComp_" + addComps[iAddComp]);
 
                 // push back the components multiplied by their norm
-                rawComps.push_back(new TF1("SumComp_" + addComps[iAddComp], 
-                        [&, this, rawComps, addComps]
+                this->fFitFuncComps.push_back("SumComp_" + addComps[iAddComp]);
+                TF1 *sumComps = new TF1("SumComp_" + addComps[iAddComp], 
+                        [&, this, rawComps, norms, addComps, iAddComp, onBaseline]
                         (double *x, double *pars) {
                         double sum=0.;
                         for(int iFunc=0; iFunc<onBaseline.size(); iFunc++) {
@@ -174,8 +180,10 @@ class DrawFitFuncts {
                                 sum += norms[iFunc] * rawComps[iFunc]->Eval(x[0]);
                             }
                         }
-                        return sum;}, this->fDrawRangeMin, this->fDrawRangeMax, 0));
-
+                        return sum;}, this->fDrawRangeMin, this->fDrawRangeMax, 0);
+                rawComps.push_back(sumComps);
+                DEBUG("Number of raw components: " << rawComps.size());
+                DEBUG("Eval last component: " << rawComps.back()->Eval(200));
                 // determine whether, when drawing, the newly added component has to be drawn on 
                 // the baseline and has to be multiplied for the global normalization constant
                 bool addBaseline = true;
@@ -195,9 +203,9 @@ class DrawFitFuncts {
                             cout << "multiplied!" << endl;
                             addMultGlobNorm = false;
                         }
-
                     }
                 }
+
                 if(addBaseline) {
                     onBaseline.push_back(1);
                 } else {
@@ -209,6 +217,7 @@ class DrawFitFuncts {
                     multGlobNorm.push_back(0);
                 }
      
+                norms.push_back(1);
                 // kill the components to be summed by setting the normalization constants to zero 
                 for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
                     if(addComps[iAddComp].Contains(std::to_string(iFunc))) {
@@ -217,6 +226,7 @@ class DrawFitFuncts {
                         multGlobNorm[iFunc] = 0.0000;
                     }
                 }
+                DEBUG("Finished sum of components " << addComps[iAddComp]);
             }
         }
 
@@ -247,7 +257,7 @@ class DrawFitFuncts {
         // on the baseline it will be set to zero 
         std::vector<double> onBasNorms;
         DEBUG("--------------------------------");
-        for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
+        for(int iFunc=0; iFunc<rawComps.size(); iFunc++) {
             if(onBaseline[iFunc]) {
                 DEBUG("Set norm of the baseline for function " << iFunc << " to: " << basNorm);
                 onBasNorms.push_back(basNorm);
@@ -263,7 +273,7 @@ class DrawFitFuncts {
         std::vector<double> globNorms;
         DEBUG("--------------------------------");
         DEBUG("Number of global norms " << multGlobNorm.size());
-        for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
+        for(int iFunc=0; iFunc<rawComps.size(); iFunc++) {
             if(multGlobNorm[iFunc]) {
                 DEBUG("Set global norm for function " << iFunc << " to: " << this->fParHist->GetBinContent(1));
                 globNorms.push_back(this->fParHist->GetBinContent(1));
@@ -275,8 +285,10 @@ class DrawFitFuncts {
         DEBUG("--------------------------------");
         DEBUG("Global norm mult or add: " << this->fMult); 
         // Define the final functions that will be drawn on the canvas
+        DEBUG("Number of raw components: " << rawComps.size()); 
         for(int iRawComp=0; iRawComp<rawComps.size(); iRawComp++) {
             DEBUG("Global norm of the component: " << globNorms[iRawComp]);
+            cout << "Component: " << this->fFitFuncComps[iRawComp] << endl;
             this->fDrawFuncs.push_back(new TF1(this->fFitFuncComps[iRawComp],
                 [&, this, globNorms, iRawComp, norms, shifts, rawComps, onBasNorms, bas]
                 (double *x, double *pars) {
@@ -290,7 +302,18 @@ class DrawFitFuncts {
                         return globNorms[iRawComp] * (norms[iRawComp]*rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp]);  
                     }
                 }, this->fDrawRangeMin, this->fDrawRangeMax, 0));
+            cout << "Evaluate component: " << this->fDrawFuncs.back()->Eval(200) << endl;
         }
+
+        for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
+            if(fFitFuncComps[iFuncEval] == "gaus") {
+                cout << "IFUNCEVAL " << iFuncEval << endl; 
+                TCanvas *canvaGaus = new TCanvas("cGaus", "cGaus", 600, 600);
+                this->fDrawFuncs[iFuncEval]->Draw();
+                canvaGaus->SaveAs("CanvaGaus.pdf");
+            }
+        }
+
         DEBUG("Raw components defined!");
     }
 
@@ -310,7 +333,17 @@ class DrawFitFuncts {
         legend->AddEntry(this->fFit, legLabels[1].Data(), "l");
 
         gPad->DrawFrame(fDrawRangeMin, yMinDraw, fDrawRangeMax, yMaxDraw, title.data());
-                
+        
+        fFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
+        fFitHist->SetMarkerSize(0.1);
+        fFitHist->SetMarkerStyle(24);
+        // fFitHist->SetMarkerStyle(20);
+        fFitHist->SetMarkerColor(kBlack);
+        fFitHist->SetLineColor(kBlack);
+        fFitHist->SetLineWidth(3);
+        fFitHist->Draw("same pe");
+        pad->Update();
+
         DEBUG("--------------------------------");
         std::cout << std::showpos;
         cout.precision(4);
@@ -322,43 +355,47 @@ class DrawFitFuncts {
         DEBUG("--------------------------------");
         std::cout << std::noshowpos;
 
-        std::vector<Color_t> colors = {kMagenta + 3, kAzure + 2, kGreen, kOrange, kBlue + 2, 
-                                       kCyan, kBlack, kGreen+2, kRed, kBlue, kGray};
+        std::vector<TF1 *> gaussians;
+        std::vector<Color_t> colors = {kCyan+1, kAzure + 2, kGreen, kOrange, kBlue + 2, 
+                                       kCyan, kMagenta, kGreen+1, kRed, kBlue, kGray, kRed, 
+                                       kRed, kRed};
         DEBUG("--------------------------------");
         DEBUG("Number of components to be drawn: " << fDrawFuncs.size());
         for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
+            DEBUG("fFitFuncEval " << fFitFuncComps[iFuncEval]);
             this->fDrawFuncs[iFuncEval]->SetNpx(300);
-            this->fDrawFuncs[iFuncEval]->SetLineColor(colors[iFuncEval]); //.data());
+            this->fDrawFuncs[iFuncEval]->SetLineColor(colors[iFuncEval]);
             this->fDrawFuncs[iFuncEval]->SetLineWidth(linesThickness);
-            // if(fFitFuncComps[iFuncEval] == "gaus") {
-                // 
-            // } else {
-// 
-            // }
             this->fDrawFuncs[iFuncEval]->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
-            // this->fDrawFuncs[iFuncEval]->Draw("same");
             DEBUG("Drawing the component " << iFuncEval << " with legend label: " << legLabels[iFuncEval+2]);
-            cout << "Evaluate component " << iFuncEval << ": " << this->fDrawFuncs[iFuncEval]->Eval(400) << endl; 
+            DEBUG("Evaluate component " << iFuncEval << ": " << this->fDrawFuncs[iFuncEval]->Eval(400)); 
+            if(legLabels[iFuncEval+2] == "") continue;
             if(legLabels[iFuncEval+2].Contains("lambda_flat")) continue;
             legend->AddEntry(this->fDrawFuncs[iFuncEval], legLabels[iFuncEval+2].Data(), "l");
         }
+        // cout << "Evaluate gaussian: " << this->fDrawFuncs[4]->Eval(140) << endl;
+        // TCanvas *canvaGaus = new TCanvas("cGaus", "cGaus", 600, 600);
+        // this->fDrawFuncs[5]->Draw();
+        // canvaGaus->SaveAs("CanvaGausDraw.pdf");
         DEBUG("--------------------------------");
 
         this->fFit->SetNpx(300);
         this->fFit->SetLineColor(kRed);
         this->fFit->SetLineWidth(linesThickness);
-        cout << "Evaluate global fit function " << this->fFit->Eval(400) << endl; 
+        DEBUG("Evaluate global fit function " << this->fFit->Eval(400)); 
         this->fFit->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
         pad->Update();
 
-        fFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
-        fFitHist->SetMarkerSize(0.1);
-        fFitHist->SetMarkerStyle(20);
-        fFitHist->SetMarkerColor(kBlack);
-        fFitHist->SetLineColor(kBlack);
-        fFitHist->SetLineWidth(3);
-        fFitHist->Draw("same pe");
-        pad->Update();
+        // fFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
+        // fFitHist->SetMarkerSize(0.1);
+        // fFitHist->SetMarkerStyle(20);
+        // // fFitHist->SetMarkerColor(kBlack);
+        // // fFitHist->SetLineColor(kBlack);
+        // fFitHist->SetMarkerColor(kGray+1);
+        // fFitHist->SetLineColor(kGray+1);
+        // fFitHist->SetLineWidth(3);
+        // fFitHist->Draw("same pe");
+        // pad->Update();
 
         legend->SetBorderSize(0);
         legend->SetTextSize(0.045);
