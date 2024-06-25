@@ -14,7 +14,7 @@
 #include "TVirtualPad.h"
 #include "THashList.h"
 
-#if LOG_LEVEL
+#if LOG_LEVEL_DRAW
 #define DEBUG(msg) std::cout << msg << std::endl
 #else
 #define DEBUG(msg)

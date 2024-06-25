@@ -21,12 +21,19 @@ from fempy.utils.analysis import ChangeUnits
 parser = argparse.ArgumentParser()
 parser.add_argument('cfg', default='')
 parser.add_argument('--debug', default=False, action='store_true')
+parser.add_argument('--debugfit', default=False, action='store_true')
+parser.add_argument('--debugdraw', default=False, action='store_true')
 args = parser.parse_args()
 
-if args.debug:
-    gInterpreter.ProcessLine(f'#define LOG_LEVEL 1')
+if args.debugfit:
     log.setLevel(1)
 
+if args.debugfit:
+    gInterpreter.ProcessLine(f'#define LOG_LEVEL_FIT 1')
+    
+if args.debugdraw:
+    gInterpreter.ProcessLine(f'#define LOG_LEVEL_DRAW 1')
+    
 gInterpreter.ProcessLine(f'#include "{os.environ.get("FEMPY")}fempy/CorrelationFitter.hxx"')
 gInterpreter.ProcessLine(f'#include "{os.environ.get("FEMPY")}fempy/DrawFitFuncts.hxx"')
 from ROOT import CorrelationFitter, DrawFitFuncts
@@ -104,7 +111,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     # for loop over the functions entering in the model
     for iTerm, term in enumerate(fitcf['model']):
         
-        legLabels.append(term['legentry'])
+        legLabels.append(term.get('legentry', ''))
         onBaseline.append(term.get('onbaseline', 0))
         shifts.append(term.get('shift', 0))
         multNorm.append(term.get('multnorm', 0))
@@ -211,6 +218,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     if fitcf.get('drawsumcomps'):
         drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
                                              baselineIdx, fitcf['drawsumcomps'])
+        legLabels.extend(fitcf['sumcompslegends'])
     else:        
         drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
                                              baselineIdx)

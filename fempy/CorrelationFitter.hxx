@@ -13,7 +13,7 @@
 #include "TFitResultPtr.h"
 #include "FitFunctions.cxx"
 
-#if LOG_LEVEL
+#if LOG_LEVEL_FIT
 #define DEBUG(msg) std::cout << msg << std::endl
 #else
 #define DEBUG(msg)
