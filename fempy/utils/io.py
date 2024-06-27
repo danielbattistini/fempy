@@ -5,7 +5,7 @@ import fempy
 from ROOT import TFile, TDirectoryFile, TList
 
 
-def Load(container, path, justCheck=False):
+def Load(container, path):
     '''
     Function to extract an object inside a root file.
     Supports nested containers with the following Data Types:
@@ -42,9 +42,8 @@ def Load(container, path, justCheck=False):
             fempy.logger.critical('The container %s of type %s is not valid', container.GetName(), type(container))
 
         if obj == None:  # pylint: disable=singleton-comparison
-            if justCheck:
-                return None
-            fempy.logger.critical('The container %s does not contain an object named %s', container.GetName(), name)
+            fempy.logger.error('The container %s does not contain an object named %s', container.GetName(), name)
+            raise NameError()
         container = obj
 
     fempy.logger.debug('The object %s:%s was succesfully loaded', container.GetName(), path)
