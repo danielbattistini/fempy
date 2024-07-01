@@ -5,6 +5,11 @@ infile: /data/dPi/01_otonsel/data/AnalysisResults.root
 odir: ~/an/dPi/01_otonsel/cf
 suffix: null
 
+multrewMCwithdata: false # true to reweight MC CF with multiplicity histos of data
+infilerew: /path/to/DataAnalysisResults.root
+runsuffixrew: 1000 # The last parameter of the AddTask macro for AnalysisResults
+                   # used for reweighting
+
 runsuffix: 1001 # The last parameter of the AddTask macro
 binwidth: 20 # MeV/c
-norm: null
+norm: null # or [rangemin, rangemax]

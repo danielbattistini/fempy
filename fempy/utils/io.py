@@ -42,7 +42,8 @@ def Load(container, path):
             fempy.logger.critical('The container %s of type %s is not valid', container.GetName(), type(container))
 
         if obj == None:  # pylint: disable=singleton-comparison
-            fempy.logger.critical('The container %s does not contain an object named %s', container.GetName(), name)
+            fempy.logger.error('The container %s does not contain an object named %s', container.GetName(), name)
+            raise NameError()
         container = obj
 
     fempy.logger.debug('The object %s:%s was succesfully loaded', container.GetName(), path)
