@@ -202,41 +202,47 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     
     oFile.cd(fitcf['fitname'])
     modelFitters[-1].BuildFitFunction()
-    modelFitters[-1].Fit()
-    fitFunction = modelFitters[-1].GetFitFunction()
-    hChi2DOF = TH1D('hChi2DOF', 'hChi2DOF', 1, 0, 1)
-    hChi2DOF.Fill(0.5, modelFitters[-1].GetChi2Ndf())
-    print('Chi2 / DOF: ' + str(modelFitters[-1].GetChi2Ndf()))
-    print('\n\n')
-    hChi2DOFManual = TH1D('hChi2DOFManual', 'hChi2DOFManual', 1, 0, 1)
-    hChi2DOFManual.Fill(0.5, modelFitters[-1].GetChi2NdfManual())
+    if fitcf.get('bootstraptries'):
+        parBTDistros = modelFitters[-1].FitBootstrap(fitcf['bootstraptries'])
+        for parBTDistro in parBTDistros:
+            print('Integral of histo ' + parBTDistro.GetName() + ': ' + str(parBTDistro.Integral()))
+            parBTDistro.Write()
+    else: 
+        modelFitters[-1].Fit()
+        fitFunction = modelFitters[-1].GetFitFunction()
+        hChi2DOF = TH1D('hChi2DOF', 'hChi2DOF', 1, 0, 1)
+        hChi2DOF.Fill(0.5, modelFitters[-1].GetChi2Ndf())
+        print('Chi2 / DOF: ' + str(modelFitters[-1].GetChi2Ndf()))
+        print('\n\n')
+        hChi2DOFManual = TH1D('hChi2DOFManual', 'hChi2DOFManual', 1, 0, 1)
+        hChi2DOFManual.Fill(0.5, modelFitters[-1].GetChi2NdfManual())
 
-    hAllCompsParHisto = modelFitters[-1].SaveFitParsSplitComponents(subCompsMothers, saveSubComps, normsSubComps, subComps, normsSubCompsLabels)
-    cFit = TCanvas('cFit', '', 600, 600)
-    drawFits[-1].SetTotalFitFunc(fitFunction)
-    drawFits[-1].SetParHist(hAllCompsParHisto)
-    if fitcf.get('drawsumcomps'):
-        drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
-                                             baselineIdx, fitcf['drawsumcomps'])
-        legLabels.extend(fitcf['sumcompslegends'])
-    else:        
-        drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
-                                             baselineIdx)
-    
-    drawFits[-1].Draw(cFit, legLabels, fitcf['legcoords'], linesThickness)
-    
-    hAllCompsParHisto.Write()    
-    fitFunction.Write()
-    hChi2DOF.Write()
-    hChi2DOFManual.Write()
-    modelFitters[-1].SaveFreeFixPars().Write()
-    modelFitters[-1].SaveFitPars().Write()
-    modelFitters[-1].PullDistribution().Write()
-    cFit.Write()
-    fitHisto.Write()
-    if fitcf.get('isfitcf'):
-        modelFitters[-1].GetGenuine().Write("fGenuine")
-        modelFitters[-1].SaveScatPars().Write()
+        hAllCompsParHisto = modelFitters[-1].SaveFitParsSplitComponents(subCompsMothers, saveSubComps, normsSubComps, subComps, normsSubCompsLabels)
+        cFit = TCanvas('cFit', '', 600, 600)
+        drawFits[-1].SetTotalFitFunc(fitFunction)
+        drawFits[-1].SetParHist(hAllCompsParHisto)
+        if fitcf.get('drawsumcomps'):
+            drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
+                                                 baselineIdx, fitcf['drawsumcomps'])
+            legLabels.extend(fitcf['sumcompslegends'])
+        else:        
+            drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
+                                                 baselineIdx)
+
+        drawFits[-1].Draw(cFit, legLabels, fitcf['legcoords'], linesThickness)
+
+        hAllCompsParHisto.Write()    
+        fitFunction.Write()
+        hChi2DOF.Write()
+        hChi2DOFManual.Write()
+        modelFitters[-1].SaveFreeFixPars().Write()
+        modelFitters[-1].SaveFitPars().Write()
+        modelFitters[-1].PullDistribution().Write()
+        cFit.Write()
+        fitHisto.Write()
+        if fitcf.get('isfitcf'):
+            modelFitters[-1].GetGenuine().Write("fGenuine")
+            modelFitters[-1].SaveScatPars().Write()
 
 oFile.Close()
 print(f'output saved in {oFileName}')

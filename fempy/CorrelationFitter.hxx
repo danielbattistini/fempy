@@ -493,6 +493,76 @@ class CorrelationFitter {
         return fitResults;
     }
 
+    std::vector <TH1D *> FitBootstrap(int ntries) {
+        for (size_t iPar = 0; iPar < this->fFitPars.size(); iPar++) {
+            double lowParLimit;
+            double uppParLimit;
+            this->fFit->GetParLimits(iPar, lowParLimit, uppParLimit);
+            std::cout << std::showpos;
+            cout.precision(4);
+            std::cout << std::scientific;
+            DEBUG(std::setw(25) << this->fFit->GetParName(iPar) << "  ----->  ";
+                  cout << std::setw(8) << " Init: " << static_cast<double>(this->fFit->GetParameter(iPar)) << ",";
+                  cout << std::setw(8) << " Lowlim: " << static_cast<double>(lowParLimit) << ",";
+                  cout << std::setw(8) << " Upplim: " << static_cast<double>(uppParLimit));
+            std::cout << std::noshowpos;        
+        }
+
+        TFitResultPtr originalFitResults = fFitHist->Fit(this->fFit, "SMR+0", "");
+
+        // cout << "CIAO1" << endl;
+        // Initialize histogram for saving fit parameters
+        std::vector <TH1D *> hFitParsBT;
+        TH2D *hBootstrapSummary = new TH2D("hBootstrapSummary", "", ntries, 0, ntries, 
+                                           this->fFit->GetNpar()+1, 0, this->fFit->GetNpar()+1);
+        for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
+            double parLowLim, parUppLim;
+            this->fFit->GetParLimits(iPar, parLowLim, parUppLim);
+            double histoMean = originalFitResults->Parameter(iPar);
+            double histoBound = originalFitResults->ParError(iPar);
+            hFitParsBT.push_back(new TH1D(this->fFit->GetParName(iPar), this->fFit->GetParName(iPar), 1000, 
+                                          histoMean - 5*histoBound, histoMean + 5*histoBound));
+        }
+        hFitParsBT.push_back(new TH1D("Chi2/DOF", "Chi2/DOF", 1000, 0, 100));
+
+        int nBinsFitCF = this->fFitRangeMax/this->fFitHist->GetBinWidth(1);
+
+        // loop over the tries
+        // cout << "CIAO2" << endl;
+        for(int iTry=0; iTry<ntries; iTry++) {
+            // cout << "CIAO3" << endl;
+            // compute CF with gaussian sampling
+            TH1D *sampledCF = new TH1D(Form("hTry_%i", iTry), "", nBinsFitCF, 
+                                       this->fFitRangeMin, this->fFitRangeMax);
+            // cout << "CIAO4" << endl;
+            for(int iSampledBin=0; iSampledBin<sampledCF->GetNbinsX(); iSampledBin++) {
+                double CFvalue = this->fFitHist->GetBinContent(iSampledBin+1);
+                double CFerror = this->fFitHist->GetBinError(iSampledBin+1);
+                sampledCF->SetBinContent(iSampledBin+1, gRandom->Gaus(CFvalue, CFerror));
+                sampledCF->SetBinError(iSampledBin+1, CFerror);
+            }
+            // cout << "CIAO5" << endl;
+            TFitResultPtr fitResults = sampledCF->Fit(this->fFit, "SMR+0", "");
+            // cout << "CIAO6" << endl;
+            for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
+                // cout << "CIAO7" << endl;
+                hFitParsBT[iPar]->Fill(fitResults->Parameter(iPar));
+            }
+            // cout << "CIAO8" << endl;
+            hFitParsBT[this->fFit->GetNpar()]->Fill(fFit->GetChisquare() / fFit->GetNDF());
+            // cout << "CIAO9" << endl;
+        }
+
+        int index = 0;
+        hFitParsBT.erase(std::remove_if(hFitParsBT.begin(), hFitParsBT.end(), 
+                                        [&index, originalFitResults](const auto&) {
+                                            bool isParFixed = originalFitResults->IsParameterFixed(index);
+                                            index++; 
+                                            return isParFixed;
+                                        }), hFitParsBT.end());
+        return hFitParsBT;
+    }
+
     TF1 *GetFitFunction() {
         return this->fFit;
     } 
