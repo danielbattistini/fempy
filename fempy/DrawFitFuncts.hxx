@@ -65,6 +65,13 @@ class DrawFitFuncts {
         this->fSplines.push_back(spline);
     }
 
+    void AddSplineHisto(TGraph *splinegraph) {
+        TSpline3* spline = new TSpline3(splinegraph->GetName(), splinegraph);
+        DEBUG("Adding TGraph " << splinegraph->GetName() << endl;
+        cout << "Spline at 10 MeV/c " << spline->Eval(10));
+        this->fSplines.push_back(spline);
+    }
+
     void EvaluateToBeDrawnComponents(std::vector<bool> onBaseline, std::vector<bool> multNorm, std::vector<bool> multGlobNorm, 
                             std::vector<double> funcshifts, int basIdx=-1, std::vector<TString> addComps = {""}) {
 
@@ -124,6 +131,7 @@ class DrawFitFuncts {
                 startPar += std::get<1>(functions[this->fFitFuncComps[iFunc]]);
                 DEBUG("--------------------------------");
             }
+            DEBUG("Evaluating " << this->fFitFuncComps[iFunc] << " at 2 MeV/c: " << rawComps.back()->Eval(2));
         }
         DEBUG("Number of raw components pre-sum: " << rawComps.size()); 
 
@@ -305,15 +313,6 @@ class DrawFitFuncts {
             cout << "Evaluate component: " << this->fDrawFuncs.back()->Eval(200) << endl;
         }
 
-        for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
-            if(fFitFuncComps[iFuncEval] == "gaus") {
-                cout << "IFUNCEVAL " << iFuncEval << endl; 
-                TCanvas *canvaGaus = new TCanvas("cGaus", "cGaus", 600, 600);
-                this->fDrawFuncs[iFuncEval]->Draw();
-                canvaGaus->SaveAs("CanvaGaus.pdf");
-            }
-        }
-
         DEBUG("Raw components defined!");
     }
 
@@ -357,8 +356,7 @@ class DrawFitFuncts {
 
         std::vector<TF1 *> gaussians;
         std::vector<Color_t> colors = {kCyan+1, kAzure + 2, kGreen, kOrange, kBlue + 2, 
-                                       kCyan, kMagenta, kGreen+1, kRed, kBlue, kGray, kRed, 
-                                       kRed, kRed};
+                                       kCyan, kMagenta, kGreen+1, kBlue, kViolet, kGray};
         DEBUG("--------------------------------");
         DEBUG("Number of components to be drawn: " << fDrawFuncs.size());
         for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
