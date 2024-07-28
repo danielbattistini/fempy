@@ -6,7 +6,7 @@ import sys
 
 import yaml
 
-from ROOT import TDatabasePDG, TGraphErrors, TH1F
+from ROOT import TDatabasePDG, TGraphErrors, TH1, TH1F, TH2, TH2F
 import math
 from math import sqrt
 import fempy
@@ -174,11 +174,32 @@ def ChangeUnits(hist, multiplier):
     '''
     Only for histogram with constant binwidth!
     '''
-    nbins = hist.GetNbinsX()
-    lowEdge = hist.GetBinLowEdge(1)
-    upEdge = hist.GetBinLowEdge(nbins+1)
-    hNew = TH1F(f'{hist.GetName()}_new', '', nbins, lowEdge*multiplier, upEdge*multiplier)
-    for i in range(0, nbins+2):
-        hNew.SetBinContent(i, hist.GetBinContent(i))
-        hNew.SetBinError(i, hist.GetBinError(i))
+    if isinstance(hist, TH1) and not isinstance(hist, TH2): 
+        nbins = hist.GetNbinsX()
+        lowEdge = hist.GetBinLowEdge(1)
+        uppEdge = hist.GetBinLowEdge(nbins+1)
+        hNew = TH1F(f'{hist.GetName()}_new', '', nbins, lowEdge*multiplier, uppEdge*multiplier)
+        for i in range(0, nbins+2):
+            hNew.SetBinContent(i, hist.GetBinContent(i))
+            hNew.SetBinError(i, hist.GetBinError(i))
+    
+    elif isinstance(hist, TH2):
+        projX = hist.ProjectionX()
+        nbinsX = projX.GetNbinsX()
+        lowEdgeX = projX.GetBinLowEdge(1)
+        uppEdgeX = projX.GetBinLowEdge(nbinsX+1)
+        projY = hist.ProjectionY()
+        nbinsY = projY.GetNbinsX()
+        lowEdgeY = projY.GetBinLowEdge(1)
+        uppEdgeY = projY.GetBinLowEdge(nbinsY+1)
+        hNew = TH2F(f'{hist.GetName()}_new', '', nbinsX, lowEdgeX*multiplier, uppEdgeX*multiplier, 
+                                                 nbinsY, lowEdgeY*multiplier, uppEdgeY*multiplier)
+        for i in range(0, nbinsX+2):
+            for j in range(0, nbinsY+2):
+                hNew.SetBinContent(i, j, hist.GetBinContent(i, j))
+                hNew.SetBinError(i, j, hist.GetBinError(i, j))
+    else:
+        print('ChangeUnits method not implemented for this type of histogram!')
+        hNew = hist
+    
     return hNew
