@@ -296,7 +296,7 @@ class DrawFitFuncts {
         DEBUG("Number of raw components: " << rawComps.size()); 
         for(int iRawComp=0; iRawComp<rawComps.size(); iRawComp++) {
             DEBUG("Global norm of the component: " << globNorms[iRawComp]);
-            cout << "Component: " << this->fFitFuncComps[iRawComp] << endl;
+            DEBUG("Component: " << this->fFitFuncComps[iRawComp]);
             this->fDrawFuncs.push_back(new TF1(this->fFitFuncComps[iRawComp],
                 [&, this, globNorms, iRawComp, norms, shifts, rawComps, onBasNorms, bas]
                 (double *x, double *pars) {
@@ -310,7 +310,7 @@ class DrawFitFuncts {
                         return globNorms[iRawComp] * (norms[iRawComp]*rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp]);  
                     }
                 }, this->fDrawRangeMin, this->fDrawRangeMax, 0));
-            cout << "Evaluate component: " << this->fDrawFuncs.back()->Eval(200) << endl;
+            DEBUG("Evaluate component: " << this->fDrawFuncs.back()->Eval(200));
         }
 
         DEBUG("Raw components defined!");
@@ -322,7 +322,7 @@ class DrawFitFuncts {
     void Draw(TVirtualPad *pad, std::vector<TString> legLabels, std::vector<double> legCoords, int linesThickness, 
               double lowRangeUser=0.0, double uppRangeUser=1.05, std::string title=";k* (MeV/c);C(k*)") {
 
-        cout << "Start drawing!" << endl;
+        DEBUG("Start drawing!");
         pad->cd();
         double yMinDraw = lowRangeUser;
         double yMaxDraw = uppRangeUser + fFitHist->GetMaximum();
@@ -400,7 +400,7 @@ class DrawFitFuncts {
         legend->Draw("same");
         pad->Update();
 
-        cout << "Finish drawing!" << endl;
+        DEBUG("Finish drawing!");
     }
 
    private:
