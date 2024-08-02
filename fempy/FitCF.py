@@ -148,7 +148,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                     splinedTempl.Rebin(term['rebin'])
             initPars = [(key, term['params'][key][0], term['params'][key][1], 
                          term['params'][key][2]) for key in term['params']]    
-            modelFitters[-1].Add(term['template'], splinedTempl, initPars, term['addmode'])
+            modelFitters[-1].Add(term['template'], splinedTempl, initPars, term['addmode'], term.get('relweightcomp', 0))
             cSplinedTempl = TCanvas(f'c{term["template"]}', '', 600, 600)
             modelFitters[-1].DrawSpline(cSplinedTempl, splinedTempl)
             drawFits[-1].AddSplineHisto(splinedTempl)
@@ -170,7 +170,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                 nBin = toBeSplinedHisto.FindBin(xKnot)
                 yKnot = toBeSplinedHisto.GetBinContent(nBin)
                 initPars.append([f'yKnot{nKnot}', yKnot, yKnot - (yKnot/100)*term['yboundperc'], yKnot + (yKnot/100)*term['yboundperc']])
-            modelFitters[-1].Add(term['spline'], initPars, term['addmode'])
+            modelFitters[-1].Add(term['spline'], initPars, term['addmode'], term.get('relweightcomp', 0))
         
         elif term.get('func'):
             drawFits[-1].AddFitCompName(term['func'])
@@ -193,7 +193,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                     initPars.append((key, term['params'][key][0], term['params'][key][1], 
                                      term['params'][key][2]))
 
-            modelFitters[-1].Add(term['func'], initPars, term['addmode'])
+            modelFitters[-1].Add(term['func'], initPars, term['addmode'], term.get('relweightcomp', 0))
                 
     # perform the fit and save the result
     if fitcf.get('globnorm'):
@@ -242,6 +242,11 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
         fitHisto.Write()
         if fitcf.get('isfitcf'):
             modelFitters[-1].GetGenuine().Write("fGenuine")
+            modelFitters[-1].GetBaseline().Write("fBaseline")
+            modelFitters[-1].GetAncestors()[0].Write("fCommon")
+            modelFitters[-1].GetAncestors()[1].Write("fNonCommon")
+            modelFitters[-1].GetAncestors()[2].Write("fDevCommonFrom1")
+            modelFitters[-1].GetAncestors()[3].Write("fDevNonCommonFrom1")
             modelFitters[-1].SaveScatPars().Write()
 
 oFile.Close()
