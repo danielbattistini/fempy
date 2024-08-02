@@ -73,7 +73,6 @@ def ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, normRange, name='hMERew'):
         hCFs.append(hCFbinmult)
 
     return hMErew, hWeights, (hSEs, hMEs, hCFs)
-    
 
 
 def SumPairWithAntipair(hDistr):
@@ -239,27 +238,10 @@ for ncomb, comb in enumerate(combs):
             cf.Write()
         oFile.cd(comb)
 
-# Sum pair and antipair
-for comb in combs:
-    hSE['p02_13'] = {}
-    hSE['p03_12'] = {}
-    hME['p02_13'] = {}
-    hME['p03_12'] = {}
-    hMErew['p02_13'] = {}
-    hMErew['p03_12'] = {}
-    hWeightsRew['p02_13'] = {}
-    hWeightsRew['p03_12'] = {}
-
-    for region in regions:
-        hSE['p02_13'][region] = hSE['p02'][region] + hSE['p13'][region]
-        hME['p02_13'][region] = hME['p02'][region] + hME['p13'][region]
-        hMErew['p02_13'][region] = hMErew['p02'][region] + hMErew['p13'][region]
-        hWeightsRew['p02_13'][region] = hWeightsRew['p02'][region] + hWeightsRew['p13'][region]
-        
-        hSE['p03_12'][region] = hSE['p03'][region] + hSE['p12'][region]
-        hME['p03_12'][region] = hME['p03'][region] + hME['p12'][region]
-        hMErew['p03_12'][region] = hMErew['p03'][region] + hMErew['p12'][region]
-        hWeightsRew['p03_12'][region] = hWeightsRew['p03'][region] + hWeightsRew['p12'][region]
+SumPairWithAntipair(hSE)
+SumPairWithAntipair(hME)
+SumPairWithAntipair(hMErew)
+SumPairWithAntipair(hWeightsRew)
 
 # Compute the CF and write to file
 for iComb, comb in enumerate(combs + ['p02_13', 'p03_12']):
