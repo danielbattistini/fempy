@@ -203,7 +203,7 @@ for plot in cfg:
                 hRatio = inObj.Clone()
                 hRatio.Rebin(plot['ratio']['rebin'])
                 hRatio.Divide(hDen)
-                hRatio.Draw('same pe')
+                hRatio.Draw('same ' + plot['ratio']['drawopt'])
         else:
             log.error('Ratio for type %s is not implemented. Skipping this object', type(inObj))
             continue
