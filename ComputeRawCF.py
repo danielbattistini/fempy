@@ -15,6 +15,85 @@ from ROOT import TFile, TH2F, TH1D, TH2D
 from fempy import logger as log
 from fempy.utils.io import Load, GetKeyNames
 
+
+def ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, normRange, name='hMERew'):
+    '''
+    Apply the multiplicity reweighting to the mixed-event distribution.
+
+    Parameters
+    ----------
+    hMultVsKStarSE : TH2
+        Multiplicity (y axis) as a function of k* (x axis) for the same-event.
+    hMultVsKStarME : TH2
+        Multiplicity (y axis) as a function of k* (x axis) for the mixed-event.
+    name : str, optional
+        the name of the reweighted mixed-event distribution. By default 'hMERew'.
+
+    Returns
+    -------
+    TH1D
+        The reweighted mixed-event distribution
+    TH1D
+        The mixed-event weights for each multiplicity bin
+    (list, list, list)
+        The lists of SE, ME and CF for each multiplicity bin
+    '''
+
+    minMult = hMultVsKStarME.GetXaxis().GetXmin()
+    maxMult = hMultVsKStarME.GetXaxis().GetXmax()
+    hMErew = TH1D(name, 'MErewdistr', hMultVsKStarME.ProjectionX().GetNbinsX(), minMult, maxMult)
+    hWeights = TH1D(f'{name}_weights', ':Mult bin;Weight', hMultVsKStarME.ProjectionY().GetNbinsX(), 0.5, hMultVsKStarME.ProjectionY().GetNbinsX() + 0.5)
+    hSEs = []
+    hMEs = []
+    hCFs = []
+    for iBin in range(hMultVsKStarME.ProjectionY().GetNbinsX() + 2): # Loop over underflow, all bins, and overflow
+        hSEbinmult = hMultVsKStarSE.ProjectionX(f'hSE_multbin{iBin}', iBin, iBin)
+        hMEbinmult = hMultVsKStarME.ProjectionX(f'hME_multbin{iBin}', iBin, iBin)
+
+        hSEs.append(hSEbinmult)
+        hMEs.append(hMEbinmult)
+        
+        if hMEbinmult.Integral() > 0:
+            weight = hSEbinmult.Integral() / hMEbinmult.Integral()
+            hWeights.SetBinContent(iBin, weight)
+            hMErew.Add(hMEbinmult, weight)
+
+            # Compute the CFs for each multiplicity bin
+            firstBin = hSEbinmult.FindBin(normRange[0] * 1.0001)
+            lastBin = hSEbinmult.FindBin(normRange[1] * 0.9999)
+            norm = hMEbinmult.Integral(firstBin, lastBin) / hSEbinmult.Integral(firstBin, lastBin)
+            hCFbinmult = norm * hSEbinmult / hMEbinmult
+        else:
+            # Put empty CF
+            hCFbinmult = hSEbinmult.Clone()
+            hCFbinmult.Reset()
+
+        hCFbinmult.SetName(f'hCF_multbin{iBin}')
+        hCFbinmult.SetTitle(';#it{k}* (GeV/#it{c});#it{C}(#it{k}*)')
+        hCFs.append(hCFbinmult)
+
+    return hMErew, hWeights, (hSEs, hMEs, hCFs)
+    
+
+
+def SumPairWithAntipair(hDistr):
+    '''
+    Sum the same- and mixed-event distributions of pairs and antipairs.
+
+    Parameters
+    ----------
+    hDistr : dict
+        The dictionary that contains the pair and antipair distributions.
+    '''
+
+    hDistr['p02_13'] = {}
+    hDistr['p03_12'] = {}
+
+    for reg in regions:
+        hDistr['p02_13'][reg] = hDistr['p02'][reg] + hDistr['p13'][reg]
+        hDistr['p03_12'][reg] = hDistr['p03'][reg] + hDistr['p12'][reg]
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('cfg', default='')
 parser.add_argument('--debug', default=False, action='store_true')
@@ -94,12 +173,14 @@ for ncomb, comb in enumerate(combs):
         runSuffix = cfg['runsuffix']
         if f'HMResults{runSuffix}' in GetKeyNames(inFile): # Make correlation functions from FemtoDream
             fdcomb = f'Particle{iPart1}_Particle{iPart2}'
+            folder = f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}'
+
             # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
             hME[comb][region] = TH1D()
-            Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEDist_{fdcomb}').Copy(hME[comb][region])
-            hMEmultk[comb] = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/MEMultDist_{fdcomb}')
+            Load(inFile, f'{folder}/MEDist_{fdcomb}').Copy(hME[comb][region])
+            hMEmultk[comb] = Load(inFile, f'{folder}/MEMultDist_{fdcomb}')
             hSE[comb][region] = TH1D()
-            Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEDist_{fdcomb}').Copy(hSE[comb][region])
+            Load(inFile, f'{folder}/SEDist_{fdcomb}').Copy(hSE[comb][region])
 
             if 'multrewMCwithdata' in cfg:
                 log.info('Reweighting MC with data!')
@@ -110,17 +191,26 @@ for ncomb, comb in enumerate(combs):
                 hSEmultk[comb].SetDirectory(0)
                 inFileData.Close()
             else:
-                hSEmultk[comb] = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEMultDist_{fdcomb}')
+                hSEmultk[comb] = Load(inFile, f'{folder}/SEMultDist_{fdcomb}')
                 hSEmultk[comb].SetDirectory(0)
             # Do ancestors CF if they are available
             for ancestor in ancestors:
                 # Only load SE, the ME is the same as before
-                hSEAnc = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEDist{ancestor}_{fdcomb}')
-                hSEAncMultk = Load(inFile, f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}/SEMultDist{ancestor}_{fdcomb}')
+                hSEAnc = Load(inFile, f'{folder}/SEDist{ancestor}_{fdcomb}')
+                hSEAncMultk = Load(inFile, f'{folder}/SEMultDist{ancestor}_{fdcomb}')
                 hSE[comb][f'{region}/{ancestor}'] = TH1D()
                 hSEmultk[comb][f'{region}/{ancestor}'] = TH1D()
                 hSEAnc.Copy(hSE[comb][f'{region}/{ancestor}'])
                 hSEAncMultk.Copy(hSEmultk[comb][f'{region}/{ancestor}'])
+            
+            # Do mT differential analysis if available
+            if cfg['mt']['enable'] and False:
+                for iMT, (mTMin, mTMax) in enumerate(zip(cfg['mt']['mins'], cfg['mt']['maxs'])):
+                    hMultVsKStarSE = Load(inFile, f'{folder}/SEmTMult_{iMT}_{fdcomb}')
+                    hSE[comb][f'{region}/mT{iMT}'] = hMultVsKStarSE.ProjectionY(f'hSE_{comb}_{region}_mT{iMT}')
+                    
+                    hMultVsKStarME = Load(inFile, f'{folder}/MEmTMult_{iMT}_{fdcomb}')
+                    hME[comb][f'{region}/mT{iMT}'] = hMultVsKStarME.ProjectionY(f'hME_{comb}_{region}_mT{iMT}')
 
         elif comb in GetKeyNames(inFile): # Make correlation functions from ALICE3 simulations
             # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
@@ -138,35 +228,16 @@ for ncomb, comb in enumerate(combs):
             hSEmultk[comb] = TH2F('hSEMult', '', nbins, xMin, xMax, 200, 0, 200)
             hMEmultk[comb] = TH2F('hMEMult', '', nbins, xMin, xMax, 200, 0, 200)
 
-        nbins = hMEmultk[comb].ProjectionX().GetNbinsX()
-        hWeights = TH1D(f"Weights{region}_{comb}", f"Weights{region}_{comb}", hMEmultk[comb].ProjectionY().GetNbinsX() + 2, 
-                        hMEmultk[comb].GetYaxis().GetXmin(), hMEmultk[comb].GetYaxis().GetXmax())
-        hMEreweightk = TH1D(f"MErewdistr{region}_{comb}", f"MErewdistr{region}_{comb}", nbins, hMEmultk[comb].GetXaxis().GetXmin(), hMEmultk[comb].GetXaxis().GetXmax())
+        hMErew[comb][region], hWeightsRew[comb][region], hDistrs = \
+            ApplyMultReweight(hSEmultk[comb], hMEmultk[comb], normRange=cfg['norm'])
 
-        startBinMultRew, endBinMultRew = cfg.get('binmultrew', [0, hMEmultk[comb].ProjectionY().GetNbinsX() + 2]) 
-        for iBin in range(startBinMultRew, endBinMultRew): # Loop over underflow, all bins, and overflow
-            hSEbinmult = hSEmultk[comb].ProjectionX(f'{comb}SEdistr', iBin, iBin)
-            hMEbinmult = hMEmultk[comb].ProjectionX(f'{comb}MEdistr', iBin, iBin)
-
-            if hMEbinmult.Integral() > 0:
-                hMEreweightk.Add(hMEbinmult, hSEbinmult.Integral()/hMEbinmult.Integral())
-                hWeights.SetBinContent(iBin, hSEbinmult.Integral()/hMEbinmult.Integral())
-
-                # Save the CFs for each multiplicity bin
-                oFile.mkdir(f'{comb}/multbins/{iBin}')
-                oFile.cd(f'{comb}/multbins/{iBin}')
-                firstBin = hSEbinmult.FindBin(cfg['norm'][0] * 1.0001)
-                lastBin = hSEbinmult.FindBin(cfg['norm'][1] * 0.9999)
-                norm = hMEbinmult.Integral(firstBin, lastBin) / hSEbinmult.Integral(firstBin, lastBin)
-                hCFbinmult = norm * hSEbinmult / hMEbinmult
-                hCFbinmult.SetTitle(';#it{k}* (GeV/#it{c});#it{C}(#it{k}*)')
-                hCFbinmult.Write(f'hCF_multbin{iBin}')
-                hSEbinmult.Write(f'hSE_multbin{iBin}')
-                hMEbinmult.Write(f'hME_multbin{iBin}')
-                oFile.cd(comb)
-
-        hMErew[comb][region] = hMEreweightk
-        hWeightsRew[comb][region] = hWeights
+        for iBin, (se, me, cf) in enumerate(zip(*hDistrs)):
+            oFile.mkdir(f'{comb}/multbins/{iBin}')
+            oFile.cd(f'{comb}/multbins/{iBin}')
+            se.Write()
+            me.Write()
+            cf.Write()
+        oFile.cd(comb)
 
 # Sum pair and antipair
 for comb in combs:
