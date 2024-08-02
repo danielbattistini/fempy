@@ -238,6 +238,7 @@ for iComb, comb in enumerate(combs + ['p02_13', 'p03_12']):
 
         hMErew[comb][region].SetName('hMErew')
         hMErew[comb][region].SetTitle(';#it{k}* (GeV/#it{c});Counts')
+        hMErew[comb][region].Write()
 
         hWeightsRew[comb][region].SetName('hWeightsRew')
         hWeightsRew[comb][region].SetTitle(';Mult bin;Weight')
