@@ -98,9 +98,10 @@ class CorrelationFitter {
     It is your responsibility to give the correct number of parameters. All fit parameters must be initialized.
     */
 
-    void Add(TString name, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode) {
+    void Add(TString name, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, int relweight=0) {
         
         DEBUG("Adding " << name);
+        DEBUG("Relweight " << relweight);
         if(functions.find(name)!=functions.end()){
             this->fFitFunc.push_back(std::get<0>(functions[name]));
             this->fFitFuncComps.push_back(name);
@@ -117,25 +118,29 @@ class CorrelationFitter {
         }
 
         this->fAddModes.push_back(addmode);
-        
+        this->fRelWeights.push_back(relweight);
+    
         // Save fit settings
         for (const auto &par : pars) {
             this->fFitPars.insert({this->fFitPars.size(), par});
         }
     }
 
-    void Add(TString name, TH1* hist, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode) {
+    void Add(TString name, TH1* hist, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, int relweight=0) {
         TH1D *splineHisto = static_cast<TH1D*>(hist);
+        splineHisto->Scale(1/splineHisto->Integral());
         TSpline3* sp3 = new TSpline3(hist);
-        this->Add(name, sp3, pars, addmode);
+        this->Add(name, sp3, pars, addmode, relweight);
     }
 
-    void Add(TString name, TGraph* graph, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode) {
+    void Add(TString name, TGraph* graph, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, int relweight=0) {
         TSpline3* sp3 = new TSpline3(graph->GetTitle(), graph);
-        this->Add(name, sp3, pars, addmode);
+        this->Add(name, sp3, pars, addmode, relweight);
     }
 
-    void Add(TString name, TSpline3* spline, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode) {
+    void Add(TString name, TSpline3* spline, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, int relweight=0) {
+        DEBUG("Relweight " << relweight);
+        this->fRelWeights.push_back(relweight);
         this->fFitSplines.push_back(spline);
         this->fFitFuncComps.push_back(name);
         this->fAddModes.push_back(addmode); 
@@ -175,6 +180,91 @@ class CorrelationFitter {
         return histoPars;
     }
 
+    TF1 *GetBaseline() {
+
+        int baselineIdx = fFitFuncComps.size()-2;
+        
+        int startBaselinePar;
+        for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
+            std::string parName = this->fFit->GetParName(iPar);
+            if (parName.find("commonweight") != std::string::npos) {
+                startBaselinePar = iPar;
+            }
+        }
+
+        // TF1 *fBaseline = new TF1("fBaseline", std::get<0>(functions[this->fFitFuncComps[baselineIdx]]), fFitRangeMin, fFitRangeMax, 
+        // std::cout << "Range for baseline: " << fFitRangeMin << " " << fFitRangeMax << endl;
+        // std::cout << "Range for baseline: " << this->fFitFuncComps[baselineIdx] << endl;
+        // std::cout << "Number of parameters: " << std::get<1>(functions[this->fFitFuncComps[baselineIdx]]) << endl;
+        TF1 *fBaseline = new TF1("fBaseline", std::get<0>(functions[this->fFitFuncComps[baselineIdx]]), fFitRangeMin, fFitRangeMax, 
+                                std::get<1>(functions[this->fFitFuncComps[baselineIdx]]));
+        for(int iBasPar=0; iBasPar<std::get<1>(functions[this->fFitFuncComps[baselineIdx]]); iBasPar++) {
+            // std::cout << "Picking par no. " << iBasPar + startBaselinePar << endl;
+            // std::cout << "iBasPar no. " << iBasPar << endl;
+            // std::cout << "StartBasPar no. " << startBaselinePar << endl;
+            fBaseline->FixParameter(iBasPar, this->fFit->GetParameter(iBasPar + startBaselinePar));
+        }
+
+        TF1 *fBaselineGlobNorm = new TF1("fBaseline",
+                                         [&, this, fBaseline] (double *x, double *par) {
+                                            return this->fFit->GetParameter(this->fFit->GetNpar()-1) * fBaseline->Eval(x[0]);
+                                         }, fFitRangeMin, fFitRangeMax, 0);
+
+        return fBaselineGlobNorm;
+    }
+
+    std::vector<TF1 *> GetAncestors() {
+
+        std::vector<TF1 *> fAncestorTemplates;
+
+        int baselineIdx = fFitFuncComps.size()-2;
+        
+        int startBaselinePar;
+        double commonWeight;
+        for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
+            std::string parName = this->fFit->GetParName(iPar);
+            if (parName.find("commonweight") != std::string::npos) {
+                startBaselinePar = iPar;
+                commonWeight = this->fFit->GetParameter(iPar);
+            }
+        }
+
+        TF1 *fCommon = new TF1("fCommon", std::get<0>(functions["pol3gaus"]), fFitRangeMin, fFitRangeMax, 
+                                std::get<1>(functions["pol3gaus"]));
+        for(int iCommPar=0; iCommPar<std::get<1>(functions["pol3gaus"]); iCommPar++) {
+            // std::cout << "Setting parameter no. " << iCommPar << " of Common template to " 
+                    //   << this->fFit->GetParameter(iCommPar + startBaselinePar + 1) << endl;
+            fCommon->FixParameter(iCommPar, this->fFit->GetParameter(iCommPar + startBaselinePar + 1));
+        }
+        fAncestorTemplates.push_back(fCommon);
+
+        TF1 *fNonCommon = new TF1("fNonCommon", std::get<0>(functions["pol3"]), fFitRangeMin, fFitRangeMax, 
+                                std::get<1>(functions["pol3"]));
+        for(int iNonCommPar=0; iNonCommPar<std::get<1>(functions["pol3"]); iNonCommPar++) {
+            // std::cout << "Setting parameter no. " << iNonCommPar << " of NonCommon template to " 
+                    //   << this->fFit->GetParameter(iNonCommPar + startBaselinePar + fCommon->GetNpar() + 1) << endl;
+            fNonCommon->FixParameter(iNonCommPar, this->fFit->GetParameter(iNonCommPar + startBaselinePar + fCommon->GetNpar() + 1));
+        }
+        fAncestorTemplates.push_back(fNonCommon);
+
+        TF1 *fCommonGlobNorm = new TF1("fCommon",
+                                         [&, this, fCommon, commonWeight] (double *x, double *par) {
+                                            return 1 + this->fFit->GetParameter(this->fFit->GetNpar()-1) * 
+                                                   commonWeight * (fCommon->Eval(x[0]) - 1);
+                                         }, fFitRangeMin, fFitRangeMax, 0);
+        fAncestorTemplates.push_back(fCommonGlobNorm);
+
+        TF1 *fNonCommonGlobNorm = new TF1("fNonCommon",
+                                 [&, this, fNonCommon, commonWeight] (double *x, double *par) {
+                                    return 1 + this->fFit->GetParameter(this->fFit->GetNpar()-1) * 
+                                           (1 - commonWeight) * (fNonCommon->Eval(x[0]) - 1);
+                                 }, fFitRangeMin, fFitRangeMax, 0);
+        fAncestorTemplates.push_back(fNonCommonGlobNorm);
+
+        return fAncestorTemplates;
+    }
+
+
     TF1 *GetGenuine() {
 
         int genuineIdx;
@@ -192,6 +282,8 @@ class CorrelationFitter {
             }
         }
 
+        // TF1 *fGenuine = new TF1("fGenuine", std::get<0>(functions[this->fFitFuncComps[genuineIdx]]), fFitRangeMin, fFitRangeMax, 
+        std::cout << "Range for fGenuine: " << fFitRangeMin << " " << fFitRangeMax << endl;
         TF1 *fGenuine = new TF1("fGenuine", std::get<0>(functions[this->fFitFuncComps[genuineIdx]]), fFitRangeMin, fFitRangeMax, 
                                 std::get<1>(functions[this->fFitFuncComps[genuineIdx]]));
         for(int iGenPar=0; iGenPar<fGenuine->GetNpar(); iGenPar++) {
@@ -415,20 +507,38 @@ class CorrelationFitter {
                 int nSplineComp = 0;
                 int nFuncComp = 0;
                 for (int iTerm = 0; iTerm < nTerms; iTerm++) {
+                    // int normNPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), this->fRelWeights[iTerm]+1), 0);
+                    int normNPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), this->fRelWeights[iTerm]), 0);
                     if(fFitFuncComps[iTerm].Contains("splinehisto")) {
                         if(fAddModes[iTerm] == "*") {
                             double partResult = result; 
                             if(this->fNPars[iTerm+1] == 2){
-                                result = pars[nPar]*this->fFitSplines[nSplineComp]->Eval(x[0] - pars[nPar+1])*partResult;
+                                if(normNPar>0) {
+                                    result = (pars[nPar] / pars[normNPar]) * this->fFitSplines[nSplineComp]->Eval(x[0] - pars[nPar+1])*partResult;
+                                } else {
+                                    result = (pars[nPar]) * this->fFitSplines[nSplineComp]->Eval(x[0] - pars[nPar+1])*partResult;
+                                }
                             } else {
-                                result = pars[nPar]*this->fFitSplines[nSplineComp]->Eval(x[0])*partResult;
+                                if(normNPar>0) {
+                                    result = (pars[nPar] / pars[normNPar]) * this->fFitSplines[nSplineComp]->Eval(x[0])*partResult;
+                                } else {
+                                    result = (pars[nPar]) * this->fFitSplines[nSplineComp]->Eval(x[0])*partResult;
+                                }
                             }
                         }
                         else {
                             if(this->fNPars[iTerm+1] == 2){
-                                result += pars[nPar]*this->fFitSplines[nSplineComp]->Eval(x[0] - pars[nPar+1]);
+                                if(normNPar>0) {
+                                    result += (pars[nPar] / pars[normNPar]) * this->fFitSplines[nSplineComp]->Eval(x[0] - pars[nPar+1]);
+                                } else {
+                                    result += (pars[nPar]) * this->fFitSplines[nSplineComp]->Eval(x[0] - pars[nPar+1]);
+                                }
                             } else {
-                                result += pars[nPar]*this->fFitSplines[nSplineComp]->Eval(x[0]);
+                                if(normNPar>0) {
+                                    result += (pars[nPar] / pars[normNPar]) * this->fFitSplines[nSplineComp]->Eval(x[0]);
+                                } else {
+                                    result += (pars[nPar]) * this->fFitSplines[nSplineComp]->Eval(x[0]);
+                                }
                             }
                         }
                         nSplineComp++;
@@ -436,9 +546,17 @@ class CorrelationFitter {
                         auto func = this->fFitFunc[nFuncComp];
                         if(fAddModes[iTerm] == "*") {
                             double partResult = result; 
-                            result = pars[nPar]*func(x, &pars[nPar+1])*partResult;
+                            if(normNPar>0) {
+                                result = (pars[nPar] / pars[normNPar]) * func(x, &pars[nPar+1])*partResult;
+                            } else {
+                                result = (pars[nPar]) * func(x, &pars[nPar+1])*partResult;
+                            }
                         } else {
-                            result += pars[nPar]*func(x, &pars[nPar+1]);
+                            if(normNPar>0) {
+                                result += (pars[nPar] / pars[normNPar]) * func(x, &pars[nPar+1]);
+                            } else {
+                                result += (pars[nPar]) * func(x, &pars[nPar+1]);
+                            }
                         }
                         nFuncComp++;
                     }                            
@@ -627,6 +745,8 @@ class CorrelationFitter {
     std::vector<int> fNPars;                                        // Keeps track of how many parameters each function has
     std::vector<std::string> fAddModes;                             // Select mode of adding the contributions to the model
     std::vector<double> fNorms;                                     // Vector saving the norm factor of each term
+    std::vector<double> fRelWeights;                                // Vector saving the fit component number to which the i-th component norm
+                                                                    // should be relative
     bool fGlobNorm; 
 
     double fFitRangeMin;
