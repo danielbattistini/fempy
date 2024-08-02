@@ -16,7 +16,7 @@ from fempy import logger as log
 from fempy.utils.io import Load, GetKeyNames
 
 
-def ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, normRange, name='hMERew'):
+def ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, normRange=None, name='hMERew'):
     '''
     Apply the multiplicity reweighting to the mixed-event distribution.
 
@@ -59,8 +59,13 @@ def ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, normRange, name='hMERew'):
             hMErew.Add(hMEbinmult, weight)
 
             # Compute the CFs for each multiplicity bin
-            firstBin = hSEbinmult.FindBin(normRange[0] * 1.0001)
-            lastBin = hSEbinmult.FindBin(normRange[1] * 0.9999)
+            if normRange:
+                firstBin = hSEbinmult.FindBin(normRange[0] * 1.0001)
+                lastBin = hSEbinmult.FindBin(normRange[1] * 0.9999)
+            else:
+                firstBin = 0
+                lastBin = hSEbinmult.GetNbinsX()
+
             norm = hMEbinmult.Integral(firstBin, lastBin) / hSEbinmult.Integral(firstBin, lastBin)
             hCFbinmult = norm * hSEbinmult / hMEbinmult
         else:
@@ -88,7 +93,7 @@ def SumPairWithAntipair(hDistr):
     hDistr['p02_13'] = {}
     hDistr['p03_12'] = {}
 
-    for reg in regions:
+    for reg in hDistr['p02'].keys():
         hDistr['p02_13'][reg] = hDistr['p02'][reg] + hDistr['p13'][reg]
         hDistr['p03_12'][reg] = hDistr['p03'][reg] + hDistr['p12'][reg]
 
@@ -201,15 +206,6 @@ for ncomb, comb in enumerate(combs):
                 hSEmultk[comb][f'{region}/{ancestor}'] = TH1D()
                 hSEAnc.Copy(hSE[comb][f'{region}/{ancestor}'])
                 hSEAncMultk.Copy(hSEmultk[comb][f'{region}/{ancestor}'])
-            
-            # Do mT differential analysis if available
-            if cfg['mt']['enable'] and False:
-                for iMT, (mTMin, mTMax) in enumerate(zip(cfg['mt']['mins'], cfg['mt']['maxs'])):
-                    hMultVsKStarSE = Load(inFile, f'{folder}/SEmTMult_{iMT}_{fdcomb}')
-                    hSE[comb][f'{region}/mT{iMT}'] = hMultVsKStarSE.ProjectionY(f'hSE_{comb}_{region}_mT{iMT}')
-                    
-                    hMultVsKStarME = Load(inFile, f'{folder}/MEmTMult_{iMT}_{fdcomb}')
-                    hME[comb][f'{region}/mT{iMT}'] = hMultVsKStarME.ProjectionY(f'hME_{comb}_{region}_mT{iMT}')
 
         elif comb in GetKeyNames(inFile): # Make correlation functions from ALICE3 simulations
             # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
@@ -229,6 +225,17 @@ for ncomb, comb in enumerate(combs):
 
         hMErew[comb][region], hWeightsRew[comb][region], hDistrs = \
             ApplyMultReweight(hSEmultk[comb], hMEmultk[comb], normRange=cfg['norm'])
+
+        # Do mT differential analysis if available
+        if cfg['mt']['enable']:
+            for iMT, (mTMin, mTMax) in enumerate(zip(cfg['mt']['mins'], cfg['mt']['maxs'])):
+                hMultVsKStarSE = Load(inFile, f'{folder}/SEmTMult_{iMT}_{fdcomb}')
+                hMultVsKStarME = Load(inFile, f'{folder}/MEmTMult_{iMT}_{fdcomb}')
+
+                hSE[comb][f'{region}/mT{iMT}'] = hMultVsKStarSE.ProjectionX(f'hSE_{comb}_{region}_mT{iMT}')
+                hME[comb][f'{region}/mT{iMT}'] = hMultVsKStarME.ProjectionX(f'hME_{comb}_{region}_mT{iMT}')
+                hMErew[comb][f'{region}/mT{iMT}'], _, _ = \
+                    ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, name=f'hMErew_{comb}_{region}_mT{iMT}')
 
         for iBin, (se, me, cf) in enumerate(zip(*hDistrs)):
             oFile.mkdir(f'{comb}/multbins/{iBin}')
@@ -293,9 +300,10 @@ for iComb, comb in enumerate(combs + ['p02_13', 'p03_12']):
         hMErew[comb][region].SetTitle(';#it{k}* (GeV/#it{c});Counts')
         hMErew[comb][region].Write()
 
-        hWeightsRew[comb][region].SetName('hWeightsRew')
-        hWeightsRew[comb][region].SetTitle(';Mult bin;Weight')
-        hWeightsRew[comb][region].Write()
+        if hist := hWeightsRew[comb].get(region, None):
+            hist.SetName('hWeightsRew')
+            hist.SetTitle(';Mult bin;Weight')
+            hist.Write()
 
         hCF.SetName('hCF')
         hCF.SetTitle(';#it{k}* (GeV/#it{c});#it{C}(#it{k}*)')
