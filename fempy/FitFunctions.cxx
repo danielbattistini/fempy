@@ -20,9 +20,11 @@ double Pol3(double *x, double *par);
 double Pol4(double *x, double *par);
 double Pol5(double *x, double *par);
 double Gaus(double *x, double *par);
+double Cauchy(double *x, double *par);
 double BreitWigner(double *x, double *par);
 double Voigt(double *x, double *par);
 double ComplexLednicky_Singlet_doublegaussian_lambda(double *x, double *par);
+double CauchyKStar(double *x, double *par);
 double BreitWignerKStar(double *x, double *par);
 double Spline3(double *x, double *par);
 double Spline3Range(double *x, double *par);
@@ -45,6 +47,7 @@ double WeightedPol3Pol3powlawAndPol2(double *x, double *par);
 double WeightedPol3GausAndPol3(double *x, double *par);
 double WeightedPol3TwoGausAndPol3(double *x, double *par);
 double WeightedPol3GausPol3AndPol2(double *x, double *par);
+double WeightedPol3GausPol3AndPol3(double *x, double *par);
 double WeightedPol3TwoGausPol3AndPol2(double *x, double *par);
 double SillKStar(double *x, double *par);
 
@@ -57,10 +60,12 @@ std::map<TString, std::tuple<double (*)(double *x, double *par), int>> functions
     {"pol4", {Pol4, 5}},
     {"pol5", {Pol5, 6}},
     {"gaus", {Gaus, 3}},
+    {"cauchy", {Cauchy, 3}},
     {"bw", {BreitWigner, 3}},
     {"voigt", {Voigt, 4}},
     {"ComplexLednicky_Singlet_doublegaussian_lambda", {ComplexLednicky_Singlet_doublegaussian_lambda, 7}},
-    {"sillkstar", {BreitWignerKStar, 3}},
+    {"cauchykstar", {CauchyKStar, 3}},
+    {"bwkstar", {BreitWignerKStar, 3}},
     {"spline3", {Spline3, 20}},
     {"spline3range", {Spline3Range, 20}},
     {"powerlaw", {PowerLaw, 7}},
@@ -82,6 +87,7 @@ std::map<TString, std::tuple<double (*)(double *x, double *par), int>> functions
     {"weighted_pol3gaus_pol3", {WeightedPol3GausAndPol3, 12}},
     {"weighted_pol3twogaus_pol3", {WeightedPol3TwoGausAndPol3, 15}},
     {"weighted_pol3gaus_pol3_and_pol2", {WeightedPol3GausPol3AndPol2, 15}},
+    {"weighted_pol3gaus_pol3_and_pol3", {WeightedPol3GausPol3AndPol3, 16}},
     {"weighted_pol3twogaus_pol3_and_pol2", {WeightedPol3TwoGausPol3AndPol2, 18}},
     {"sillkstar", {SillKStar, 3}}};
 
@@ -171,6 +177,10 @@ double WeightedPol3GausPol3AndPol2 (double *x, double *par) {
     return par[0] * (Pol3Gaus(x, &par[1])) + (1 - par[0]) * Pol3(x, &par[8]) + Pol2(x, &par[12]);
 }
 
+double WeightedPol3GausPol3AndPol3 (double *x, double *par) {
+    return par[0] * (Pol3Gaus(x, &par[1])) + (1 - par[0]) * Pol3(x, &par[8]) + Pol3(x, &par[12]);
+}
+
 double WeightedPol3TwoGausPol3AndPol2 (double *x, double *par) {
     return par[0] * (Pol3TwoGaus(x, &par[1])) + (1 - par[0]) * Pol3(x, &par[11]) + Pol2(x, &par[15]);
 }
@@ -209,7 +219,7 @@ double Hat(double *x, double *par) {
     return par[0] * (par[3] * gThin + (1 - par[3]) * gWide);
 }
 
-double BreitWigner(double *x, double *par) {
+double Cauchy(double *x, double *par) {
     double kstar = x[0];
 
     double yield = par[0];
@@ -217,6 +227,33 @@ double BreitWigner(double *x, double *par) {
     double gamma = par[2];
 
     return yield * gamma / TMath::Pi() / (gamma * gamma + (kstar - mean) * (kstar - mean));
+}
+
+double BreitWigner(double *x, double *par) {
+    double kstar = x[0];
+
+    double yield = par[0];
+    double mean = par[1];
+    double gamma = par[2];
+
+    return yield * (gamma / (2 * TMath::Pi()) ) / ( ((gamma * gamma) / 4) + (kstar - mean) * (kstar - mean));
+}
+
+double CauchyKStar(double *x, double *par) {
+  // p0: normalisation
+  // p1: mass
+  // p2: width
+
+  if (x[0] < 0)
+    return 0;
+
+  double massPion = 139.57039;
+  double massLambda = 1115.683;
+
+  double kStarMJacobian = x[0]/sqrt( x[0]*x[0] + massPion*massPion ) + x[0]/sqrt( x[0]*x[0] + massLambda*massLambda );
+
+  return Cauchy(x, par) * abs(kStarMJacobian);
+
 }
 
 double BreitWignerKStar(double *x, double *par) {
@@ -382,23 +419,4 @@ double ComplexLednicky_Singlet_doublegaussian_lambda(double *x, double *par)
     complex<double> ScatLen(potPar0, potPar1);
     return sourcePar3 * (sourcePar2 * GeneralLednicky(kStar, sourcePar0, ScatLen, potPar2) 
            + (1 - sourcePar2) * GeneralLednicky(kStar, sourcePar1, ScatLen, potPar2)) + 1. - sourcePar3;
-}
-
-double Landau(double *x, double *par)
- {
-    // par[0]: norm
-    // par[1]: mean
-    // par[2]: sigma
-
-    //if (par[2] <= 0) return 0;
-    //double den = ::ROOT::Math::landau_pdf( (x[0]-par[1])/par[2] );
-    //if (!par[0]) return den;
-    //return den/par[2];
- 
-    // if (par[2] <= 0) return 0;
-    // // double den = ::ROOT::Math::landau_pdf( (x[0]-par[1])/par[2] );
-    // double den = ::ROOT::Math::landau_pdf( (x[0]-par[1])/par[2] );
-    // if (!par[0]) return den;
-    // return par[0]*den;
-    return 1;
 }
