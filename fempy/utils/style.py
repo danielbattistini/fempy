@@ -46,11 +46,12 @@ def GetColor(color:str):
         if name in color:
             break
 
-    for shade in range(-10, 11):
-        abshade = abs(shade)
-        if f'+{abshade}' in color or f' + {abshade}' in color or f' +{abshade}' in color or f'+ {abshade}' in color or \
-           f'-{abshade}' in color or f' - {abshade}' in color or f' -{abshade}' in color or f'- {abshade}' in color:
+    for shade in range(0, 11):
+        if f'+{shade}' in color or f' + {shade}' in color or f' +{shade}' in color or f'+ {shade}' in color:
             return value + shade
+
+        if f'-{shade}' in color or f' - {shade}' in color or f' -{shade}' in color or f'- {shade}' in color:
+            return value - shade
 
     fempy.logger.warn('Color %s could not be loaded. Using kBlack instead', color)
     return EColor.kBlack
