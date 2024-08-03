@@ -1,5 +1,4 @@
-odir: /output/directory
-ofilebasename: pippo                                # ofilebasename_suffix.root
+ofilename: /output/directory/ofilename               # ofilebasename_suffix.root
 suffix: pluto
 
 infile: /path/to/file/containing/histo/to/be/fitted

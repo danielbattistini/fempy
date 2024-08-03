@@ -125,9 +125,9 @@ for plot in cfg:
     legx2 = plot['opt']['leg']['posx'][1]
     legy2 = plot['opt']['leg']['posy'][1]
     leg = TLegend(legx1, legy1, legx2, legy2)
-    if(plot['opt']['leg'].get('fontsize')):
-        leg.SetTextSize(plot['opt']['leg']['fontsize'])
-
+    if size := plot['opt']['leg'].get('fontsize'):
+        leg.SetTextSize(size)
+    
     for iObj, (inObj, legend) in enumerate(zip(inObjs, legends)):
         if isinstance(inObj, TF1):
             inObj.DrawF1(fx1, fx2, "same")

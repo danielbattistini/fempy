@@ -21,13 +21,11 @@
 
 class CorrelationFitter {
    public:
-    CorrelationFitter(TH1 *fithist, double fitRangeMin, double fitRangeMax, 
-                         double rejectMin=0, double rejectMax=-1) {
+    CorrelationFitter(TH1 *fithist, std::vector<std::tuple<int, int> > fitranges) {
         this->fFitHist = reinterpret_cast<TH1 *>(fithist->Clone());
-        this->fFitRangeMin = fitRangeMin;
-        this->fFitRangeMax = fitRangeMax;
-        this->fRejectMin = rejectMin;
-        this->fRejectMax = rejectMax;
+        this->fFitRanges = fitranges;
+        this->fFitRangeMin = std::get<0>(fitranges[0]);
+        this->fFitRangeMax = std::get<1>(fitranges.back());
         this->fGlobNorm = false;
         this->fNPars = {0};  // The first parameter has index zero
     }
@@ -498,9 +496,12 @@ class CorrelationFitter {
         this->fFit = new TF1(
             "fFit",
             [&, this](double *x, double *pars) {
-                if(x[0] >= this->fRejectMin && x[0] <= this->fRejectMax) {
-                    TF1::RejectPoint();
-                } 
+                for(int iFitRange=0; iFitRange<this->fFitRanges.size()-1; iFitRange++) {
+                    if(x[0] >= std::get<1>(fFitRanges[iFitRange]) && x[0] <= std::get<0>(fFitRanges[iFitRange+1])) {
+                        TF1::RejectPoint();
+                    }
+                }
+
                 double result = 0;
                 int nTerms = this->fFitFunc.size() + this->fFitSplines.size();
                 int nPar = 0;
@@ -611,7 +612,7 @@ class CorrelationFitter {
         return fitResults;
     }
 
-    std::vector <TH1D *> FitBootstrap(int ntries) {
+    std::vector <TH1D *> BootstrapDifference(int ntries) {
         for (size_t iPar = 0; iPar < this->fFitPars.size(); iPar++) {
             double lowParLimit;
             double uppParLimit;
@@ -628,11 +629,111 @@ class CorrelationFitter {
 
         TFitResultPtr originalFitResults = fFitHist->Fit(this->fFit, "SMR+0", "");
 
-        // cout << "CIAO1" << endl;
         // Initialize histogram for saving fit parameters
         std::vector <TH1D *> hFitParsBT;
-        TH2D *hBootstrapSummary = new TH2D("hBootstrapSummary", "", ntries, 0, ntries, 
-                                           this->fFit->GetNpar()+1, 0, this->fFit->GetNpar()+1);
+        for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
+            double parLowLim, parUppLim;
+            this->fFit->GetParLimits(iPar, parLowLim, parUppLim);
+            double histoMean = originalFitResults->Parameter(iPar);
+            double histoBound = originalFitResults->ParError(iPar);
+            hFitParsBT.push_back(new TH1D(this->fFit->GetParName(iPar), this->fFit->GetParName(iPar), 1000, 
+                                          histoMean - 5*histoBound, histoMean + 5*histoBound));
+        }
+        hFitParsBT.push_back(new TH1D("Chi2/DOF", "Chi2/DOF", 1000, 0, 100));
+
+        double binWidth = this->fFitHist->GetBinWidth(1);
+        int nBinsFitCF = static_cast<int>(this->fFitRangeMax/binWidth);
+        std::vector <TH1D *> hBinsCFDifferences; 
+        for(int iBin=0; iBin<nBinsFitCF; iBin++) {
+            int binCenter = static_cast<int>((iBin * binWidth) + (binWidth / 2));
+            double fitDifference = fFitHist->GetBinContent(iBin+1) - fFit->Eval(fFitHist->GetBinCenter(iBin+1));
+            hBinsCFDifferences.push_back(new TH1D(Form("Subtraction_%iMeV", binCenter), 
+                                                  Form("Subtraction_%iMeV", binCenter), 
+                                                  1000, 
+                                                  fitDifference - 10*fFitHist->GetBinError(iBin+1), 
+                                                  fitDifference + 10*fFitHist->GetBinError(iBin+1)));
+        }
+
+        // loop over the tries
+        for(int iTry=0; iTry<ntries; iTry++) {
+            // compute CF with gaussian sampling
+            TH1D *sampledCF = new TH1D(Form("hTry_%i", iTry), "", nBinsFitCF, 
+                                      this->fFitHist->GetBinLowEdge(1), this->fFitRangeMax);
+            for(int iSampledBin=0; iSampledBin<sampledCF->GetNbinsX(); iSampledBin++) {
+                double CFvalue = this->fFitHist->GetBinContent(iSampledBin+1);
+                double CFerror = this->fFitHist->GetBinError(iSampledBin+1);
+                sampledCF->SetBinContent(iSampledBin+1, gRandom->Gaus(CFvalue, CFerror));
+                sampledCF->SetBinError(iSampledBin+1, CFerror);
+            }
+            hBinsCFDifferences.push_back(sampledCF);
+            BuildFitFunction();
+            TFitResultPtr fitResults = sampledCF->Fit(this->fFit, "SMR+0", "");
+            // TFitResultPtr fitResultsBis = fFitHist->Fit(this->fFit, "SMR+0", "");
+            for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
+                hFitParsBT[iPar]->Fill(fitResults->Parameter(iPar));
+            }
+            hFitParsBT[this->fFit->GetNpar()]->Fill(fFit->GetChisquare() / fFit->GetNDF());
+            for(int iBin=0; iBin<nBinsFitCF; iBin++) {
+                hBinsCFDifferences[iBin]->Fill(fFitHist->GetBinContent(iBin+1) - fFit->Eval(fFitHist->GetBinCenter(iBin+1)) );
+            }
+        }
+
+        int index = 0;
+        hFitParsBT.erase(std::remove_if(hFitParsBT.begin(), hFitParsBT.end(), 
+                                        [&index, originalFitResults](const auto&) {
+                                            bool isParFixed = originalFitResults->IsParameterFixed(index);
+                                            index++; 
+                                            return isParFixed;
+                                        }), hFitParsBT.end());
+
+        TH1D *hYields = new TH1D("hYields", "hYields", nBinsFitCF, 0, static_cast<int>(nBinsFitCF * fFitHist->GetBinWidth(1)));
+        TH1D *hMeans = new TH1D("hMeans", "hMeans", nBinsFitCF, 0, static_cast<int>(nBinsFitCF * fFitHist->GetBinWidth(1)));
+        TH1D *hStdDevs = new TH1D("hStdDevs", "hStdDevs", nBinsFitCF, 0, static_cast<int>(nBinsFitCF * fFitHist->GetBinWidth(1)));
+        TH1D *hSubtraction = new TH1D("hSubtraction", "hSubtraction", nBinsFitCF, 0, static_cast<int>(nBinsFitCF * fFitHist->GetBinWidth(1)));
+        TH1D *hRelUnc = new TH1D("hRelUnc", "hRelUnc", nBinsFitCF, 0, static_cast<int>(nBinsFitCF * fFitHist->GetBinWidth(1)));
+        for(int iBin=0; iBin<hBinsCFDifferences.size(); iBin++) {
+            TF1 *gaus = new TF1("gaus", "gaus", hBinsCFDifferences[iBin]->GetBinLowEdge(1),
+                                hBinsCFDifferences[iBin]->GetBinLowEdge(hBinsCFDifferences[iBin]->GetNbinsX()) + hBinsCFDifferences[iBin]->GetBinWidth(1));
+            gaus->SetParameter(1, hBinsCFDifferences[iBin]->GetBinCenter(hBinsCFDifferences[iBin]->GetMaximumBin()) );
+            gaus->SetParameter(2, hBinsCFDifferences[iBin]->GetRMS() );
+            hBinsCFDifferences[iBin]->Fit(gaus, "SMRL+", "");
+            hYields->SetBinContent(iBin+1, gaus->GetParameter(0));
+            hMeans->SetBinContent(iBin+1, gaus->GetParameter(1));
+            hStdDevs->SetBinContent(iBin+1, gaus->GetParameter(2));
+            hSubtraction->SetBinContent(iBin+1, this->fFitHist->GetBinContent(iBin+1) - fFit->Eval(fFitHist->GetBinCenter(iBin+1)) );
+            hSubtraction->SetBinError(iBin+1, hStdDevs->GetBinContent(iBin+1) );
+            hRelUnc->SetBinContent(iBin+1, hStdDevs->GetBinContent(iBin+1) / hSubtraction->GetBinContent(iBin+1));
+        }
+
+        hBinsCFDifferences.insert(hBinsCFDifferences.begin(), hYields);
+        hBinsCFDifferences.insert(hBinsCFDifferences.begin(), hMeans);
+        hBinsCFDifferences.insert(hBinsCFDifferences.begin(), hStdDevs);
+        hBinsCFDifferences.insert(hBinsCFDifferences.begin(), hRelUnc);
+        hBinsCFDifferences.insert(hBinsCFDifferences.begin(), hSubtraction);
+        
+        return hBinsCFDifferences;
+    }
+
+    std::vector <TH1D *> Bootstrap(int ntries) {
+        for (size_t iPar = 0; iPar < this->fFitPars.size(); iPar++) {
+            double lowParLimit;
+            double uppParLimit;
+            this->fFit->GetParLimits(iPar, lowParLimit, uppParLimit);
+            std::cout << std::showpos;
+            cout.precision(4);
+            std::cout << std::scientific;
+            DEBUG(std::setw(25) << this->fFit->GetParName(iPar) << "  ----->  ";
+                  cout << std::setw(8) << " Init: " << static_cast<double>(this->fFit->GetParameter(iPar)) << ",";
+                  cout << std::setw(8) << " Lowlim: " << static_cast<double>(lowParLimit) << ",";
+                  cout << std::setw(8) << " Upplim: " << static_cast<double>(uppParLimit));
+            std::cout << std::noshowpos;        
+        }
+
+        TFitResultPtr originalFitResults = fFitHist->Fit(this->fFit, "SMR+0", "");
+        TF1 *fitFuncBootstrapTries = this->fFit;
+
+        // Initialize histogram for saving fit parameters
+        std::vector <TH1D *> hFitParsBT;
         for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
             double parLowLim, parUppLim;
             this->fFit->GetParLimits(iPar, parLowLim, parUppLim);
@@ -646,9 +747,7 @@ class CorrelationFitter {
         int nBinsFitCF = this->fFitRangeMax/this->fFitHist->GetBinWidth(1);
 
         // loop over the tries
-        // cout << "CIAO2" << endl;
         for(int iTry=0; iTry<ntries; iTry++) {
-            // cout << "CIAO3" << endl;
             // compute CF with gaussian sampling
             TH1D *sampledCF = new TH1D(Form("hTry_%i", iTry), "", nBinsFitCF, 
                                        this->fFitRangeMin, this->fFitRangeMax);
@@ -659,16 +758,12 @@ class CorrelationFitter {
                 sampledCF->SetBinContent(iSampledBin+1, gRandom->Gaus(CFvalue, CFerror));
                 sampledCF->SetBinError(iSampledBin+1, CFerror);
             }
-            // cout << "CIAO5" << endl;
-            TFitResultPtr fitResults = sampledCF->Fit(this->fFit, "SMR+0", "");
-            // cout << "CIAO6" << endl;
+            BuildFitFunction();
+            TFitResultPtr fitResults = sampledCF->Fit(fitFuncBootstrapTries, "SMR+0", "");
             for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
-                // cout << "CIAO7" << endl;
                 hFitParsBT[iPar]->Fill(fitResults->Parameter(iPar));
             }
-            // cout << "CIAO8" << endl;
-            hFitParsBT[this->fFit->GetNpar()]->Fill(fFit->GetChisquare() / fFit->GetNDF());
-            // cout << "CIAO9" << endl;
+            hFitParsBT[this->fFit->GetNpar()]->Fill(fitFuncBootstrapTries->GetChisquare() / fFit->GetNDF());
         }
 
         int index = 0;
@@ -749,10 +844,9 @@ class CorrelationFitter {
                                                                     // should be relative
     bool fGlobNorm; 
 
+    std::vector<std::tuple<int, int> > fFitRanges;
     double fFitRangeMin;
     double fFitRangeMax;
-    double fRejectMin;
-    double fRejectMax;
     std::map<int, std::tuple<std::string, double, double, double>> fFitPars;    // List of fit parameters
 };
 

@@ -25,15 +25,13 @@ parser.add_argument('--debugfit', default=False, action='store_true')
 parser.add_argument('--debugdraw', default=False, action='store_true')
 args = parser.parse_args()
 
-if args.debugfit:
+if args.debug:
     log.setLevel(1)
-
 if args.debugfit:
     gInterpreter.ProcessLine(f'#define LOG_LEVEL_FIT 1')
-    
 if args.debugdraw:
     gInterpreter.ProcessLine(f'#define LOG_LEVEL_DRAW 1')
-    
+
 gInterpreter.ProcessLine(f'#include "{os.environ.get("FEMPY")}fempy/CorrelationFitter.hxx"')
 gInterpreter.ProcessLine(f'#include "{os.environ.get("FEMPY")}fempy/DrawFitFuncts.hxx"')
 from ROOT import CorrelationFitter, DrawFitFuncts
@@ -46,13 +44,13 @@ with open(args.cfg, "r") as stream:
         log.critical('Yaml configuration could not be loaded. Is it properly formatted?')
 
 # Load input file with data and mc CF
-inFileFit = TFile(cfg['infile'])
+inFile = TFile(cfg['infile'])
 
 # Define the output file
-oFileBaseName = cfg['ofilebasename']
-if cfg['suffix'] != '' and cfg['suffix'] is not None:
-    oFileBaseName += f'_{cfg["suffix"]}'
-oFileName = os.path.join(cfg['odir'], oFileBaseName + '.root')
+oFileName = cfg['ofilename']
+if cfg['suffix']:
+    oFileName += f'_{cfg["suffix"]}'
+oFileName += '.root'
 
 # Open the output file
 try:
@@ -60,42 +58,27 @@ try:
 except OSError:
     log.critical('The output file %s is not writable', oFileName)
 
-modelFitters = []
+fitters = []
 drawFits = []
 
 # for loop over the correlation functions
-for iFit, fitcf in enumerate(cfg['fitcfs']):
+for fitcf in cfg['fitcfs']:
     
     # change unity of measure of histograms from GeV to MeV
-    fitHisto = ChangeUnits(Load(inFileFit, fitcf['cfpath']), 1000)
-    if fitcf.get('rebin'):
-        fitHisto.Rebin(fitcf['rebin'])
+    fitHisto = ChangeUnits(Load(inFile, fitcf['cfpath']), 1000)
 
     # fit range
-    lowFitRange = fitcf['fitrange'][0]
-    uppFitRange = fitcf['fitrange'][1]
-    if fitcf.get('rejectrange'):
-        lowRejectRange = fitcf['rejectrange'][0]
-        uppRejectRange = fitcf['rejectrange'][1]
-        modelFitters.append(CorrelationFitter(fitHisto, lowFitRange, uppFitRange, lowRejectRange, uppRejectRange))
-    else: 
-        modelFitters.append(CorrelationFitter(fitHisto, lowFitRange, uppFitRange))
+    fitters.append(CorrelationFitter(fitHisto, fitcf['fitrange']))
         
     # drawing class constructor
-    if fitcf.get('drawrange'):
-        lowDrawRange = fitcf['drawrange'][0]
-        uppDrawRange = fitcf['drawrange'][1]
-        drawFits.append(DrawFitFuncts(fitHisto, lowDrawRange, uppDrawRange))
-    else: 
-        drawFits.append(DrawFitFuncts(fitHisto, lowFitRange, uppFitRange))
+    drawRange = fitcf.get('drawrange', fitcf['fitrange'])
+    drawFits.append(DrawFitFuncts(fitHisto, drawRange[0], drawRange[1]))
 
     # directory of the fit
     oFile.mkdir(fitcf['fitname'])
     oFile.cd(fitcf['fitname'])
 
     baselineIdx = -1
-    linesThickness = fitcf['linethick']
-    compsToFile = []
     onBaseline = []
     shifts = []
     multNorm = []
@@ -108,9 +91,9 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     legLabels = []
     legLabels.append(fitcf['datalabel'])
     legLabels.append(fitcf['fitfunclabel'])
+    
     # for loop over the functions entering in the model
     for iTerm, term in enumerate(fitcf['model']):
-        
         legLabels.append(term.get('legentry', ''))
         onBaseline.append(term.get('onbaseline', 0))
         shifts.append(term.get('shift', 0))
@@ -132,45 +115,24 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                 multGlobNorm.append(term.get('sub_multglobnorm', [1]*len(term['subcomps']))[iSubComp])
 
         if term.get('isbaseline'):
-            if term['addmode'] == "*":
-                drawFits[-1].SetBasIdx(iTerm, True)
-            else: 
-                drawFits[-1].SetBasIdx(iTerm, False)
+            drawFits[-1].SetBasIdx(iTerm, term['addmode'] == "*")
             baselineIdx = iTerm
                 
         if term.get('template'):
             drawFits[-1].AddFitCompName(term['template'])
             templFile = TFile(term['templfile'])
             splinedTempl = Load(templFile, term['templpath'])
-            if(isinstance(splinedTempl, TH1)):
+            if isinstance(splinedTempl, TH1):
                 splinedTempl = ChangeUnits(splinedTempl, 1000)
                 if term.get('rebin'):
                     splinedTempl.Rebin(term['rebin'])
-            initPars = [(key, term['params'][key][0], term['params'][key][1], 
-                         term['params'][key][2]) for key in term['params']]    
-            modelFitters[-1].Add(term['template'], splinedTempl, initPars, term['addmode'], term.get('relweightcomp', 0))
+            initPars = [(name, *vals) for name, vals in term['params'].items()]  
+            fitters[-1].Add(term['template'], splinedTempl, initPars, term['addmode'], term.get('relweightcomp', 0))
             cSplinedTempl = TCanvas(f'c{term["template"]}', '', 600, 600)
-            modelFitters[-1].DrawSpline(cSplinedTempl, splinedTempl)
+            fitters[-1].DrawSpline(cSplinedTempl, splinedTempl)
             drawFits[-1].AddSplineHisto(splinedTempl)
             oFile.cd(fitcf['fitname'])
             cSplinedTempl.Write()
-        
-        elif term.get('spline'):
-            drawFits[-1].AddFitCompName(term['spline'])
-            histoFile = TFile(term['histofile'])
-            toBeSplinedHisto = ChangeUnits(Load(histoFile, term['histopath']), term['changeunits'])
-            drawFits[-1].AddSplineHisto(toBeSplinedHisto)
-            initPars = []
-            normPar = list(term['params'].keys())[0]
-            initPars.append((normPar, term['params'][normPar][0], 
-                             term['params'][normPar][1], term['params'][normPar][2]))
-            for nKnot, xKnot in enumerate(term['params']['xknots']):
-                initPars.append([f'xKnot{nKnot}', xKnot, xKnot, xKnot])
-            for nKnot, xKnot in enumerate(term['params']['xknots']):
-                nBin = toBeSplinedHisto.FindBin(xKnot)
-                yKnot = toBeSplinedHisto.GetBinContent(nBin)
-                initPars.append([f'yKnot{nKnot}', yKnot, yKnot - (yKnot/100)*term['yboundperc'], yKnot + (yKnot/100)*term['yboundperc']])
-            modelFitters[-1].Add(term['spline'], initPars, term['addmode'], term.get('relweightcomp', 0))
         
         elif term.get('func'):
             drawFits[-1].AddFitCompName(term['func'])
@@ -193,61 +155,72 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                     initPars.append((key, term['params'][key][0], term['params'][key][1], 
                                      term['params'][key][2]))
 
-            modelFitters[-1].Add(term['func'], initPars, term['addmode'], term.get('relweightcomp', 0))
+            fitters[-1].Add(term['func'], initPars, term['addmode'], term.get('relweightcomp', 0))
                 
     # perform the fit and save the result
     if fitcf.get('globnorm'):
-        modelFitters[-1].AddGlobNorm('globnorm', fitcf['globnorm'][0], fitcf['globnorm'][1], fitcf['globnorm'][2])    
+        fitters[-1].AddGlobNorm('globnorm', fitcf['globnorm'][0], fitcf['globnorm'][1], fitcf['globnorm'][2])    
         drawFits[-1].SetGlobNorm(True)    
     
     oFile.cd(fitcf['fitname'])
-    modelFitters[-1].BuildFitFunction()
+    fitters[-1].BuildFitFunction()
+    
+    fitters[-1].Fit()
+    fitFunction = fitters[-1].GetFitFunction()
+    hChi2DOF = TH1D('hChi2DOF', 'hChi2DOF', 1, 0, 1)
+    hChi2DOF.Fill(0.5, fitters[-1].GetChi2Ndf())
+    print('Chi2 / DOF: ' + str(fitters[-1].GetChi2Ndf()))
+    print('\n\n')
+    hChi2DOFManual = TH1D('hChi2DOFManual', 'hChi2DOFManual', 1, 0, 1)
+    hChi2DOFManual.Fill(0.5, fitters[-1].GetChi2NdfManual())
+    hAllCompsParHisto = fitters[-1].SaveFitParsSplitComponents(subCompsMothers, saveSubComps, normsSubComps, subComps, normsSubCompsLabels)
+    cFit = TCanvas('cFit', '', 600, 600)
+    drawFits[-1].SetTotalFitFunc(fitFunction)
+    drawFits[-1].SetParHist(hAllCompsParHisto)
+
+    if fitcf.get('drawsumcomps'):
+        drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
+                                             baselineIdx, fitcf['drawsumcomps'])
+        legLabels.extend(fitcf['sumcompslegends'])
+    else:        
+        drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
+                                             baselineIdx)
+        
+    drawFits[-1].Draw(cFit, legLabels, fitcf['legcoords'], fitcf['linethick'])
+    hAllCompsParHisto.Write()    
+    fitFunction.Write()
+    hChi2DOF.Write()
+    hChi2DOFManual.Write()
+    fitters[-1].SaveFreeFixPars().Write()
+    fitters[-1].SaveFitPars().Write()
+    fitters[-1].PullDistribution().Write()
+    cFit.Write()
+    fitHisto.Write()
+    if fitcf.get('isfitcf'):
+        fitters[-1].GetGenuine().Write("fGenuine")
+        fitters[-1].GetBaseline().Write("fBaseline")
+        fitters[-1].GetAncestors()[0].Write("fCommon")
+        fitters[-1].GetAncestors()[1].Write("fNonCommon")
+        fitters[-1].GetAncestors()[2].Write("fDevCommonFrom1")
+        fitters[-1].GetAncestors()[3].Write("fDevNonCommonFrom1")
+        fitters[-1].SaveScatPars().Write()
+
     if fitcf.get('bootstraptries'):
-        parBTDistros = modelFitters[-1].FitBootstrap(fitcf['bootstraptries'])
+        oFile.mkdir(f"{fitcf['fitname']}/bootstrap")
+        oFile.cd(f"{fitcf['fitname']}/bootstrap")
+        parBTDistros = fitters[-1].Bootstrap(fitcf['bootstraptries'])
         for parBTDistro in parBTDistros:
             print('Integral of histo ' + parBTDistro.GetName() + ': ' + str(parBTDistro.Integral()))
             parBTDistro.Write()
-    else: 
-        modelFitters[-1].Fit()
-        fitFunction = modelFitters[-1].GetFitFunction()
-        hChi2DOF = TH1D('hChi2DOF', 'hChi2DOF', 1, 0, 1)
-        hChi2DOF.Fill(0.5, modelFitters[-1].GetChi2Ndf())
-        print('Chi2 / DOF: ' + str(modelFitters[-1].GetChi2Ndf()))
-        print('\n\n')
-        hChi2DOFManual = TH1D('hChi2DOFManual', 'hChi2DOFManual', 1, 0, 1)
-        hChi2DOFManual.Fill(0.5, modelFitters[-1].GetChi2NdfManual())
-
-        hAllCompsParHisto = modelFitters[-1].SaveFitParsSplitComponents(subCompsMothers, saveSubComps, normsSubComps, subComps, normsSubCompsLabels)
-        cFit = TCanvas('cFit', '', 600, 600)
-        drawFits[-1].SetTotalFitFunc(fitFunction)
-        drawFits[-1].SetParHist(hAllCompsParHisto)
-        if fitcf.get('drawsumcomps'):
-            drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
-                                                 baselineIdx, fitcf['drawsumcomps'])
-            legLabels.extend(fitcf['sumcompslegends'])
-        else:        
-            drawFits[-1].EvaluateToBeDrawnComponents(onBaseline, multNorm, multGlobNorm, shifts,
-                                                 baselineIdx)
-
-        drawFits[-1].Draw(cFit, legLabels, fitcf['legcoords'], linesThickness)
-
-        hAllCompsParHisto.Write()    
-        fitFunction.Write()
-        hChi2DOF.Write()
-        hChi2DOFManual.Write()
-        modelFitters[-1].SaveFreeFixPars().Write()
-        modelFitters[-1].SaveFitPars().Write()
-        modelFitters[-1].PullDistribution().Write()
-        cFit.Write()
-        fitHisto.Write()
-        if fitcf.get('isfitcf'):
-            modelFitters[-1].GetGenuine().Write("fGenuine")
-            modelFitters[-1].GetBaseline().Write("fBaseline")
-            modelFitters[-1].GetAncestors()[0].Write("fCommon")
-            modelFitters[-1].GetAncestors()[1].Write("fNonCommon")
-            modelFitters[-1].GetAncestors()[2].Write("fDevCommonFrom1")
-            modelFitters[-1].GetAncestors()[3].Write("fDevNonCommonFrom1")
-            modelFitters[-1].SaveScatPars().Write()
+        oFile.cd(fitcf['fitname'])
+    if fitcf.get('bootstrapdifftries'):
+        oFile.mkdir(f"{fitcf['fitname']}/bootstrap_diff")
+        oFile.cd(f"{fitcf['fitname']}/bootstrap_diff")
+        oFile.mkdir(f"{fitcf['fitname']}/bootstrap_diff/kstar_bins")
+        oFile.cd(f"{fitcf['fitname']}/bootstrap_diff/kstar_bins")
+        kStarBinsDifferences = fitters[-1].BootstrapDifference(fitcf['bootstrapdifftries'])
+        for kStarBinsDifference in kStarBinsDifferences:
+            kStarBinsDifference.Write()
 
 oFile.Close()
 print(f'output saved in {oFileName}')
