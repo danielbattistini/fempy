@@ -525,12 +525,48 @@ class MassFitter {
     double GetMean() {
         if (!fFit) return -1;
         if (this->fSgnFuncName == "gaus" || this->fSgnFuncName == "hat") return fFit->GetParameter(1);
+        if (this->fSgnFuncName == "doublegaus") {
+            double weightThin = fHatThin->Integral(fHatThin->GetParameter(1) - 10*fHatThin->GetParameter(2), 
+                                                   fHatThin->GetParameter(1) + 10*fHatThin->GetParameter(2));
+            double weightWide = fHatWide->Integral(fHatWide->GetParameter(1) - 10*fHatWide->GetParameter(2), 
+                                                   fHatWide->GetParameter(1) + 10*fHatWide->GetParameter(2));
+            return  (weightWide * fHatWide->GetParameter(1) + weightThin * fHatThin->GetParameter(1)) /
+                    (weightWide + weightThin);
+        }
         return -1;
     }
 
     double GetMeanUnc() {
         if (!fFit) return -1;
         if (this->fSgnFuncName == "gaus" || this->fSgnFuncName == "hat") return fFit->GetParError(1);
+        if (this->fSgnFuncName == "doublegaus") {
+
+            double meanWide = fHatWide->GetParameter(1);
+            double meanThin = fHatThin->GetParameter(1);
+
+            double lowIntEdgeThin = meanThin - 10*fHatThin->GetParameter(2);
+            double uppIntEdgeThin = meanThin + 10*fHatThin->GetParameter(2);
+            double weightThin = fHatThin->Integral(lowIntEdgeThin, uppIntEdgeThin);
+            // double weightThinErr = fHatThin->IntegralError(lowIntEdgeThin, uppIntEdgeThin);
+
+            double lowIntEdgeWide = meanWide - 10*fHatWide->GetParameter(2);
+            double uppIntEdgeWide = meanWide + 10*fHatWide->GetParameter(2);
+            double weightWide = fHatWide->Integral(lowIntEdgeWide, uppIntEdgeWide);
+            // double weightWideErr = fHatWide->IntegralError(lowIntEdgeWide, uppIntEdgeWide);
+
+            double sumWeights = weightThin + weightWide;
+            double meanThinErr = fHatThin->GetParError(1) * ( weightThin / (sumWeights));
+            double meanWideErr = fHatWide->GetParError(1) * ( weightWide / (sumWeights));
+            // double weightWideErrDer = weightWideErr * ( (meanWide / (sumWeights) - 
+            //                                              (weightWide * meanWide + weightThin * meanThin) /
+            //                                              ( (sumWeights * sumWeights) ) ) );
+            // double weightThinErrDer = weightThinErr * ( (meanThin / (sumWeights) - 
+            //                                              (weightWide * meanWide + weightThin * meanThin) /
+            //                                              ( (sumWeights * sumWeights) ) ) );
+
+            return TMath::Sqrt( meanThinErr * meanThinErr + // + weightThinErrDer * weightThinErrDer + 
+                                meanWideErr * meanWideErr); // + weightWideErrDer * weightWideErrDer);
+        }
         return -1;
     }
 

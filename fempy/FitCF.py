@@ -20,6 +20,7 @@ from fempy.utils.analysis import ChangeUnits
 
 parser = argparse.ArgumentParser()
 parser.add_argument('cfg', default='')
+parser.add_argument('--systvar', default='0')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--debugfit', default=False, action='store_true')
 parser.add_argument('--debugdraw', default=False, action='store_true')
@@ -43,13 +44,18 @@ with open(args.cfg, "r") as stream:
     except yaml.YAMLError as exc:
         log.critical('Yaml configuration could not be loaded. Is it properly formatted?')
 
-# Load input file with data and mc CF
-inFile = TFile(cfg['infile'])
+# Load input file with data CF
+inFile = TFile(cfg['infilesyst'] if args.systvar != '0' else cfg['infile'])
 
 # Define the output file
 oFileName = cfg['ofilename']
 if cfg['suffix']:
     oFileName += f'_{cfg["suffix"]}'
+if args.systvar != '0':
+    dir, filename = os.path.split(cfg['ofilename'])
+    if not os.path.isdir(dir + '/systfits'):
+        os.makedirs(dir + '/systfits')
+    oFileName = os.path.join(dir + '/systfits', filename) + '_SystVar' + args.systvar 
 oFileName += '.root'
 
 # Open the output file
@@ -63,9 +69,10 @@ drawFits = []
 
 # for loop over the correlation functions
 for fitcf in cfg['fitcfs']:
-    
+
     # change unity of measure of histograms from GeV to MeV
-    fitHisto = ChangeUnits(Load(inFile, fitcf['cfpath']), 1000)
+    fitHisto = ChangeUnits(Load(inFile, fitcf['cfpath'] if args.systvar == '0'
+                           else fitcf['cfsystpath'].replace('X', args.systvar)), 1000)
 
     # fit range
     fitters.append(CorrelationFitter(fitHisto, fitcf['fitrange']))
