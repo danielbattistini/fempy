@@ -182,7 +182,7 @@ for ncomb, comb in enumerate(combs):
             # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
             hME[comb][region] = TH1D()
             Load(inFile, f'{folder}/MEDist_{fdcomb}').Copy(hME[comb][region])
-            hMEmultk[comb] = Load(inFile, f'{folder}/MEMultDist_{fdcomb}')
+            hMEmultk[comb][region] = Load(inFile, f'{folder}/MEMultDist_{fdcomb}')
             hSE[comb][region] = TH1D()
             Load(inFile, f'{folder}/SEDist_{fdcomb}').Copy(hSE[comb][region])
 
@@ -191,21 +191,20 @@ for ncomb, comb in enumerate(combs):
                 inFileData = TFile(cfg['infilerew'])
                 runSuffixData = cfg['runsuffixrew']
                 # Only load the SE vs mult, which is needed for the weights
-                hSEmultk[comb] = Load(inFileData, f'HMResults{runSuffixData}/HMResults{runSuffixData}/{fdcomb}/SEMultDist_{fdcomb}')
-                hSEmultk[comb].SetDirectory(0)
+                hSEmultk[comb][region] = Load(inFileData, f'HMResults{runSuffixData}/HMResults{runSuffixData}/{fdcomb}/SEMultDist_{fdcomb}')
+                hSEmultk[comb][region].SetDirectory(0)
                 inFileData.Close()
             else:
-                hSEmultk[comb] = Load(inFile, f'{folder}/SEMultDist_{fdcomb}')
-                hSEmultk[comb].SetDirectory(0)
+                hSEmultk[comb][region] = Load(inFile, f'{folder}/SEMultDist_{fdcomb}')
+                hSEmultk[comb][region].SetDirectory(0)
             # Do ancestors CF if they are available
             for ancestor in ancestors:
-                # Only load SE, the ME is the same as before
-                hSEAnc = Load(inFile, f'{folder}/SEDist{ancestor}_{fdcomb}')
-                hSEAncMultk = Load(inFile, f'{folder}/SEMultDist{ancestor}_{fdcomb}')
                 hSE[comb][f'{region}/{ancestor}'] = TH1D()
-                hSEmultk[comb][f'{region}/{ancestor}'] = TH1D()
-                hSEAnc.Copy(hSE[comb][f'{region}/{ancestor}'])
-                hSEAncMultk.Copy(hSEmultk[comb][f'{region}/{ancestor}'])
+                Load(inFile, f'{folder}/SEDist{ancestor}_{fdcomb}').Copy(hSE[comb][f'{region}/{ancestor}'])
+                hSE[comb][f'{region}/{ancestor}'].SetDirectory(0)
+
+                hSEmultk[comb][f'{region}/{ancestor}'] = Load(inFile, f'{folder}/SEMultDist{ancestor}_{fdcomb}')
+                hSEmultk[comb][f'{region}/{ancestor}'].SetDirectory(0)
 
         elif comb in GetKeyNames(inFile): # Make correlation functions from ALICE3 simulations
             # The histograms are casted to TH1D with TH1::Copy to avoid NotImplementedError when computing hSE/hME
@@ -220,13 +219,17 @@ for ncomb, comb in enumerate(combs):
             nbins = hSE[comb][region].GetNbinsX()
             xMin = hSE[comb][region].GetXaxis().GetXmin()
             xMax = hSE[comb][region].GetXaxis().GetXmax()
-            hSEmultk[comb] = TH2F('hSEMult', '', nbins, xMin, xMax, 200, 0, 200)
-            hMEmultk[comb] = TH2F('hMEMult', '', nbins, xMin, xMax, 200, 0, 200)
+            hSEmultk[comb][region] = TH2F('hSEMult', '', nbins, xMin, xMax, 200, 0, 200)
+            hMEmultk[comb][region] = TH2F('hMEMult', '', nbins, xMin, xMax, 200, 0, 200)
 
         hMErew[comb][region], hWeightsRew[comb][region], hDistrs = \
-            ApplyMultReweight(hSEmultk[comb], hMEmultk[comb], normRange=cfg['norm'])
+        ApplyMultReweight(hSEmultk[comb][region], hMEmultk[comb][region], normRange=cfg['norm'])
 
-        # Do mT differential analysis if available
+        for ancestor in ancestors:
+            hMErew[comb][f'{region}/{ancestor}'], hWeightsRew[comb][f'{region}/{ancestor}'], hDistrs = \
+                ApplyMultReweight(hSEmultk[comb][f'{region}/{ancestor}'], hMEmultk[comb][region], normRange=cfg['norm'])
+
+        # Do mT differential analysis if available  TODO: mT differential for ancestors
         if cfg['mt']['enable']:
             for iMT, (mTMin, mTMax) in enumerate(zip(cfg['mt']['mins'], cfg['mt']['maxs'])):
                 hMultVsKStarSE = Load(inFile, f'{folder}/SEmTMult_{iMT}_{fdcomb}')
@@ -282,7 +285,7 @@ for iComb, comb in enumerate(combs + ['p02_13', 'p03_12']):
         hSE[comb][region].Sumw2()
         hME[comb][regionME].Sumw2() # Just to trigger the same draw option as for hSE
 
-        hCF = norm * hSE[comb][region] / hME[comb][region]
+        hCF = norm * hSE[comb][region] / hME[comb][regionME]
         hCFrew = normRew * hSE[comb][region] / hMErew[comb][region]
 
         oFile.mkdir(f'{comb}/{region}')
