@@ -220,14 +220,17 @@ for fitcf in cfg['fitcfs']:
             print('Integral of histo ' + parBTDistro.GetName() + ': ' + str(parBTDistro.Integral()))
             parBTDistro.Write()
         oFile.cd(fitcf['fitname'])
-    if fitcf.get('bootstrapdifftries'):
-        oFile.mkdir(f"{fitcf['fitname']}/bootstrap_diff")
-        oFile.cd(f"{fitcf['fitname']}/bootstrap_diff")
-        oFile.mkdir(f"{fitcf['fitname']}/bootstrap_diff/kstar_bins")
-        oFile.cd(f"{fitcf['fitname']}/bootstrap_diff/kstar_bins")
-        kStarBinsDifferences = fitters[-1].BootstrapDifference(fitcf['bootstrapdifftries'])
-        for kStarBinsDifference in kStarBinsDifferences:
-            kStarBinsDifference.Write()
 
+    if fitcf.get('evaluatediff'):
+        differenceHistos = fitters[-1].GetDifference(fitcf.get('bootstrapdifftries', 0))
+        if len(differenceHistos)>1:
+            oFile.mkdir(f"{fitcf['fitname']}/bootstrap_diff")
+            oFile.cd(f"{fitcf['fitname']}/bootstrap_diff")
+            for iDifferenceHisto in range(1, len(differenceHistos)):
+                differenceHistos[iDifferenceHisto].Write()
+        oFile.cd(f"{fitcf['fitname']}")
+        differenceHistos[0].Write('hSubtraction')
+        
+    
 oFile.Close()
 print(f'output saved in {oFileName}')
