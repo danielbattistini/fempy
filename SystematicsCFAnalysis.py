@@ -11,6 +11,7 @@ import os
 import argparse
 import yaml
 import math
+import numpy as np
 from itertools import chain
 
 from ROOT import TFile, TF1, TH1D, TH2D
@@ -74,69 +75,126 @@ for comb in combs:
     oFile.mkdir(f'{comb}')
     oFile.cd(f'{comb}')
 
-    hResiduals = TH2D("hResiduals", "Syst vars residuals", nBinsKStar, 0, uppEdgeKStar, 
-                      nSystVars, min(systVars), max(systVars))
-    hResiduals.SetStats(0)
-
-    # list of histograms each containing the CF entries for
-    # all variations for a specific bin 
-    hCFSelected = Load(inFileCFSelected, f'{comb}/sgn/hCFrew')
-    hCFBinEntries = []
-    for iBin in range(cfg['systevalmaxbin']):
-        hCFBinEntries.append(TH1D(f"h{round(cfg['binwidth']*iBin+(cfg['binwidth']/2))}MeV", 
-                                  f"h{round(cfg['binwidth']*iBin+(cfg['binwidth']/2))}MeV", 
-                                  cfg['systhistobins'], hCFSelected.GetBinContent(iBin+1)-cfg['systhistointerval'], 
-                                  hCFSelected.GetBinContent(iBin+1)+cfg['systhistointerval']))
-    
-    for iSystVar in systVars:
-        print(f'Picking syst variation number {iSystVar}')
-        hSystVar = Load(inFileCFSystVar, f'{comb}/var{iSystVar}/hCFrew_{iSystVar}')
-        print(f'Picked syst variation number {iSystVar}')
-
-        hResiduals.GetYaxis().SetBinLabel(iSystVar-min(systVars)+1, str(iSystVar))
-        for iBin in range(nBinsKStar):
-            hCFBinEntries[iBin].Fill(hSystVar.GetBinContent(iBin+1))
-            hResiduals.Fill(cfg['binwidth']*(iBin+1)+cfg['binwidth']/2, iSystVar,
-                            (hCFSelected.GetBinContent(iBin+1)-hSystVar.GetBinContent(iBin+1)) / 
-                            hCFSelected.GetBinContent(iBin+1))
- 
-    hCFYields = TH1D("hCFYields", "hCFYields", nBinsKStar, 0, uppEdgeKStar)
-    hCFMeans = TH1D("hCFmeans", "hCFmeans", nBinsKStar, 0, uppEdgeKStar)
     hSystUnc = TH1D("hSystUnc", "hSystUnc", nBinsKStar, 0, uppEdgeKStar)
     hRelSystUnc = TH1D("hRelSystUnc", "hRelSystUnc", nBinsKStar, 0, uppEdgeKStar)
     hRelStatUnc = TH1D("hRelStatUnc", "hRelStatUnc", nBinsKStar, 0, uppEdgeKStar)
     hRatioStatSystUnc = TH1D("hRatioStatSystUnc", "hRatioStatSystUnc", nBinsKStar, 0, uppEdgeKStar)
+    hCFWithSystUnc = TH1D("hCFWithSystUnc", "hCFWithSystUnc", nBinsKStar, 0, uppEdgeKStar)
     hCFWithStatSystUnc = TH1D("hCFWithStatSystUnc", "hCFWithStatSystUnc", nBinsKStar, 0, uppEdgeKStar)
+    hResiduals = TH2D("hResiduals", "Syst vars residuals", nBinsKStar, 0, uppEdgeKStar, 
+                      nSystVars, min(systVars), max(systVars))
+    hResiduals.SetStats(0)
     
-    print('Evaluating the single bins ...')
-    oFile.mkdir(f'{comb}/binsfits')
-    for iBin, ihCFbin in enumerate(hCFBinEntries):
-        oFile.cd(f'{comb}/binsfits')
-        gaus = TF1(f"gaus_{iBin}", "gaus", ihCFbin.GetBinLowEdge(1), 
-                   ihCFbin.GetBinLowEdge(ihCFbin.GetNbinsX()) + ihCFbin.GetBinWidth(1))
-        gaus.SetParameter(1, hCFSelected.GetBinContent(iBin+1))
-        ihCFbin.Fit(gaus, "SMRL+", "")
-        ihCFbin.Write(f"hCFbin{round(cfg['binwidth']*iBin+(cfg['binwidth']/2))}MeV")
-        hCFYields.SetBinContent(iBin+1, gaus.GetParameter(0))
-        hCFMeans.SetBinContent(iBin+1, gaus.GetParameter(1))
-        hSystUnc.SetBinContent(iBin+1, gaus.GetParameter(2))
-        hRelSystUnc.SetBinContent(iBin+1, hSystUnc.GetBinContent(iBin+1)/hCFSelected.GetBinContent(iBin+1))
-        hRelStatUnc.SetBinContent(iBin+1, hCFSelected.GetBinError(iBin+1)/hCFSelected.GetBinContent(iBin+1))
-        hRatioStatSystUnc.SetBinContent(iBin+1, hCFSelected.GetBinError(iBin+1)/hSystUnc.GetBinContent(iBin+1))
-        hCFWithStatSystUnc.SetBinContent(iBin+1, hCFSelected.GetBinContent(iBin+1))
-        hCFWithStatSystUnc.SetBinError(iBin+1, math.sqrt(hCFSelected.GetBinError(iBin+1)**2 + 
-                                                       hSystUnc.GetBinContent(iBin+1)**2 ) )
+    hCFSelected = Load(inFileCFSelected, f'{comb}/sgn/hCFrew')
+    if cfg.get('gaussianfits'):
+        # list of histograms each containing the CF entries for
+        # all variations for a specific bin 
+        hCFBinEntries = []
+        for iBin in range(cfg['systevalmaxbin']):
+            hCFBinEntries.append(TH1D(f"h{round(cfg['binwidth']*iBin+(cfg['binwidth']/2))}MeV", 
+                                      f"h{round(cfg['binwidth']*iBin+(cfg['binwidth']/2))}MeV", 
+                                      cfg['systhistobins'], hCFSelected.GetBinContent(iBin+1)-cfg['systhistointerval'], 
+                                      hCFSelected.GetBinContent(iBin+1)+cfg['systhistointerval']))
+        
+        for iSystVar in systVars:
+            print(f'Picking syst variation number {iSystVar}')
+            hSystVar = Load(inFileCFSystVar, f'{comb}/var{iSystVar}/hCFrew_{iSystVar}')
+            print(f'Picked syst variation number {iSystVar}')
+            hResiduals.GetYaxis().SetBinLabel(iSystVar-min(systVars)+1, str(iSystVar))
+            
+            for iBin in range(nBinsKStar):
+                hCFBinEntries[iBin].Fill(hSystVar.GetBinContent(iBin+1))
+                hResiduals.Fill(cfg['binwidth']*(iBin+1)+cfg['binwidth']/2, iSystVar,
+                                (hCFSelected.GetBinContent(iBin+1)-hSystVar.GetBinContent(iBin+1)) / 
+                                 hCFSelected.GetBinContent(iBin+1))
     
-    print('Writing histos with error informations ...')
+        hCFYields = TH1D("hCFYields", "hCFYields", nBinsKStar, 0, uppEdgeKStar)
+        hCFMeans = TH1D("hCFmeans", "hCFmeans", nBinsKStar, 0, uppEdgeKStar)
+        
+        print('Evaluating the single bins ...')
+        oFile.mkdir(f'{comb}/binsfits')
+        for iBin, ihCFbin in enumerate(hCFBinEntries):
+            oFile.cd(f'{comb}/binsfits')
+            gaus = TF1(f"gaus_{iBin}", "gaus", ihCFbin.GetBinLowEdge(1), 
+                       ihCFbin.GetBinLowEdge(ihCFbin.GetNbinsX()) + ihCFbin.GetBinWidth(1))
+            gaus.SetParameter(1, hCFSelected.GetBinContent(iBin+1))
+            ihCFbin.Fit(gaus, "SMRL+", "")
+            ihCFbin.Write(f"hCFbin{round(cfg['binwidth']*iBin+(cfg['binwidth']/2))}MeV")
+            hCFYields.SetBinContent(iBin+1, gaus.GetParameter(0))
+            hCFMeans.SetBinContent(iBin+1, gaus.GetParameter(1))
+            hSystUnc.SetBinContent(iBin+1, gaus.GetParameter(2))
+            hRelSystUnc.SetBinContent(iBin+1, hSystUnc.GetBinContent(iBin+1)/hCFSelected.GetBinContent(iBin+1))
+            hRelStatUnc.SetBinContent(iBin+1, hCFSelected.GetBinError(iBin+1)/hCFSelected.GetBinContent(iBin+1))
+            hRatioStatSystUnc.SetBinContent(iBin+1, hCFSelected.GetBinError(iBin+1)/hSystUnc.GetBinContent(iBin+1))
+            hCFWithSystUnc.SetBinContent(iBin+1, hCFSelected.GetBinContent(iBin+1))
+            hCFWithSystUnc.SetBinError(iBin+1, hSystUnc.GetBinContent(iBin+1)**2)
+            hCFWithStatSystUnc.SetBinContent(iBin+1, hCFSelected.GetBinContent(iBin+1))
+            hCFWithStatSystUnc.SetBinError(iBin+1, math.sqrt(hCFSelected.GetBinError(iBin+1)**2 + 
+                                                           hSystUnc.GetBinContent(iBin+1)**2 ) )
+        
+        hCFYields.Write()
+        hCFMeans.Write()
+   
+    else: 
+        binsStdDevs = []
+        variedCFsEntries = []
+        
+        for iSystVar in systVars:
+            iSystVarBinEntries = []
+            print(f'Picking syst variation number {iSystVar}')
+            hSystVar = Load(inFileCFSystVar, f'{comb}/var{iSystVar}/hCFrew_{iSystVar}')
+            print(f'Picked syst variation number {iSystVar}')
+            hResiduals.GetYaxis().SetBinLabel(iSystVar-min(systVars)+1, str(iSystVar))
+        
+            for iBin in range(nBinsKStar):
+                iSystVarBinEntries.append(hSystVar.GetBinContent(iBin+1))
+                hResiduals.Fill(cfg['binwidth']*(iBin+1)+cfg['binwidth']/2, iSystVar,
+                                (hCFSelected.GetBinContent(iBin+1)-hSystVar.GetBinContent(iBin+1)) / 
+                                 hCFSelected.GetBinContent(iBin+1))
+        
+            variedCFsEntries.append(iSystVarBinEntries)
+        
+        binsVarEntries = [[variedCFsEntries[j][i] for j in range(len(variedCFsEntries))] for i in range(len(variedCFsEntries[0]))]
+        for iBin, binVar in enumerate(binsVarEntries):
+            binsStdDevs.append(np.std(binVar))
+            hSystUnc.SetBinContent(iBin+1, binsStdDevs[-1])
+            hRelSystUnc.SetBinContent(iBin+1, hSystUnc.GetBinContent(iBin+1)/hCFSelected.GetBinContent(iBin+1))
+            hRelStatUnc.SetBinContent(iBin+1, hCFSelected.GetBinError(iBin+1)/hCFSelected.GetBinContent(iBin+1))
+            hRatioStatSystUnc.SetBinContent(iBin+1, hCFSelected.GetBinError(iBin+1)/hSystUnc.GetBinContent(iBin+1))
+            hCFWithSystUnc.SetBinContent(iBin+1, hCFSelected.GetBinContent(iBin+1))
+            hCFWithSystUnc.SetBinError(iBin+1, hSystUnc.GetBinContent(iBin+1)**2)
+            hCFWithStatSystUnc.SetBinContent(iBin+1, hCFSelected.GetBinContent(iBin+1))
+            hCFWithStatSystUnc.SetBinError(iBin+1, math.sqrt(hCFSelected.GetBinError(iBin+1)**2 + 
+                                                             hSystUnc.GetBinContent(iBin+1)**2 ) )
+
     oFile.mkdir(f'{comb}/unc')
     oFile.cd(f'{comb}/unc')
-    hCFYields.Write()
-    hCFMeans.Write()
+    print('Writing histos with error informations ...')
     hSystUnc.Write()
     hRelSystUnc.Write()
     hRelStatUnc.Write()
     hRatioStatSystUnc.Write()
+    hCFWithSystUnc.Write()
     hCFWithStatSystUnc.Write()
+    hResiduals.Write()
+
+oFile.mkdir('compare_residuals')
+oFile.cd('compare_residuals')
+for iComb in range(0, len(combs), 2):
+    hResiduals = TH2D(f"hRatioResiduals_{combs[iComb]}_{combs[iComb+1]}", 
+                      "Syst vars residuals", nBinsKStar, 0, uppEdgeKStar, 
+                      nSystVars, min(systVars), max(systVars))
+    hResiduals.SetStats(0)
+    hResidualsPairOne = Load(oFile, f"{combs[iComb]}/unc/hResiduals")
+    hResidualsPairTwo = Load(oFile, f"{combs[iComb+1]}/unc/hResiduals")
+    for iBinX in range(nBinsKStar):
+        for iBinY in range(nSystVars):
+            resCombOne = hResidualsPairOne.GetBinContent(iBinX+1, iBinY+1)
+            resCombTwo = hResidualsPairTwo.GetBinContent(iBinX+1, iBinY+1)
+            if resCombOne!=0 and resCombOne!=0: 
+                hResiduals.SetBinContent(iBinX+1, iBinY+1, resCombOne/resCombTwo)
+            else:
+                hResiduals.SetBinContent(iBinX+1, iBinY+1, 0)
     hResiduals.Write()
 
 oFile.Close()
