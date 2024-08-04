@@ -356,7 +356,7 @@ class DrawFitFuncts {
 
         std::vector<TF1 *> gaussians;
         std::vector<Color_t> colors = {kCyan+1, kAzure + 2, kGreen, kOrange, kBlue + 2, 
-                                       kCyan, kMagenta, kGreen+1, kBlue, kViolet, kGray};
+                                       kOrange+3, kMagenta, kGreen+1, kBlue, kViolet, kGray};
         DEBUG("--------------------------------");
         DEBUG("Number of components to be drawn: " << fDrawFuncs.size());
         for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
