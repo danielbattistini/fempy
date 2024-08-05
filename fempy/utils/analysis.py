@@ -151,6 +151,25 @@ def WeightedAverage(hQuantity, hWeight):
 
     return avgQuantity, avgQuantityErr
 
+def SmearHisto(hist, smearmatr):
+    '''
+    Assuming kgen on x-axis, kreco on y-axis
+    '''
+
+    smearedHisto = hist.Clone(f'{hist.GetTitle()}_smeared')
+    smearedHisto.Reset('ICESM')
+    print(smearedHisto.Integral())
+    for iBin in range(hist.GetNbinsX()):
+        hProjYSmearMatr = smearmatr.ProjectionY(f'iBin_{iBin+1}', iBin+1, iBin+1)
+        if hProjYSmearMatr.Integral()>0:
+            hProjYSmearMatr.Scale(hist.GetBinContent(iBin+1) / hProjYSmearMatr.Integral())
+            smearedHisto.Add(hProjYSmearMatr)
+    
+    for iBin in range(smearedHisto.GetNbinsX()):
+        smearedHisto.SetBinError(iBin+1, math.sqrt(smearedHisto.GetBinContent(iBin+1)))
+    
+    return smearedHisto
+
 def ChangeUnits(hist, multiplier):
     '''
     Only for histogram with constant binwidth!
