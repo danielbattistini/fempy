@@ -329,6 +329,7 @@ class CorrelationFitter {
         TH1D *histoPars = new TH1D("hFitPars", "hFitPars", this->fFit->GetNpar(), 0, this->fFit->GetNpar());
         for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
             histoPars->SetBinContent(iPar+1, this->fFit->GetParameter(iPar));
+            histoPars->SetBinError(iPar+1, this->fFit->GetParError(iPar));
             histoPars->GetXaxis()->SetBinLabel(iPar+1, this->fFit->GetParName(iPar));
         }
         histoPars->SetStats(0);
@@ -654,9 +655,7 @@ class CorrelationFitter {
                 double fitDifference = fFitHist->GetBinContent(iBin+1) - fFit->Eval(fFitHist->GetBinCenter(iBin+1));
                 hBinsCFDifferences.push_back(new TH1D(Form("Subtraction_%iMeV", binCenter), 
                                                       Form("Subtraction_%iMeV", binCenter), 
-                                                      1000, 
-                                                      fitDifference - 10*fFitHist->GetBinError(iBin+1), 
-                                                      fitDifference + 10*fFitHist->GetBinError(iBin+1)));
+                                                      10000, -1, 1));
             }
 
             // loop over the tries
