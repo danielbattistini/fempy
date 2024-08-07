@@ -41,6 +41,22 @@ with open(args.cfg, "r") as stream:
     except yaml.YAMLError as exc:
         log.critical('Yaml configuration could not be loaded. Is it properly formatted?')
 
+# Load yaml file
+with open(f'{cfg["fitcfg"]}', "r") as stream:
+    try:
+        cfgfit = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        log.critical('Yaml fit configuration could not be loaded. Is it properly formatted?')
+
+outFileFits = cfgfit['ofilename']
+if cfgfit['suffix']:
+    outFileFits += f'_{cfgfit["suffix"]}'
+dirFit, filenameFit = os.path.split(cfgfit['ofilename'])
+if not os.path.isdir(dirFit + '/systfits'):
+    os.makedirs(dirFit + '/systfits')
+outFileFits = os.path.join(dirFit + '/systfits', filenameFit) + '_SystVarX.root' 
+
+
 # Define the output file
 oFileName = cfg['ofilename']
 if cfg['suffix']:
@@ -55,45 +71,97 @@ except OSError:
 
 excludeSystVars = cfg.get('exclsystvars', [])
 
+nFits = len(cfgfit['fitcfs'])
+fitParsList = [[] for nFit in range(nFits)] 
+freeFitParsNames = [[] for nFit in range(nFits)] 
+# hDifferenceList = [[None for iBin in range(0, cfgfit['fitcfs'][nFit][-1][1] / hOfficialCF)] for nFit in range(nFits)] 
+fitNames = [None for nFit in range(nFits)]
+# hOfficialCFs = [Load(TFile(cfgfit['infile']), cfgfit['fitcfs'][nfit]['cfpath']) for nFit in nFits]
+
+print('Number of fits: ' + str(nFits))
+
+# fit the CFs with systematic variations
 for iSystVar in range(1, cfg['maxsystvar']+1):
     if iSystVar not in excludeSystVars:
         os.system(f"python3 fempy/FitCF.py {cfg['fitcfg']} --systvar {iSystVar}")
 
-oFile.cd()
-fitParVars = []
-for iSystVar in range(1, cfg['maxsystvar']+1):
-    if iSystVar not in excludeSystVars:
-        iVarFitPars = []
-        iSystVarFile = TFile(cfg['outfitfiles'].replace('X', str(iSystVar)))
-        for iKey in iSystVarFile.GetListOfKeys():
+        iSystVarFile = TFile(outFileFits.replace('X', str(iSystVar)))
+        # loop over the folders in the fit file
+        for iKey, key in enumerate(iSystVarFile.GetListOfKeys()):
+            print('KEYYYYYYYY ' + key.GetTitle())
+            fitNames[iKey] = key.GetTitle()
             iKeyFitPars = []
-            histoPars = Load(iSystVarFile, f'{iKey.GetName()}/hFitPars')
-            histoFitCfg = Load(iSystVarFile, f'{iKey.GetName()}/hFreeFixPars')
+            iKeyFitParNames = []
+
+            # load histo with fit parameters and histo checking 
+            # whether a fit function parameter is fixed or not
+            histoPars = Load(iSystVarFile, f'{key.GetName()}/hFitPars')
+            histoFitCfg = Load(iSystVarFile, f'{key.GetName()}/hFreeFixPars')
+
+            # save free fit parameters to a list
             for iBin in range(histoPars.GetNbinsX()):
-                if(histoFitCfg.GetBinContent(iBin+3) == 1):
+                if(histoFitCfg.GetBinContent(iBin+3) == 1): # the first 2 bins contain the
+                                                            # lower and upper fit ranges
                     iKeyFitPars.append(histoPars.GetBinContent(iBin+1))
-            iVarFitPars.append(iKeyFitPars)
-            # histo.Write(f'hFitPars_{iKey.GetName()}_var{iSystVar}')
-            nFreePars = len(iKeyFitPars)
-        fitParVars.append(iVarFitPars)
+                    iKeyFitParNames.append(histoPars.GetXaxis().GetBinLabel(iBin+1))
 
-fitParsVars = []
-for iFreePar in range(nFreePars):
-    for iFreePar
+            fitParsList[iKey].append(iKeyFitPars)
+            freeFitParsNames[iKey] = iKeyFitParNames
 
+            # try: # Check if there are ancestor histograms
+            #     # Only load SE, the ME is the same for all
+            #     hDifference = Load(inFile, f'{key.GetName()}/hDifference')
+            #     hDifferenceList[iKey].append(hDifference)
+            # except NameError: # Ancestors are not available, just move on
+            #     log.warning(f"hDifference not found for syst var {iSystVar}")
+            #     hDifferenceList.append(None)
 
-for iFitParVar in fitParVars:
-    print(iFitParVar)
+freeFitParsDicts = []
+for iFit in range(nFits):
+    freeParsHisto = {}
+    for iPar in range(len(fitParsList[iFit][0])):
+        parVars = []
+        for fitParsVariation in fitParsList[iFit]:
+            parVars.append(fitParsVariation[iPar])
+
+        freeParsHisto[f'{freeFitParsNames[iFit][iPar]}'] = parVars
+    print("\n")
+    print(freeParsHisto)
+    print("\n")
+    freeFitParsDicts.append(freeParsHisto)
+
+for iFitName in range(len(fitNames)): 
+    print(fitNames[iFitName])
+    oFile.mkdir(f'{fitNames[iFitName]}')
+    oFile.cd(f'{fitNames[iFitName]}')
     print('\n')
-fitPars = [[fitParVars[j][i] for j in range(len(fitParVars))] for i in range(len(fitParVars[0]))]
-for iFitPar in fitPars:
-    print(iFitPar)
     print('\n')
+    print('Set of fit parameters')
+    print('\n')
+    for iFitPar in freeFitParsDicts[iFitName]:
+        histoPar = TH1D(f'h_{iFitPar}', f'h_{iFitPar}', 1000, 0.9 * min(freeFitParsDicts[iFitName][iFitPar]), 
+                                                              1.1 * max(freeFitParsDicts[iFitName][iFitPar]))
+        print('Low edge, min: ' + str(0.9 * min(freeFitParsDicts[iFitName][iFitPar])) + ' ' + 
+                                  str(min(freeFitParsDicts[iFitName][iFitPar])) )
+        print('Upp edge, max: ' + str(1.1 * max(freeFitParsDicts[iFitName][iFitPar])) + ' ' +
+                                  str(max(freeFitParsDicts[iFitName][iFitPar]))   )
+        for iParValue in freeFitParsDicts[iFitName][iFitPar]:
+            histoPar.Fill(iParValue)
+        histoPar.Write()
+
+for iFitName in range(len(fitNames)): 
+    oFile.mkdir(f'{fitNames[iFitName]}/differences')
+    oFile.cd(f'{fitNames[iFitName]}/differences')
+
+    # nBinsFitCF = round()
+
+    # for iSystVar in range(1, cfg['maxsystvar']+1):
+    #     if hDifferenceList[iFitName][iSystVar] is not None:
 
 
-        
-        # folder = Load(iSystVarFile, 'lpiplus')
-        # folder.Write()
+    #     double binWidth = this->fFitHist->GetBinWidth(1);
+    #     int nBinsFitCF = static_cast<int>(this->fFitRangeMax/binWidth);
+    # for
 
 oFile.Close()
 print(f'output saved in {oFileName}')
