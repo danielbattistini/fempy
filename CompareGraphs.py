@@ -125,7 +125,9 @@ for plot in cfg:
     legx2 = plot['opt']['leg']['posx'][1]
     legy2 = plot['opt']['leg']['posy'][1]
     leg = TLegend(legx1, legy1, legx2, legy2)
-
+    if size := plot['opt']['leg'].get('fontsize'):
+        leg.SetTextSize(size)
+    
     for iObj, (inObj, legend) in enumerate(zip(inObjs, legends)):
         if isinstance(inObj, TF1):
             inObj.DrawF1(fx1, fx2, "same")
@@ -201,7 +203,7 @@ for plot in cfg:
                 hRatio = inObj.Clone()
                 hRatio.Rebin(plot['ratio']['rebin'])
                 hRatio.Divide(hDen)
-                hRatio.Draw('same pe')
+                hRatio.Draw('same ' + plot['ratio']['drawopt'])
         else:
             log.error('Ratio for type %s is not implemented. Skipping this object', type(inObj))
             continue
