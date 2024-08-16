@@ -27,6 +27,8 @@ class CorrelationFitter {
         this->fFitRangeMin = std::get<0>(fitranges[0]);
         this->fFitRangeMax = std::get<1>(fitranges.back());
         this->fGlobNorm = false;
+        this->fFit = new TF1("fitFunction", "gaus", fFitRangeMin, fFitRangeMax);
+        std::cout << "Address stored in datamember ptr constructor: " << this->fFit << std::endl; 
         this->fNPars = {0};  // The first parameter has index zero
     }
 
@@ -97,7 +99,6 @@ class CorrelationFitter {
     */
 
     void Add(TString name, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, int relweight=0) {
-        
         DEBUG("Adding " << name);
         DEBUG("Relweight " << relweight);
         if(functions.find(name)!=functions.end()){
@@ -151,7 +152,8 @@ class CorrelationFitter {
 
     void AddGlobNorm(std::string globnorm, double initval, double lowedge, double uppedge) {
         this->fGlobNorm = true;
-        this->fFitFunc.push_back(std::get<0>(functions[globnorm]));
+        // this->fFitFunc.push_back(std::get<0>(functions[globnorm]));
+        this->fFitFunc.push_back(std::get<0>(functions["globnorm"]));
         this->fFitFuncComps.push_back(globnorm);
         // -1 needed because pars includes the norm of the term
         
@@ -325,7 +327,7 @@ class CorrelationFitter {
         if(!this->fFit) {
             throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
         }
-        
+
         TH1D *histoPars = new TH1D("hFitPars", "hFitPars", this->fFit->GetNpar(), 0, this->fFit->GetNpar());
         for(int iPar=0; iPar<this->fFit->GetNpar(); iPar++) {
             histoPars->SetBinContent(iPar+1, this->fFit->GetParameter(iPar));
@@ -780,10 +782,18 @@ class CorrelationFitter {
     }
 
     TF1 *GetFitFunction() {
+        // std::cout << "Address stored in datamember GetFitFunction: " << this->fFit << std::endl; 
+        // if(!this->fFit) {
+        //     throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
+        // }
         return this->fFit;
     } 
 
-    double GetChi2Ndf() { return fFit->GetChisquare() / fFit->GetNDF(); }
+    double GetChi2Ndf() { 
+        cout << "Chi2: " << fFit->GetChisquare() << endl;    
+        cout << "NDF: " << fFit->GetNDF() << endl;    
+        return fFit->GetChisquare() / fFit->GetNDF(); 
+    }
 
     double GetChi2NdfManual() { 
         double chi2 = 0.;
@@ -796,6 +806,18 @@ class CorrelationFitter {
         }
 
         return chi2 / fFit->GetNDF(); 
+    }
+
+    TH1 *GetFitHisto() {
+        return this->fFitHist;
+    }
+
+    double GetLowFitRange() {
+        return this->fFitRangeMin;
+    }
+
+    double GetUppFitRange() {
+        return this->fFitRangeMax;
     }
 
    private:
@@ -846,7 +868,7 @@ class CorrelationFitter {
     std::vector<double> fRelWeights;                                // Vector saving the fit component number to which the i-th component norm
                                                                     // should be relative
     bool fGlobNorm; 
-
+    
     std::vector<std::tuple<int, int> > fFitRanges;
     double fFitRangeMin;
     double fFitRangeMax;
