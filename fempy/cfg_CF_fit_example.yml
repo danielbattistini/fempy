@@ -2,13 +2,26 @@ ofilename: /output/directory/ofilename               # ofilebasename_suffix.root
 suffix: pluto
 
 infile: /path/to/file/containing/histo/to/be/fitted
+infilesyst: /path/to/file/containing/systematics/cfs
+
+combined: true          # with this flag, a combined fit of 
+                        # all models in fitcfs will be executed
+                        # To flag the parameters which are shared
+                        # between the two models, the keyword
+                        # 'shared' has to be added in the parameter 
+                        # name, e.g. p1 --> p1_shared
 
 fitcfs:
 -   cfpath: internal/path/of/histo
+    cfsystpath: internal/path/varX/hCFrew_X         # the X will be internally substituted
+                                                    #  by the variation numbers
     fitname: MC_LambdaPiPlus                        # folder name for the fit
     fitrange: [0, 500]          
     rejectrange: [150, 300]                         # range not considered for the fit
     linethick: 3                                    # thickness of lines in the Canva
+    bootstraptries: 50                              # number of bootstrap iterations
+    evaluatediff: true                              # evaluate difference between data and global fit function
+    bootstrapdifftries: 50                          # bootstrap on the difference, to obtain the statistical uncertainty
     globnorm: [1, 0, 2]                             # global norm of the fit function, inserted only if specified
     datalabel: "legend label for data points"
     fitfunclabel: "legend label for total fit function"
@@ -62,7 +75,7 @@ fitcfs:
         legentry: 'spline'
         linethickness: 3
         params:
-            splnorm_parname: [1, 0, -1]
+            splnorm_parname: [1, 0, -1]     
             xknots: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]  # specific for splines, set x knots positions
         yboundperc: 20              # bounds, in percentage, for variation of the y parameters with respect to histo values
         addmode: '+'

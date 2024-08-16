@@ -12,7 +12,6 @@
 #include "TFitResult.h"
 #include "TMath.h"
 #include "TFitResultPtr.h"
-// #include "FitFunctions.cxx"
 #include "CorrelationFitter.hxx"
 
 #include "Math/WrappedMultiTF1.h"
@@ -29,6 +28,9 @@
 #endif
 
 class GlobalChi2 {
+    
+    // Class that defines the global chi2 for a combined fit
+
     public:
     std::vector<ROOT::Math::IMultiGenFunction *> fChi2Functions; 
     std::vector<std::vector<int> > fModelsSharedParsIdxs;
@@ -45,9 +47,10 @@ class GlobalChi2 {
     }
 
 	double operator() (const double *par) const {
-        // Set parameters of the single functions, if the number
-        // of parameters is different in the two cases two loops
-        // are required
+        // Set parameters of the single functions exploiting the 
+        // correspondance between each fit function parameter and
+        // the global fit parameters, contained in the fPars data
+        // member 
         double totalChi2 = 0.;
         std::vector<double> parModel[fPars.size()];
         for(int iModel=0; iModel<fPars.size(); iModel++) {
@@ -59,6 +62,11 @@ class GlobalChi2 {
 	    	    parModel[iModel].push_back(par[this->fPars[iModel][i]]);
 	        }
             DEBUG("");
+            
+            // to test the set of parameters, we evaluate the chi2 of each function taking 
+            // care to maintain the correspondance between the parameters, i.e. if the 5th
+            // parameter of the second fit function is the 17th parameter of the global fit
+            // we'll have this information in the second vector of fPars 
             totalChi2 += (*fChi2Functions[iModel])(parModel[iModel].data());
         }
         DEBUG("Total chi2: " << totalChi2);
@@ -70,12 +78,13 @@ class GlobalChi2 {
 class CombinedFitter {
    public:
     CombinedFitter(std::vector<CorrelationFitter > models, std::vector<std::vector<int> > singleModelsSharedPars) {
-        DEBUG("CIAO COMBINED");
         this->fModels = models;
         this->fSingleModelsSharedPars = singleModelsSharedPars; 
         this->fNSharedPars = singleModelsSharedPars[0].size(); 
         this->fTotalPars = 0;
 
+        // It would be ideal not to use this data member and retrieve the fit functions
+        // directly from the CorrelationFitter objects, but I was not able to do so
         for(int iModel=0; iModel<this->fModels.size(); iModel++) {
             fModelFuncts.push_back(fModels[iModel].GetFitFunction()); 
         }
@@ -107,14 +116,11 @@ class CombinedFitter {
             ROOT::Fit::FillData(fitBinData.back(), fModels[iFitRange].GetFitHisto());
         }
 
-        DEBUG("Chi squared");
+        DEBUG("Global chi2");
         std::vector<ROOT::Fit::Chi2Function> chi2Functions;
         for(int iFit=0; iFit<this->fModels.size(); iFit++) {
             chi2Functions.push_back(ROOT::Fit::Chi2Function(fitBinData[iFit], wrappedFitFuncts[iFit]));
         }
-
-
-        DEBUG("Global chi2");
         GlobalChi2 global_chi2(fSingleModelsUniquePars, fSingleModelsSharedPars);
         for(int iChi2Fcn=0; iChi2Fcn<chi2Functions.size(); iChi2Fcn++) {
             global_chi2.AddChi2Function(chi2Functions[iChi2Fcn]);
@@ -135,17 +141,22 @@ class CombinedFitter {
         DEBUG("Total pars: " << this->fTotalPars);
         fitter.FitFCN(this->fTotalPars, global_chi2, nullptr, nPar, 1);
         ROOT::Fit::FitResult result = fitter.Result();
-        DEBUG("Combined fit Chi2 = " << result.Chi2());
+
         // separate fit results
         for(int iModel=0; iModel<this->fModels.size(); iModel++) {
             fModelFuncts[iModel]->SetFitResult(result, fSingleModelsUniquePars[iModel].data());
             // fModels[iModel].GetFitFunction()->SetFitResult(result, fSingleModelsUniquePars[iModel].data());
         }
+
+        // TODO: define Chi2
     }
 
     void SetupGlobalFitter(ROOT::Fit::Fitter *fitter) { 
         DEBUG("Number of parameters to be initialized: " << this->fInitPars.size());
         std::vector<double> dummyInit(this->fTotalPars, 0.0);
+
+        // trivial initialization with dummyInit, which is a vector of zeros, 
+        // then setup each parameter specifically according to fInitPar
         fitter->Config().SetParamsSettings(this->fTotalPars, dummyInit.data());  // number of total parameters, list of init values
         for(int iInitPar=0; iInitPar<this->fInitPars.size(); iInitPar++) {
             DEBUG("InitPar" << iInitPar << ": [" << std::get<0>(fInitPars[iInitPar]) << ", " << std::get<1>(fInitPars[iInitPar]) << ", " <<
@@ -168,6 +179,9 @@ class CombinedFitter {
    private:
 
     void SetTotalParameters() {
+
+        // For each model we sum the number of non-shared parameters, 
+        // then at the end we sum once the number of the shared ones
         for(int iModel=0; iModel<fSingleModelsSharedPars.size(); iModel++) {
             this->fModels[iModel].BuildFitFunction();
             DEBUG("Parameters of the model: " << this->fModels[iModel].GetFitFunction()->GetNpar());
@@ -180,6 +194,19 @@ class CombinedFitter {
     }
 
     void SetUniqueParametersVectors() {
+
+        // To implement a combined fit of two functions, we need a vector for each single fit 
+        // which stores the indices of the parameters in the global combined fit associated 
+        // to the fit function parameters
+
+        // i.e. if we execute a combined fit of two pol3 sharing the linear coefficient, the 
+        // total number of parameters will be 7 = 3(unique)*2 + 1(shared). The global fit 
+        // parameters will be 7, thus it is needed to specify which of the 7 parameters corre-
+        // sponds to the p0, p1, p2, p3 of the first and second pol
+
+        // In this class, the vector storing the global fit parameters is arranged in the 
+        // following way: fInitPars: {(unique pars 1st comp), ... ,(unique pars nth comp), (shared pars)}  
+
         int previousModelsUniquePars = 0;
         DEBUG("Previous models unique parameters: " << previousModelsUniquePars);
         for(int iModel=0; iModel<fSingleModelsSharedPars.size(); iModel++) {
@@ -244,6 +271,9 @@ class CombinedFitter {
                 }
             }
         }
+
+        // The shared pars are put after the unique pars of 
+        // all models which are considered for the combined fit
         for(int iSharedPar=0; iSharedPar<fNSharedPars; iSharedPar++) {
             fInitPars.push_back(initSharedPars[iSharedPar]);
         }
@@ -256,9 +286,15 @@ class CombinedFitter {
     int fTotalPars;                                 // sum of unique pars of single fits and shared ones 
     int fNSharedPars;                               // number of shared parameters 
     std::vector<TF1 *> fModelFuncts;
-    std::vector<std::vector<int> > fSingleModelsSharedPars;
-    std::vector<std::vector<int> > fSingleModelsUniquePars;
-    std::vector<std::tuple<std::string, double, double, double> > fInitPars;
+    std::vector<std::vector<int> > fSingleModelsSharedPars;     // vector of vectors where the latter contain
+                                                                // the indices of the parameters that are shared
+                                                                // for each specific model 
+    std::vector<std::vector<int> > fSingleModelsUniquePars;     // vector of vectors where the latter contain
+                                                                // the indices of the model parameter in the 
+                                                                // global list of parameter for the combined fit
+    std::vector<std::tuple<std::string, double, double, double> > fInitPars;    // initialization of the combined
+                                                                                // fit parameters, {"par_name", init,
+                                                                                // low_lim, upp_lim}
 };
 
 #endif  // FEMPY_COMBINEDFITTER_HXX_
