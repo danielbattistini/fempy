@@ -11,6 +11,9 @@ combined: true          # with this flag, a combined fit of
                         # 'shared' has to be added in the parameter 
                         # name, e.g. p1 --> p1_shared
 
+bootstraptries: 50                              # number of bootstrap iterations
+evaluatediff: true                              # evaluate difference between data and global fit function
+
 fitcfs:
 -   cfpath: internal/path/of/histo
     cfsystpath: internal/path/varX/hCFrew_X         # the X will be internally substituted
@@ -19,9 +22,6 @@ fitcfs:
     fitrange: [0, 500]          
     rejectrange: [150, 300]                         # range not considered for the fit
     linethick: 3                                    # thickness of lines in the Canva
-    bootstraptries: 50                              # number of bootstrap iterations
-    evaluatediff: true                              # evaluate difference between data and global fit function
-    bootstrapdifftries: 50                          # bootstrap on the difference, to obtain the statistical uncertainty
     globnorm: [1, 0, 2]                             # global norm of the fit function, inserted only if specified
     datalabel: "legend label for data points"
     fitfunclabel: "legend label for total fit function"

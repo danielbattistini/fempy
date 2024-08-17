@@ -189,22 +189,77 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
 
 if cfg.get('combined'):
     combFitter = CombinedFitter(fitters, combPars)
-    combFitter.CombinedFit()
+    nSharedPars = combFitter.GetSharedParams()
+
+    if cfg.get('evaluatediff') is None and cfg.get('bootstraptries') is None:
+        print('FIT TYPE: Normal')
+        combFitResults = combFitter.CombinedFit()
+
+    elif cfg.get('evaluatediff') and cfg.get('bootstraptries') is None:
+        print('FIT TYPE: Difference')
+        combFitDifferenceHistos = combFitter.CombinedFitDifference()
+
+        for iDiffHisto in combFitDifferenceHistos:
+            for iModel, model in enumerate(cfg['fitcfs']):
+                print(iDiffHisto.GetName())
+                if f'Model{iModel}' in iDiffHisto.GetName():
+                    print('CIAO WRITE')
+                    oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
+                    iDiffHisto.Write('hDifference')
+
+        print('CIAO MKDIR')
+
+    elif isinstance(cfg.get('bootstraptries'), int):
+        print('FIT TYPE: Bootstrap')
+        parBTDistros = combFitter.CombinedFitBootstrap(cfg['bootstraptries'], cfg.get('evaluatediff', 0))
+
+        for iModel, model in enumerate(cfg['fitcfs']):
+            oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/uniquepars")
+            oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/sharedpars")
+            if cfg.get('evaluatediff'):
+                oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/differences")
+                oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/stats")
+
+        for iParDistro, parBTDistro in enumerate(parBTDistros):
+            if iParDistro >= combFitter.GetTotalParams():
+                for iModel, model in enumerate(cfg['fitcfs']):
+                    if f'Model{iModel}' in parBTDistro.GetName():
+                        if 'stat' in parBTDistro.GetName():
+                            oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/stats")
+                            parBTDistro.Write()
+                        else:
+                            oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/differences")
+                            parBTDistro.Write()
+
+            if 'shared' in parBTDistro.GetName():
+                for iModel, model in enumerate(cfg['fitcfs']):
+                    oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/sharedpars")
+                    parBTDistro.Write()
+            
+            else:
+                nPreviousUniquePars = 0
+                for iModel, model in enumerate(cfg['fitcfs']):
+                    modelUniquePars = combFitter.GetModelUniqueParams(iModel)
+                    if iParDistro >= nPreviousUniquePars and iParDistro < nPreviousUniquePars + modelUniquePars:
+                        oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/uniquepars")
+                        parBTDistro.Write()
+            
+                    nPreviousUniquePars = nPreviousUniquePars + modelUniquePars
+
 else: 
     for iModel in range(len(fitters)):
         fitters[iModel].Fit()
 
-        if cfg['fitcfs'][iModel].get('bootstraptries'):
+        if cfg.get('bootstraptries'):
             oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
             oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
-            parBTDistros = fitters[-1].Bootstrap(cfg['fitcfs'][iModel]['bootstraptries'])
+            parBTDistros = fitters[-1].Bootstrap(cfg['bootstraptries'])
             for parBTDistro in parBTDistros:
-                print('Integral of histo ' + parBTDistro.GetName() + ': ' + str(parBTDistro.Integral()))
                 parBTDistro.Write()
             oFile.cd(cfg['fitcfs'][iModel]['fitname'])
 
-        if cfg['fitcfs'][iModel].get('evaluatediff'):
-            differenceHistos = fitters[-1].GetDifference(cfg['fitcfs'][iModel].get('bootstrapdifftries', 0))
+        if cfg.get('evaluatediff'):
+            differenceHistos = fitters[-1].GetDifference(cfg['bootstrapdifftries'])
             if len(differenceHistos)>1:
                 oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap_diff")
                 oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap_diff")
@@ -212,7 +267,6 @@ else:
                     differenceHistos[iDifferenceHisto].Write()
             oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
             differenceHistos[0].Write('hSubtraction')
-
 
 for iModel in range(len(cfg['fitcfs'])):
     oFile.cd(cfg['fitcfs'][iModel]['fitname'])
@@ -227,7 +281,6 @@ for iModel in range(len(cfg['fitcfs'])):
 
     hChi2DOF = TH1D('hChi2DOF', 'hChi2DOF', 1, 0, 1)
     if cfg.get('combined') is None:
-        print('NOT COMBINED FIT')
         hChi2DOF.Fill(0.5, fitters[iModel].GetChi2Ndf())
         print('Chi2/NDF: ' + str(fitters[iModel].GetChi2Ndf()))
         hChi2DOFManual = TH1D('hChi2DOFManual', 'hChi2DOFManual', 1, 0, 1)
