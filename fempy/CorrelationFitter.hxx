@@ -28,7 +28,6 @@ class CorrelationFitter {
         this->fFitRangeMax = std::get<1>(fitranges.back());
         this->fGlobNorm = false;
         this->fFit = new TF1("fitFunction", "gaus", fFitRangeMin, fFitRangeMax);
-        std::cout << "Address stored in datamember ptr constructor: " << this->fFit << std::endl; 
         this->fNPars = {0};  // The first parameter has index zero
     }
 
