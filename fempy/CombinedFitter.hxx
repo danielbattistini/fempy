@@ -231,7 +231,7 @@ class CombinedFitter {
                 // Restore original fit results to evaluate the subtraction
                 fModelFuncts[iModel]->SetFitResult(originalFitResult, fSingleModelsUniquePars[iModel].data());
 
-                TH1D *hSubtraction = new TH1D(Form("hSubtraction_Model%i_stat", iModel), Form("hSubtraction_Model%i_stat", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
+                TH1D *hSubtraction = new TH1D(Form("hDifference_Model%i", iModel), Form("hDifference_Model%i", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
                 TH1D *hYields = new TH1D(Form("hYields_Model%i_stat", iModel), Form("hYields_Model%i_stat", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
                 TH1D *hMeans = new TH1D(Form("hMeans_Model%i_stat", iModel), Form("hMeans_Model%i_stat", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
                 TH1D *hStdDevs = new TH1D(Form("hStdDevs_Model%i_stat", iModel), Form("hStdDevs_Model%i_stat", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
