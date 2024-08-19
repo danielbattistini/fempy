@@ -444,12 +444,12 @@ class MassFitter {
             this->fSgn->Draw("same");
 
             if (this->fSgnFuncName == "hat" || this->fSgnFuncName == "doublegaus") {
-                this->fHatThin->SetLineColor(kMagenta + 3);
+                this->fHatThin->SetLineColor(kViolet);
                 this->fHatThin->SetNpx(300);
                 this->fHatThin->Draw("same");
 
                 this->fHatWide->SetNpx(300);
-                this->fHatWide->SetLineColor(kAzure + 2);
+                this->fHatWide->SetLineColor(kGreen + 2);
                 this->fHatWide->Draw("same");
             } 
 

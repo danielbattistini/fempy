@@ -40,10 +40,13 @@ class GlobalChi2 {
 	    fPars = pars;
         fModelsSharedParsIdxs = sharedidxs;
         DEBUG("fPars size: " << fPars.size());
+        for(int iPar=0; iPar<fPars.size(); iPar++) {
+            fChi2Functions.push_back(nullptr);
+        }
     }
 
-    void AddChi2Function(ROOT::Math::IMultiGenFunction &func) {
-        fChi2Functions.push_back(&func);
+    void SetChi2Function(ROOT::Math::IMultiGenFunction &func, int idx) {
+        fChi2Functions[idx] = &func;
     }
 
 	double operator() (const double *par) const {
@@ -92,6 +95,7 @@ class CombinedFitter {
         SetTotalParameters();
         SetUniqueParametersVectors();
         SetFitParameters();
+        SetBootstrapHistosFeatures();
 
     }
 
@@ -108,87 +112,112 @@ class CombinedFitter {
         return sampledHisto;
     }
 
+    void SetBootstrapHistosFeatures() {
+        for(int iModel=0; iModel<fModels.size(); iModel++) {
+            std::vector<std::tuple<double, double, double>> modelBootPars = this->fModels[iModel].GetBootstrapHistosFeatures();
+            for(int iModelBootPar=0; iModelBootPar<modelBootPars.size(); iModelBootPar++) {
+                this->fBootHistoParsFeatures.push_back(modelBootPars[iModelBootPar]);
+            }
+        }
+    }
+
     std::vector <TH1D *> CombinedFitBootstrap(int ntries, bool difference) {
         
+        cout << "COMBINED FIT BOOTSTRAP" << endl;
+
         DEBUG("Performing fit with non-sampled histograms!");
         ROOT::Fit::FitResult originalFitResult = CombinedFit(); 
 
-        // Can go in DM
-        DEBUG("Filling models");
-        std::vector<ROOT::Math::WrappedMultiTF1> wrappedFitFuncts;
-        ROOT::Fit::DataOptions opt;
-        std::vector<ROOT::Fit::DataRange> fitRanges;
-        std::vector<ROOT::Fit::BinData> fitBinData;
-
-        // Set fit range
-        DEBUG("Fit range");
-        for(int iModel=0; iModel<this->fModels.size(); iModel++) {
-            // wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModels[iModel].GetFitFunction(), 1));
-            wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModelFuncts[iModel], 1));
-            fitRanges.push_back(ROOT::Fit::DataRange());
-            fitRanges.back().SetRange(fModels[iModel].GetLowFitRange(), fModels[iModel].GetUppFitRange());
-            fitBinData.push_back(ROOT::Fit::BinData(opt, fitRanges.back()));
-        }
-
         // Initialize histogram for saving fit parameters
         std::vector <TH1D *> hBTHistos;
+        int iBootPar=0;
         for(int iPar=0; iPar<this->fInitPars.size(); iPar++) {
-            double histoMean = originalFitResult.Parameter(iPar);
-            if(originalFitResult.IsParameterFixed(iPar)) {
-                std::string parName = originalFitResult.ParName(iPar) + "_fixed";
-                double histoBound = 0.1;
+            std::string parName = originalFitResult.ParName(iPar);
+            // if(std::string(this->fFit->GetParName(iPar)).find("boot") != std::string::npos) {
+            if(parName.find("boot") != std::string::npos) {
+                cout << "Setting histo par feature for bootstrapped par " << parName << endl;
                 hBTHistos.push_back(new TH1D(parName.c_str(), parName.c_str(), 
-                                          1000, histoMean - 5*histoBound, histoMean + 5*histoBound));
+                                              std::get<0>(this->fBootHistoParsFeatures[iBootPar]), 
+                                              std::get<1>(this->fBootHistoParsFeatures[iBootPar]),
+                                              std::get<2>(this->fBootHistoParsFeatures[iBootPar])));
+                iBootPar++;
             } else {
-                std::string parName = originalFitResult.ParName(iPar);
-                double histoBound = originalFitResult.ParError(iPar);
-                hBTHistos.push_back(new TH1D(parName.c_str(), parName.c_str(), 
-                                          1000, histoMean - 5*histoBound, histoMean + 5*histoBound));
-            }
-        }
-
-        if(difference) {
-            for(int iModel=0; iModel<this->fModels.size(); iModel++) {
-                double binWidth = this->fModels[iModel].GetFitHisto()->GetBinWidth(1);
-                int nBinsFitCF = fModels[iModel].GetUppFitRange()/binWidth;
-                for(int iBin=0; iBin<nBinsFitCF; iBin++) {
-                    int binCenter = static_cast<int>((iBin * binWidth) + (binWidth / 2));
-                    double fitDifference = this->fModels[iModel].GetFitHisto()->GetBinContent(iBin+1) - 
-                                           this->fModels[iModel].GetFitFunction()->Eval(this->fModels[iModel].GetFitHisto()->GetBinCenter(iBin+1));
-                    hBTHistos.push_back(new TH1D(Form("Model%i_Subtraction_%iMeV", iModel, binCenter), 
-                                                 Form("Model%i_Subtraction_%iMeV", iModel, binCenter), 
-                                                 10000, fitDifference - 5*fitDifference, fitDifference + 5*fitDifference));
+                double histoMean = originalFitResult.Parameter(iPar);
+                if(originalFitResult.IsParameterFixed(iPar)) {
+                    parName = originalFitResult.ParName(iPar) + "_fixed";
+                    double histoBound = 0.1;
+                    hBTHistos.push_back(new TH1D(parName.c_str(), parName.c_str(), 
+                                              100000, histoMean - 1*histoBound, histoMean + 1*histoBound));
+                } else {
+                    double histoBound = originalFitResult.ParError(iPar);
+                    hBTHistos.push_back(new TH1D(parName.c_str(), parName.c_str(), 
+                                              200000, histoMean - 2*histoBound, histoMean + 2*histoBound));
                 }
             }
         }
 
-        // hBTHistos.push_back(new TH1D("Chi2/DOF", "Chi2/DOF", 1000, 0, 100));
+        std::vector<TH1D *> hGenDiffOriginal;
+        // Data-fit difference extracting genuine correlation
+        if(difference) {
+            for(int iModel=0; iModel<this->fModels.size(); iModel++) {
+                hGenDiffOriginal.push_back(this->fModels[iModel].GetGenuineDifference(static_cast<TH1D *>(this->fModels[iModel].GetFitHisto())));
+                std::string titleWithModel = hGenDiffOriginal.back()->GetTitle();
+                hGenDiffOriginal.back()->SetTitle( (titleWithModel + Form("_Model%i", iModel)).c_str());
+                hGenDiffOriginal.back()->SetName( (titleWithModel + Form("_Model%i", iModel)).c_str());
+                double binWidth = hGenDiffOriginal.back()->GetBinWidth(1);
+                int nBinsFitCF = hGenDiffOriginal.back()->GetNbinsX();
+                for(int iBin=0; iBin<nBinsFitCF; iBin++) {
+                    int binCenter = static_cast<int>((iBin * binWidth) + (binWidth / 2));
+                    double binGenuine = hGenDiffOriginal.back()->GetBinContent(iBin+1);
+                    hBTHistos.push_back(new TH1D(Form("Model%i_Subtraction_%iMeV", iModel, binCenter), 
+                                                 Form("Model%i_Subtraction_%iMeV", iModel, binCenter), 
+                                                 500, binGenuine - 0.1*binGenuine, binGenuine + 0.1*binGenuine));
+                }
+            }
+        }
+
 
         for(int iTry=0; iTry<ntries; iTry++) {
-            std::vector<TH1D *> sampledHistos;
+            cout << "TRY " << iTry << endl; 
+            TH1D *sampledHistos[this->fModels.size()];
             std::vector<ROOT::Fit::Chi2Function> chi2Functions;
             GlobalChi2 global_chi2(fSingleModelsUniquePars, fSingleModelsSharedPars);
+            
+            // Perform fits with sampled histos
+            DEBUG("Filling models");
+            std::vector<ROOT::Math::WrappedMultiTF1> wrappedFitFuncts;
+            ROOT::Fit::DataOptions opt;
+            std::vector<ROOT::Fit::DataRange> fitRanges;
+            std::vector<ROOT::Fit::BinData> fitBinData;
+
+            // Set fit range
+            DEBUG("Fit range");
+            for(int iModel=0; iModel<this->fModels.size(); iModel++) {
+                wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModelFuncts[iModel], 1));
+                fitRanges.push_back(ROOT::Fit::DataRange());
+                fitRanges.back().SetRange(fModels[iModel].GetLowFitRange(), fModels[iModel].GetUppFitRange());
+                fitBinData.push_back(ROOT::Fit::BinData(opt, fitRanges.back()));
+            }
             int nPar = 0;
             for(int iModel=0; iModel<this->fModels.size(); iModel++) {
         
-                sampledHistos.push_back(SampledHisto(static_cast<TH1D *>(fModels[iModel].GetFitHisto()), 
-                                                     fModels[iModel].GetUppFitRange(), iTry));
-                DEBUG("GetNbins histo: " << sampledHistos.back()->GetNbinsX());
-                ROOT::Fit::FillData(fitBinData[iModel], sampledHistos.back());
+                sampledHistos[iModel] = SampledHisto(static_cast<TH1D *>(fModels[iModel].GetFitHisto()), 
+                                            fModels[iModel].GetUppFitRange(), iTry);
+                DEBUG("GetNbins histo: " << sampledHistos[iModel]->GetNbinsX());
+                ROOT::Fit::FillData(fitBinData[iModel], sampledHistos[iModel]);
                 nPar += fitBinData[iModel].Size();
 
                 DEBUG("Global chi2");
                 chi2Functions.push_back(ROOT::Fit::Chi2Function(fitBinData[iModel], wrappedFitFuncts[iModel]));
-
             }
 
             for(int iModel=0; iModel<this->fModels.size(); iModel++) {
-                global_chi2.AddChi2Function(chi2Functions[iModel]);
+                global_chi2.SetChi2Function(chi2Functions[iModel], iModel);
             }
                 
             DEBUG("Fitter");
             ROOT::Fit::Fitter fitter;
-            SetupGlobalFitter(&fitter);
+            SetupGlobalFitter(&fitter, iTry);
 
             DEBUG("Setup fit");
             DEBUG("Fit");
@@ -204,22 +233,21 @@ class CombinedFitter {
             // separate fit results
             for(int iModel=0; iModel<this->fModels.size(); iModel++) {
                 fModelFuncts[iModel]->SetFitResult(result, fSingleModelsUniquePars[iModel].data());
-                // fModels[iModel].GetFitFunction()->SetFitResult(result, fSingleModelsUniquePars[iModel].data());
+                fModels[iModel].SetFitFunction(fModelFuncts[iModel]);
             }
 
+            // Data-fit difference extracting genuine correlation
             if(difference) {
                 for(int iModel=0; iModel<this->fModels.size(); iModel++) {
-                    double binWidth = this->fModels[iModel].GetFitHisto()->GetBinWidth(1);
-                    int nBinsFitCF = fModels[iModel].GetUppFitRange()/binWidth;
+                    TH1D *hGenDiff = this->fModels[iModel].GetGenuineDifference(sampledHistos[iModel]);
+                    int nBinsFitCF = hGenDiff->GetNbinsX();
                     for(int iBin=0; iBin<nBinsFitCF; iBin++) {
-                        hBTHistos[this->fInitPars.size() + iBin + iModel*nBinsFitCF]->Fill(
-                            this->fModels[iModel].GetFitHisto()->GetBinContent(iBin+1) - 
-                            fModelFuncts[iModel]->Eval(this->fModels[iModel].GetFitHisto()->GetBinCenter(iBin+1)));
+                        hBTHistos[this->fInitPars.size() + iModel * nBinsFitCF + iBin]->Fill(hGenDiff->GetBinContent(iBin+1));
                     }
+                    delete sampledHistos[iModel];
+                    delete hGenDiff; 
                 }
             }
-        
-            sampledHistos.clear();
             chi2Functions.clear();
         }
 
@@ -228,36 +256,42 @@ class CombinedFitter {
                 double binWidth = this->fModels[iModel].GetFitHisto()->GetBinWidth(1);
                 int nBinsFitCF = fModels[iModel].GetUppFitRange()/binWidth;
 
-                // Restore original fit results to evaluate the subtraction
-                fModelFuncts[iModel]->SetFitResult(originalFitResult, fSingleModelsUniquePars[iModel].data());
-
-                TH1D *hSubtraction = new TH1D(Form("hDifference_Model%i", iModel), Form("hDifference_Model%i", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
                 TH1D *hYields = new TH1D(Form("hYields_Model%i_stat", iModel), Form("hYields_Model%i_stat", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
                 TH1D *hMeans = new TH1D(Form("hMeans_Model%i_stat", iModel), Form("hMeans_Model%i_stat", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
                 TH1D *hStdDevs = new TH1D(Form("hStdDevs_Model%i_stat", iModel), Form("hStdDevs_Model%i_stat", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
                 TH1D *hRelUnc = new TH1D(Form("hRelUnc_Model%i_stat", iModel), Form("hRelUnc_Model%i_stat", iModel), nBinsFitCF, 0, this->fModels[iModel].GetUppFitRange());
                 
                 for(int iBin=0; iBin<nBinsFitCF; iBin++) {
-                    int iHistoIdx = this->fTotalPars + iModel * nBinsFitCF + iBin + 1;
+                    int iHistoIdx = this->fInitPars.size() + iModel * nBinsFitCF + iBin;
                     TF1 *gaus = new TF1("gaus", "gaus", hBTHistos[iHistoIdx]->GetBinLowEdge(1),
                                         hBTHistos[iHistoIdx]->GetBinLowEdge(hBTHistos[iHistoIdx]->GetNbinsX()) + hBTHistos[iHistoIdx]->GetBinWidth(1));
-                    gaus->SetParameter(1, hBTHistos[iHistoIdx]->GetBinCenter(hBTHistos[iHistoIdx]->GetMaximumBin()) );
-                    gaus->SetParameter(2, hBTHistos[iHistoIdx]->GetRMS() );
-                    hBTHistos[iBin]->Fit(gaus, "SMRL+", "");
-                    hSubtraction->SetBinContent(iBin+1,  this->fModels[iModel].GetFitHisto()->GetBinContent(iBin+1) - 
-                                                         fModelFuncts[iModel]->Eval(this->fModels[iModel].GetFitHisto()->GetBinCenter(iBin+1)));
+                    if((iBin+1)%10 == 0) {
+                        cout << "Fitting iBin " << iBin+1 << " of model " << iModel << endl;
+                    }
+                    gaus->SetParameter(1, hBTHistos[iHistoIdx]->GetBinContent(hBTHistos[iHistoIdx]->GetMaximumBin()) );
+                    gaus->SetParameter(2, hGenDiffOriginal[iModel]->GetBinContent(iBin+1) );
+                    hBTHistos[iHistoIdx]->Fit(gaus, "SMRL+q", "");
                     hYields->SetBinContent(iBin+1, gaus->GetParameter(0));
                     hMeans->SetBinContent(iBin+1, gaus->GetParameter(1));
                     hStdDevs->SetBinContent(iBin+1, gaus->GetParameter(2));
-                    hRelUnc->SetBinContent(iBin+1, hStdDevs->GetBinContent(iBin+1) / hSubtraction->GetBinContent(iBin+1));
-                    hSubtraction->SetBinError(iBin+1, hStdDevs->GetBinContent(iBin+1) );
+                    hRelUnc->SetBinContent(iBin+1, hStdDevs->GetBinContent(iBin+1) / hGenDiffOriginal[iModel]->GetBinContent(iBin+1));
+
+                    hGenDiffOriginal[iModel]->SetBinError(iBin+1, hStdDevs->GetBinContent(iBin+1));
+
                 }
+
                 hBTHistos.push_back(hYields);
                 hBTHistos.push_back(hMeans);
                 hBTHistos.push_back(hStdDevs);
                 hBTHistos.push_back(hRelUnc);
-                hBTHistos.push_back(hSubtraction);
+                hBTHistos.push_back(hGenDiffOriginal[iModel]);
             }
+        }
+
+        // Return settings of the functions to fit result with original data and MC
+        for(int iModel=0; iModel<this->fModels.size(); iModel++) {
+            fModelFuncts[iModel]->SetFitResult(originalFitResult, fSingleModelsUniquePars[iModel].data());
+            fModels[iModel].SetFitFunction(fModelFuncts[iModel]);
         }
 
         return hBTHistos;
@@ -265,13 +299,12 @@ class CombinedFitter {
     }
 
     ROOT::Fit::FitResult CombinedFit() {
-
+    
         // Can go in DM
         DEBUG("Filling models");
         std::vector<ROOT::Math::WrappedMultiTF1> wrappedFitFuncts;
         for(int iModel=0; iModel<this->fModels.size(); iModel++) {
             wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModelFuncts[iModel], 1));
-            // wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModels[iModel].GetFitFunction(), 1));
         }
 
         // Set fit range
@@ -294,7 +327,7 @@ class CombinedFitter {
         }
         GlobalChi2 global_chi2(fSingleModelsUniquePars, fSingleModelsSharedPars);
         for(int iChi2Fcn=0; iChi2Fcn<chi2Functions.size(); iChi2Fcn++) {
-            global_chi2.AddChi2Function(chi2Functions[iChi2Fcn]);
+            global_chi2.SetChi2Function(chi2Functions[iChi2Fcn], iChi2Fcn);
         }
 
         DEBUG("Fitter");
@@ -316,21 +349,23 @@ class CombinedFitter {
         // separate fit results
         for(int iModel=0; iModel<this->fModels.size(); iModel++) {
             fModelFuncts[iModel]->SetFitResult(result, fSingleModelsUniquePars[iModel].data());
-            // fModels[iModel].GetFitFunction()->SetFitResult(result, fSingleModelsUniquePars[iModel].data());
+            fModels[iModel].SetFitFunction(fModelFuncts[iModel]);
         }
 
         return result;
+
         // // TODO: define Chi2
     }
 
     std::vector<TH1D *> CombinedFitDifference() {
 
+        cout << "COMBINED FIT DIFFERENCE" << endl;
+
         // Can go in DM
         DEBUG("Filling models");
         std::vector<ROOT::Math::WrappedMultiTF1> wrappedFitFuncts;
         for(int iModel=0; iModel<this->fModels.size(); iModel++) {
             wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModelFuncts[iModel], 1));
-            // wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModels[iModel].GetFitFunction(), 1));
         }
 
         // Set fit range
@@ -353,7 +388,7 @@ class CombinedFitter {
         }
         GlobalChi2 global_chi2(fSingleModelsUniquePars, fSingleModelsSharedPars);
         for(int iChi2Fcn=0; iChi2Fcn<chi2Functions.size(); iChi2Fcn++) {
-            global_chi2.AddChi2Function(chi2Functions[iChi2Fcn]);
+            global_chi2.SetChi2Function(chi2Functions[iChi2Fcn], iChi2Fcn);
         }
 
         DEBUG("Fitter");
@@ -372,34 +407,35 @@ class CombinedFitter {
         fitter.FitFCN(this->fTotalPars, global_chi2, nullptr, nPar, 1);
         ROOT::Fit::FitResult result = fitter.Result();
 
-        // separate fit results
-        for(int iModel=0; iModel<this->fModels.size(); iModel++) {
-            fModelFuncts[iModel]->SetFitResult(result, fSingleModelsUniquePars[iModel].data());
-            // fModels[iModel].GetFitFunction()->SetFitResult(result, fSingleModelsUniquePars[iModel].data());
-        }
-
+        // separate fit results and get differences
         std::vector<TH1D *> hDifferences;
         for(int iModel=0; iModel<this->fModels.size(); iModel++) {
-            double binWidth = this->fModels[iModel].GetFitHisto()->GetBinWidth(1);
-            int nBinsFitCF = fModels[iModel].GetUppFitRange()/binWidth;
-            TH1D *hSubtraction = new TH1D(Form("hSubtraction_Model%i", iModel), 
-                                          Form("hSubtraction_Model%i", iModel), nBinsFitCF, 0, 
-                                          this->fModels[iModel].GetUppFitRange());
-            for(int iBin=0; iBin<nBinsFitCF; iBin++) {
-                hSubtraction->SetBinContent(iBin+1,  this->fModels[iModel].GetFitHisto()->GetBinContent(iBin+1) - 
-                                                     fModelFuncts[iModel]->Eval(this->fModels[iModel].GetFitHisto()->GetBinCenter(iBin+1)));
-            }
-            hDifferences.push_back(hSubtraction);
+            fModelFuncts[iModel]->SetFitResult(result, fSingleModelsUniquePars[iModel].data());
+            fModels[iModel].SetFitFunction(fModelFuncts[iModel]);
+            hDifferences.push_back(this->fModels[iModel].GetGenuineDifference(static_cast<TH1D *>(
+                                                                              this->fModels[iModel].GetFitHisto())));
         }
 
         return hDifferences;
         // // TODO: define Chi2
     }
 
-    void SetupGlobalFitter(ROOT::Fit::Fitter *fitter) { 
+    void SetupGlobalFitter(ROOT::Fit::Fitter *fitter, int ibootstraptry=0) { 
         DEBUG("Number of parameters to be initialized: " << this->fInitPars.size());
         std::vector<double> dummyInit(this->fTotalPars, 0.0);
 
+        // apply bootstrap on the components of single models
+        if(ibootstraptry!=0) {
+            for(int iModel=0; iModel<this->fModels.size(); iModel++) {
+                DEBUG("Eval before bootstrap: " << this->fModels[iModel].GetFitFunction()->Eval(10));
+                this->fModels[iModel].BootstrapComponents(ibootstraptry, true);
+                DEBUG("Eval after bootstrap: " << this->fModels[iModel].GetFitFunction()->Eval(10));
+            }
+            DEBUG("Set fit parameters after bootstrap");
+            SetFitParameters();
+            DEBUG("Setting done!");
+        }
+        
         // trivial initialization with dummyInit, which is a vector of zeros, 
         // then setup each parameter specifically according to fInitPar
         fitter->Config().SetParamsSettings(this->fTotalPars, dummyInit.data());  // number of total parameters, list of init values
@@ -503,6 +539,9 @@ class CombinedFitter {
 
     void SetFitParameters() {
 
+        DEBUG("Setting parameters ...");
+        fInitPars.clear();
+
         std::tuple<std::string, double, double, double> initSharedPars[fNSharedPars];
         double lowerLim, upperLim;
         for(int iModel=0; iModel<fModels.size(); iModel++) { 
@@ -552,6 +591,7 @@ class CombinedFitter {
     std::vector<std::tuple<std::string, double, double, double> > fInitPars;    // initialization of the combined
                                                                                 // fit parameters, {"par_name", init,
                                                                                 // low_lim, upp_lim}
+    std::vector<std::tuple<double, double, double>> fBootHistoParsFeatures;
 };
 
 #endif  // FEMPY_COMBINEDFITTER_HXX_

@@ -6,7 +6,7 @@ import sys
 
 import yaml
 
-from ROOT import TDatabasePDG, TGraphErrors, TH1, TH1F, TH2, TH2F
+from ROOT import TDatabasePDG, TGraphErrors, TH1, TH1F, TH1D, TH2, TH2F, TH2D
 import math
 from math import sqrt
 import fempy
@@ -178,7 +178,7 @@ def ChangeUnits(hist, multiplier):
         nbins = hist.GetNbinsX()
         lowEdge = hist.GetBinLowEdge(1)
         uppEdge = hist.GetBinLowEdge(nbins+1)
-        hNew = TH1F(f'{hist.GetName()}_new', '', nbins, lowEdge*multiplier, uppEdge*multiplier)
+        hNew = TH1D(f'{hist.GetName()}_new', '', nbins, lowEdge*multiplier, uppEdge*multiplier)
         for i in range(0, nbins+2):
             hNew.SetBinContent(i, hist.GetBinContent(i))
             hNew.SetBinError(i, hist.GetBinError(i))
@@ -192,7 +192,7 @@ def ChangeUnits(hist, multiplier):
         nbinsY = projY.GetNbinsX()
         lowEdgeY = projY.GetBinLowEdge(1)
         uppEdgeY = projY.GetBinLowEdge(nbinsY+1)
-        hNew = TH2F(f'{hist.GetName()}_new', '', nbinsX, lowEdgeX*multiplier, uppEdgeX*multiplier, 
+        hNew = TH2D(f'{hist.GetName()}_new', '', nbinsX, lowEdgeX*multiplier, uppEdgeX*multiplier, 
                                                  nbinsY, lowEdgeY*multiplier, uppEdgeY*multiplier)
         for i in range(0, nbinsX+2):
             for j in range(0, nbinsY+2):

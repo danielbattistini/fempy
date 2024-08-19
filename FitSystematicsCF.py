@@ -76,7 +76,7 @@ nFits = len(cfgfit['fitcfs'])
 fitParsList = [[] for nFit in range(nFits)] 
 freeFitParsNames = [[] for nFit in range(nFits)] 
 fitNames = [None for nFit in range(nFits)]
-hDifferencesEntries = {}
+hGenuinesEntries = {}
 hOfficialCFsEntries = {}
 
 officialCFsFile = TFile(cfgfit['infile'])
@@ -90,17 +90,17 @@ for iFit, fitName in enumerate(cfgfit['fitcfs']):
 
 if cfgfit.get('evaluatediff'):
     # pick official differences
-    hOfficialDifferences = {}
+    hOfficialGenuines = {}
 
     # load file with fit results
     officialFitFile = TFile(f"{cfgfit['ofilename']}_{cfgfit['suffix']}.root")
     for iKey, key in enumerate(officialFitFile.GetListOfKeys()):
         fitNames[iKey] = key.GetTitle()
-        hOfficialDifferences[key.GetTitle()] = Load(officialFitFile, f'{key.GetName()}/hDifference')
-        hDifferencesEntries[f"{key.GetTitle()}"] = {}
-        nBinsDifference = hOfficialDifferences[key.GetTitle()].GetNbinsX()
-        for iBin in range(nBinsDifference):
-            hDifferencesEntries[f"{key.GetTitle()}"][f"bin{iBin+1}"] = []
+        hOfficialGenuines[key.GetTitle()] = Load(officialFitFile, f'{key.GetName()}/hGenuine')
+        hGenuinesEntries[f"{key.GetTitle()}"] = {}
+        nBinsGenuine = hOfficialGenuines[key.GetTitle()].GetNbinsX()
+        for iBin in range(nBinsGenuine):
+            hGenuinesEntries[f"{key.GetTitle()}"][f"bin{iBin+1}"] = []
 
 # fit the CFs with systematic variations
 for iSystVar, systIdx in enumerate(cfg['systvars']):
@@ -129,44 +129,44 @@ for iSystVar, systIdx in enumerate(cfg['systvars']):
         freeFitParsNames[iKey] = iKeyFitParNames
 
         if cfgfit.get('evaluatediff'):
-            hDifference = Load(iSystVarFile, f'{key.GetName()}/hDifference')
-            for iBin in range(nBinsDifference):
-                hDifferencesEntries[f"{key.GetTitle()}"][f"bin{iBin+1}"].append(hDifference.GetBinContent(iBin+1)) 
+            hGenuine = Load(iSystVarFile, f'{key.GetName()}/hGenuine')
+            for iBin in range(nBinsGenuine):
+                hGenuinesEntries[f"{key.GetTitle()}"][f"bin{iBin+1}"].append(hGenuine.GetBinContent(iBin+1)) 
 
 # sanity check: compare mean of differences obtained with 
 # systematic cuts with difference obtained with official cuts
 for iFitName in fitNames:
-    hDifferenceComparisons = TH2D(f"hDifferenceComp_{iFitName}", f"hDifferenceComp_{iFitName}", 
-                                  nBinsDifference, 
-                                  hOfficialDifferences[iFitName].GetBinLowEdge(1), 
-                                  hOfficialDifferences[iFitName].GetBinLowEdge(nBinsDifference) + 
-                                  hOfficialDifferences[iFitName].GetBinWidth(nBinsDifference), 
+    hGenuineComparisons = TH2D(f"hGenuineComp_{iFitName}", f"hGenuineComp_{iFitName}", 
+                                  nBinsGenuine, 
+                                  hOfficialGenuines[iFitName].GetBinLowEdge(1), 
+                                  hOfficialGenuines[iFitName].GetBinLowEdge(nBinsGenuine) + 
+                                  hOfficialGenuines[iFitName].GetBinWidth(nBinsGenuine), 
                                   len(cfg['systvars']), 0, len(cfg['systvars']))
-    hDifferenceComparisons.SetStats(0)
-    hDifferenceComparisons.GetYaxis().SetLabelSize(50)
+    hGenuineComparisons.SetStats(0)
+    hGenuineComparisons.GetYaxis().SetLabelSize(50)
     for iSystVar, systVar in enumerate(cfg['systvars']):
-        hDifferenceComparisons.GetYaxis().SetBinLabel(iSystVar+1, f"{systVar}")
-        for iBin in range(nBinsDifference):
-            hDifferenceComparisons.SetBinContent(iBin+1, iSystVar+1, 
-                                                 hOfficialDifferences[iFitName].GetBinContent(iBin+1) -
-                                                 hDifferencesEntries[f"{iFitName}"][f"bin{iBin+1}"][iSystVar])
+        hGenuineComparisons.GetYaxis().SetBinLabel(iSystVar+1, f"{systVar}")
+        for iBin in range(nBinsGenuine):
+            hGenuineComparisons.SetBinContent(iBin+1, iSystVar+1, 
+                                                 hOfficialGenuines[iFitName].GetBinContent(iBin+1) -
+                                                 hGenuinesEntries[f"{iFitName}"][f"bin{iBin+1}"][iSystVar])
 
     oFile.mkdir(f'{iFitName}')
     oFile.cd(f'{iFitName}')
-    hDifferenceComparisons.Write()
+    hGenuineComparisons.Write()
 
 # systematics of the difference
-hDifferencesSystUnc = []
+hGenuinesSystUnc = []
 for iFitName, fitName in enumerate(fitNames):
-    hDifferenceWithSyst = hOfficialDifferences[fitName].Clone()
-    hSystUnc = hOfficialDifferences[fitName].Clone()
-    for iBin in range(nBinsDifference):
-        hDifferenceWithSyst.SetBinError(iBin+1, np.std(hDifferencesEntries[f"{fitName}"][f"bin{iBin+1}"]))
-        hSystUnc.SetBinContent(iBin+1, hDifferenceWithSyst.GetBinError(iBin+1))
+    hGenuineWithSyst = hOfficialGenuines[fitName].Clone()
+    hSystUnc = hOfficialGenuines[fitName].Clone()
+    for iBin in range(nBinsGenuine):
+        hGenuineWithSyst.SetBinError(iBin+1, np.std(hGenuinesEntries[f"{fitName}"][f"bin{iBin+1}"]))
+        hSystUnc.SetBinContent(iBin+1, hGenuineWithSyst.GetBinError(iBin+1))
 
     oFile.cd(f'{fitName}')
-    hOfficialDifferences[fitName].Write("hDifferenceStat")
-    hDifferenceWithSyst.Write("hDifferenceSyst")
+    hOfficialGenuines[fitName].Write("hGenuineStat")
+    hGenuineWithSyst.Write("hGenuineSyst")
     hSystUnc.Write("hSystUnc")
 
 freeFitParsDicts = []

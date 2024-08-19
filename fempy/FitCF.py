@@ -72,6 +72,7 @@ fitters = []
 drawFits = []
 modelsBaselineIdxs = []
 combPars = [[] for iFit in range(len(cfg['fitcfs']))]
+modelsColors = [[] for iFit in range(len(cfg['fitcfs']))]
 modelsOnBaseline = [[] for iFit in range(len(cfg['fitcfs']))]
 modelsShifts = [[] for iFit in range(len(cfg['fitcfs']))]
 modelsMultNorm = [[] for iFit in range(len(cfg['fitcfs']))]
@@ -82,6 +83,7 @@ modelsNormsSubCompsLabels = [[] for iFit in range(len(cfg['fitcfs']))]
 modelsSubCompsMothers = [[] for iFit in range(len(cfg['fitcfs']))]
 modelsSubComps = [[] for iFit in range(len(cfg['fitcfs']))]
 modelsLegLabels = [[] for iFit in range(len(cfg['fitcfs']))]
+modelsBootstrapComps = [[] for iFit in range(len(cfg['fitcfs']))]
 
 # for loop over the correlation functions
 for iFit, fitcf in enumerate(cfg['fitcfs']):
@@ -109,6 +111,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     
     # for loop over the functions entering in the model
     for iTerm, term in enumerate(fitcf['model']):
+        modelsColors[iFit].append(term.get('color', 1))
         modelsLegLabels[iFit].append(term.get('legentry', ''))
         modelsOnBaseline[iFit].append(term.get('onbaseline', 0))
         modelsShifts[iFit].append(term.get('shift', 0))
@@ -120,6 +123,10 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                 if 'shared' in key:
                     combPars[iFit].append(iKey + nPreviousPars + 1)
         nPreviousPars = nPreviousPars + len(term['params'])
+
+        for name, vals in term['params'].items():
+            if "lambdagen" in name:
+                fitters[-1].SetLambdaGen(vals[0])
 
         if term.get('subcomps'):
             modelsSaveSubComps[iFit].append(iTerm)
@@ -167,8 +174,8 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                 histoFuncHistoPars = []
                 for histoFuncFile, histoFuncHistoParsPath in zip(term['histofuncfile'], term['histofuncpath']):
                     histoFuncFiles.append(TFile(histoFuncFile))
-                    histoFuncHistoPars.append(Load(histoFuncFiles[-1], histoFuncHistoParsPath))
-                    oFile.cd(fitcf['fitname'])
+                    histoFuncHistoPars.append(Load(histoFuncFiles[-1], f'{histoFuncHistoParsPath}/hFitPars'))
+                    oFile.cd(fitcf['fitname'])                
 
             initPars = []
             for iKey, key in enumerate(term['params']):
@@ -178,6 +185,26 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                     initPars.append((key, term['params'][key][0], term['params'][key][1], 
                                      term['params'][key][2]))
 
+            if term.get('bootstraphistos'):
+                modelsBootstrapComps[iFit].append(iTerm)
+                bootstrapHistos = []
+                bootstrapHistosFitPars = []
+                bootstrapFiles = []
+                bootstrapFitRanges = []
+                bootstraFixParsFiles = []
+                bootVaryPars = []
+                for iBootComp, (bootFile, bootFitPath, bootFitRange) in enumerate(term['bootstraphistos']):
+                    bootstrapFiles.append(TFile(bootFile))
+                    bootstrapHistos.append(ChangeUnits(Load(bootstrapFiles[-1], bootFitPath), 1000))
+                    bootstraFixParsFiles.append(TFile(term['histofuncfile'][iBootComp]))
+                    bootstrapHistosFitPars.append(Load(bootstraFixParsFiles[-1], f'{term["histofuncpath"][iBootComp]}/hFreeFixPars'))
+                    bootstrapFitRanges.append(bootFitRange[0])
+                    bootstrapFitRanges.append(bootFitRange[1])
+                    oFile.cd(fitcf['fitname'])
+                    
+                bootstrapHistosParsDistros = term['bootstrapparshistos']
+                fitters[-1].SetBootstrapComp(iTerm, bootstrapHistos, bootstrapHistosFitPars, bootstrapFitRanges, bootstrapHistosParsDistros)
+            
             fitters[-1].Add(term['func'], initPars, term['addmode'], term.get('relweightcomp', 0))
     
     # perform the fit and save the result
@@ -185,6 +212,9 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
         fitters[-1].AddGlobNorm(f'{fitcf["fitname"]}_globnorm', fitcf['globnorm'][0], fitcf['globnorm'][1], fitcf['globnorm'][2])    
         drawFits[-1].SetGlobNorm(True)    
     
+    if(baselineIdx == -1): 
+        modelsBaselineIdxs.append(baselineIdx)
+
     fitters[-1].BuildFitFunction()
 
 if cfg.get('combined'):
@@ -196,12 +226,10 @@ if cfg.get('combined'):
 
     elif (args.systvar != '0') or (cfg.get('evaluatediff') and cfg.get('bootstraptries') is None):
         combFitDifferenceHistos = combFitter.CombinedFitDifference()
-
-        for iDiffHisto in combFitDifferenceHistos:
-            for iModel, model in enumerate(cfg['fitcfs']):
-                if f'Model{iModel}' in iDiffHisto.GetName():
-                    oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
-                    iDiffHisto.Write('hDifference')
+        for iModel, model in enumerate(cfg['fitcfs']):
+            if 'GenuineDiff' in combFitDifferenceHistos[iModel].GetName():
+                oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
+                combFitDifferenceHistos[iModel].Write('hGenuine')
 
     elif isinstance(cfg.get('bootstraptries'), int):
         parBTDistros = combFitter.CombinedFitBootstrap(cfg['bootstraptries'], cfg.get('evaluatediff', 0))
@@ -220,9 +248,9 @@ if cfg.get('combined'):
                         if 'stat' in parBTDistro.GetName():
                             oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/stats")
                             parBTDistro.Write()
-                        if 'Difference' in parBTDistro.GetName():
+                        if 'Gen' in parBTDistro.GetName():
                             oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
-                            parBTDistro.Write("hDifference")
+                            parBTDistro.Write("hGenuine")
                         else:
                             oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/differences")
                             parBTDistro.Write()
@@ -244,23 +272,49 @@ if cfg.get('combined'):
 
 else: 
     for iModel in range(len(fitters)):
-        fitters[iModel].Fit()
+        if cfg.get('evaluatediff') is None and cfg.get('bootstraptries') is None:
+            fitters[iModel].Fit()
 
-        if cfg.get('bootstraptries'):
+        if cfg.get('bootstraptries') and cfg.get('evaluatediff') is None:
             oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
             oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
-            parBTDistros = fitters[-1].Bootstrap(cfg['bootstraptries'])
+            for iComp in modelsBootstrapComps[iModel]:
+                oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/hSampled_{cfg['fitcfs'][iModel]['model'][iComp]['func']}")
+                oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/hSampled_{cfg['fitcfs'][iModel]['model'][iComp]['func']}")
+            
+            bootCanvas = []
+            for iComp in modelsBootstrapComps[iModel]:
+                bootCanvas.append(TCanvas(f"cBoot_{cfg['fitcfs'][iModel]['model'][iComp]['func']}",
+                                          f"cBoot_{cfg['fitcfs'][iModel]['model'][iComp]['func']}"))
+                bootCanvas[-1].cd()
+                fitters[iModel].GetFitHisto().Draw()
+
+            oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
+            parBTDistros = fitters[iModel].Bootstrap(cfg['bootstraptries'])
             for parBTDistro in parBTDistros:
-                parBTDistro.Write()
+                for iComp in modelsBootstrapComps[iModel]:
+                    if(str(iComp) in parBTDistro.GetName()):
+                        bootCanvas[iModel].cd()
+                        parBTDistro.Draw("same")
+                        # oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/hSampled_{cfg['fitcfs'][iModel]['model'][iComp]['func']}")
+                        # parBTDistro.Write()
+                    else:
+                        oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
+                        parBTDistro.Write()
+            
+            for iCanvaComp in bootCanvas:
+                iCanvaComp.Write()
+
             oFile.cd(cfg['fitcfs'][iModel]['fitname'])
 
         if cfg.get('evaluatediff'):
-            differenceHistos = fitters[-1].GetDifference(cfg['bootstrapdifftries'])
+            differenceHistos = fitters[iModel].GetDifference(cfg.get('bootstraptries', 1))
             if len(differenceHistos)>1:
                 oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap_diff")
                 oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap_diff")
                 for iDifferenceHisto in range(1, len(differenceHistos)):
                     differenceHistos[iDifferenceHisto].Write()
+            print(f"FOLDER NAME: {cfg['fitcfs'][iModel]['fitname']}")
             oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
             differenceHistos[0].Write('hSubtraction')
 
@@ -271,6 +325,10 @@ for iModel in range(len(cfg['fitcfs'])):
     fitFunction.Write()
     fitHisto.Write()
 
+    if(modelsBaselineIdxs[iModel] != -1):
+        fitBaseline = fitters[iModel].GetBaseline(1,1)
+        fitBaseline.Write('fBaseline')
+
     fitters[iModel].SaveFreeFixPars().Write()
     fitters[iModel].SaveFitPars().Write()
     fitters[iModel].PullDistribution().Write()
@@ -278,7 +336,6 @@ for iModel in range(len(cfg['fitcfs'])):
     hChi2DOF = TH1D('hChi2DOF', 'hChi2DOF', 1, 0, 1)
     if cfg.get('combined') is None:
         hChi2DOF.Fill(0.5, fitters[iModel].GetChi2Ndf())
-        print('Chi2/NDF: ' + str(fitters[iModel].GetChi2Ndf()))
         hChi2DOFManual = TH1D('hChi2DOFManual', 'hChi2DOFManual', 1, 0, 1)
         hChi2DOFManual.Fill(0.5, fitters[iModel].GetChi2NdfManual())
         hChi2DOF.Write()
@@ -303,7 +360,7 @@ for iModel in range(len(cfg['fitcfs'])):
                                                      modelsMultGlobNorm[iModel], modelsShifts[iModel],
                                                      modelsBaselineIdxs[iModel])
 
-    drawFits[iModel].Draw(cFit, modelsLegLabels[iModel], cfg['fitcfs'][iModel]['legcoords'], cfg['fitcfs'][iModel]['linethick'])
+    drawFits[iModel].Draw(cFit, modelsLegLabels[iModel], modelsColors[iModel], cfg['fitcfs'][iModel]['legcoords'], cfg['fitcfs'][iModel]['linethick'])
     cFit.Write()
 
     if cfg['fitcfs'][iModel].get('isfitcf'):

@@ -9,4 +9,4 @@ chmod +x ~/.local/bin/width2ctau
 cp fempy/utils/dr.py ~/.local/bin/dr
 chmod +x ~/.local/bin/dr
 
-pip3 install .
+pip3 install . -e

@@ -253,7 +253,7 @@ class DrawFitFuncts {
                     }, this->fDrawRangeMin, this->fDrawRangeMax, 0);
         } else {
             basNorm = 1.000000;
-            bas = new TF1(this->fFitFuncComps[basIdx],
+            bas = new TF1("fBas",
                 [&, this]
                     (double *x, double *pars) {
                        return 1.0000;
@@ -319,7 +319,7 @@ class DrawFitFuncts {
     /*
     Define a canvas before calling this function and pass gPad as TVirtualPad
     */
-    void Draw(TVirtualPad *pad, std::vector<TString> legLabels, std::vector<double> legCoords, int linesThickness, 
+    void Draw(TVirtualPad *pad, std::vector<TString> legLabels, std::vector<int> colors, std::vector<double> legCoords, int linesThickness, 
               double lowRangeUser=0.0, double uppRangeUser=1.05, std::string title=";k* (MeV/c);C(k*)") {
 
         DEBUG("Start drawing!");
@@ -355,8 +355,6 @@ class DrawFitFuncts {
         std::cout << std::noshowpos;
 
         std::vector<TF1 *> gaussians;
-        std::vector<Color_t> colors = {kCyan+1, kAzure + 2, kGreen, kOrange, kBlue + 2, 
-                                       kOrange+3, kMagenta, kGreen+1, kBlue, kViolet, kGray};
         DEBUG("--------------------------------");
         DEBUG("Number of components to be drawn: " << fDrawFuncs.size());
         for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
