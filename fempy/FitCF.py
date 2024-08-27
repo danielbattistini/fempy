@@ -36,9 +36,13 @@ if args.debugcombfit:
 if args.debugdraw:
     gInterpreter.ProcessLine(f'#define LOG_LEVEL_DRAW 1')
 
-gInterpreter.ProcessLine(f'#include "{os.environ.get("FEMPY")}fempy/CorrelationFitter.hxx"')
-gInterpreter.ProcessLine(f'#include "{os.environ.get("FEMPY")}fempy/CombinedFitter.hxx"')
-gInterpreter.ProcessLine(f'#include "{os.environ.get("FEMPY")}fempy/DrawFitFuncts.hxx"')
+if fempyPath := os.environ.get("FEMPY"):
+    gInterpreter.ProcessLine(f'#include "{os.path.join(fempyPath, "fempy/CorrelationFitter.hxx")}"')
+    gInterpreter.ProcessLine(f'#include "{os.path.join(fempyPath, "fempy/CombinedFitter.hxx")}"')
+    gInterpreter.ProcessLine(f'#include "{os.path.join(fempyPath, "fempy/DrawFitFuncts.hxx")}"')
+else:
+    log.fatal("Path to fempy is undefined. Specify it at the beginning of your alienv file.")
+
 from ROOT import CorrelationFitter, CombinedFitter, DrawFitFuncts
 
 # Load yaml file
