@@ -20,6 +20,8 @@ from fempy.utils.analysis import ChangeUnits
 
 parser = argparse.ArgumentParser()
 parser.add_argument('cfg', default='')
+parser.add_argument('--fitrange', type=float, default=None, nargs='+', action='append', help='Override the fit range from the config')
+parser.add_argument('--suffix', type=str, default=None, help='Override the suffix from the config')
 parser.add_argument('--systvar', default='0')
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--debugfit', default=False, action='store_true')
@@ -51,6 +53,13 @@ with open(args.cfg, "r") as stream:
         cfg = yaml.safe_load(stream)
     except yaml.YAMLError as exc:
         log.critical('Yaml configuration could not be loaded. Is it properly formatted?')
+
+# Override config settings if parsed directly
+if args.suffix:
+    cfg['suffix'] = args.suffix
+if args.fitrange:
+    for fitcf in cfg['fitcfs']:
+        fitcf['fitrange'] = args.fitrange
 
 # Load input file with data CF
 inFile = TFile(cfg['infilesyst'] if args.systvar != '0' else cfg['infile'])
