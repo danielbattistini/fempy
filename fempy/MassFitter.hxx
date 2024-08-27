@@ -385,31 +385,6 @@ class MassFitter {
                         Form("%s;%s;%s", this->fHist->GetTitle(), this->fHist->GetXaxis()->GetTitle(),
                              this->fHist->GetYaxis()->GetTitle()));
 
-        if(fitDrawOpts.Contains('i')) {
-            TLatex tl;
-            tl.SetTextSize(0.035);
-            tl.SetTextFont(42);
-            double nSigma = 2;
-            double step = 0.05;
-            int iStep = 0;
-
-            tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("#chi^{2}/NDF = %.2f", 
-            fFit->GetChisquare() / fFit->GetNDF()));
-            pad->Update();
-            tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("#chi^{2}/NDF SgnWindow = %.2f", 
-                            GetSgnWindowChi2Ndf()));
-            pad->Update();
-            tl.DrawLatexNDC(.15, .85 - step * iStep++,
-                            Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, 
-                                 this->GetSignal(method), this->GetSignalUnc(method)));
-            tl.DrawLatexNDC(.15, .85 - step * iStep++,
-                Form("B(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetBackground(), 
-                     this->GetBackgroundUnc()));
-            tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("Counts = %.2f", this->GetCounts()));
-            pad->Update();
-
-        }
-
         TLine* canvaLine = new TLine(0, 0, 1, 1);
         double lowMult = 0.;
         double uppMult = 0.;
@@ -422,7 +397,7 @@ class MassFitter {
         if(fitDrawOpts.Contains('s')) {
             canvaLine->SetLineStyle(1);
             canvaLine->SetLineWidth(3);
-            canvaLine->SetLineColor(8);
+            canvaLine->SetLineColor(4);
 
             double lowBinContent = fHist->GetBinContent(fHist->FindBin(fIntLowEdge));
             canvaLine->DrawLine(fIntLowEdge, pad->GetUymin() * padCoord + lowBinContent * lowMult,
@@ -459,37 +434,40 @@ class MassFitter {
             }
         }
 
-        this->fBkg->SetNpx(300);
-        this->fBkg->SetLineColor(kGray + 2);
-        this->fBkg->Draw("same");
+        if(fitDrawOpts.Contains('f')) {
+            this->fBkg->SetNpx(300);
+            this->fBkg->SetLineColor(kGray + 2);
+            this->fBkg->Draw("same");
 
-        this->fSgn->SetNpx(300);
-        this->fSgn->SetLineColor(kBlue + 2);
-        this->fSgn->Draw("same");
+            this->fSgn->SetNpx(300);
+            this->fSgn->SetLineColor(kBlue + 2);
+            this->fSgn->Draw("same");
 
-        if (this->fSgnFuncName == "hat" || this->fSgnFuncName == "doublegaus") {
-            this->fHatThin->SetLineColor(kMagenta + 3);
-            this->fHatThin->SetNpx(300);
-            this->fHatThin->Draw("same");
+            if (this->fSgnFuncName == "hat" || this->fSgnFuncName == "doublegaus") {
+                this->fHatThin->SetLineColor(kViolet);
+                this->fHatThin->SetNpx(300);
+                this->fHatThin->Draw("same");
 
-            this->fHatWide->SetNpx(300);
-            this->fHatWide->SetLineColor(kAzure + 2);
-            this->fHatWide->Draw("same");
-        } 
+                this->fHatWide->SetNpx(300);
+                this->fHatWide->SetLineColor(kGreen + 2);
+                this->fHatWide->Draw("same");
+            } 
 
-        fPrefit->SetLineStyle(9);
-        fPrefit->SetLineColor(kGray + 2);
-        fPrefit->Draw("same");
+            fPrefit->SetLineStyle(9);
+            fPrefit->SetLineColor(kGray + 2);
+            fPrefit->Draw("same");
+        }
 
         fFit->SetLineColor(kRed);
+        fHist->SetLineWidth(3);
         fFit->Draw("same");
 
-        hist->SetMarkerSize(1);
-        hist->SetMarkerStyle(20);
-        hist->SetMarkerColor(kBlack);
-        hist->SetLineColor(kBlack);
-        hist->SetLineWidth(2);
-        hist->Draw("same pe");
+        fHist->SetMarkerSize(1);
+        fHist->SetMarkerStyle(20);
+        fHist->SetMarkerColor(kBlack);
+        fHist->SetLineColor(kBlack);
+        fHist->SetLineWidth(2);
+        fHist->Draw("same pe");
 
         TLatex tl;
         tl.SetTextSize(0.035);
@@ -497,54 +475,98 @@ class MassFitter {
         double nSigma = 2;
         double step = 0.05;
         int iStep = 0;
-        tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("#chi^{2}/NDF = %.2f", fFit->GetChisquare() / fFit->GetNDF()));
-        tl.DrawLatexNDC(.15, .85 - step * iStep++,
-                        Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetSignal(nSigma, method),
-                             this->GetSignalUnc(nSigma, method)));
+        if(fitDrawOpts.Contains('i')) {
+            tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("#chi^{2}/NDF = %.2f", 
+            fFit->GetChisquare() / fFit->GetNDF()));
+            pad->Update();
+            tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("#chi^{2}/NDF SgnWindow = %.2f", 
+                            GetSgnWindowChi2Ndf()));
+            pad->Update();
+            tl.DrawLatexNDC(.15, .85 - step * iStep++,
+                            Form("S(%.2f#sigma) = %.2f #pm %.2f", nSigma, 
+                                 this->GetSignal(method), this->GetSignalUnc(method)));
+            tl.DrawLatexNDC(.15, .85 - step * iStep++,
+                Form("B(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetBackground(), 
+                     this->GetBackgroundUnc()));
+            tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("Counts = %.2f", this->GetCounts()));
+            pad->Update();
 
-        tl.DrawLatexNDC(
-            .15, .85 - step * iStep++,
-            Form("B(%.2f#sigma) = %.2f #pm %.2f", nSigma, this->GetBackground(nSigma), this->GetBackgroundUnc(nSigma)));
-
-        tl.DrawLatexNDC(.15, .85 - step * iStep++, Form("Counts = %.2f", this->GetCounts()));
+        }
 
         // Write on the plot the fit parameters
-        for (int iPar = 0; iPar < fFit->GetNpar(); iPar++) {
-            double par = fFit->GetParameter(iPar);
-            double parMin;
-            double parMax;
-            fFit->GetParLimits(iPar, parMin, parMax);
-            double range = parMax - parMin;
-            
-            // Check if the fit pars are at limit
-            if (par - parMin < 1.e-4 * range || parMax - par < 1.e-4 * range) {
-                tl.SetTextColor(2);
-                tl.DrawLatexNDC(.6, .85 - step * iPar, Form("%s*** = %.2e", fFit->GetParName(iPar), par));
-                tl.SetTextColor(1);
-            } else {
-                tl.DrawLatexNDC(.6, .85 - step * iPar, Form("%s = %.2e", fFit->GetParName(iPar), par));
+        if(fitDrawOpts.Contains('r')) {
+            for (int iPar = 0; iPar < fFit->GetNpar(); iPar++) {
+                double par = fFit->GetParameter(iPar);
+                double parMin;
+                double parMax;
+                fFit->GetParLimits(iPar, parMin, parMax);
+                double range = parMax - parMin;
+
+                // Check if the fit pars are at limit
+                if (par - parMin < 1.e-4 * range || parMax - par < 1.e-4 * range) {
+                    tl.SetTextColor(2);
+                    tl.DrawLatexNDC(.6, .85 - step * iPar, Form("%s*** = %.2e", fFit->GetParName(iPar), par));
+                    tl.SetTextColor(1);
+                } else {
+                    tl.DrawLatexNDC(.6, .85 - step * iPar, Form("%s = %.2e", fFit->GetParName(iPar), par));
+                }
+            }
+            if (fFit->GetChisquare() / fFit->GetNDF() > 150) {
+                TLatex tlDanger;
+                tlDanger.SetTextSize(0.07);
+                tlDanger.SetTextFont(42);
+                tlDanger.SetTextColor(2);
+                tlDanger.DrawLatexNDC(.5, .4, "Danger: #chi^{2}/NDF > 150");
             }
         }
-        if (fFit->GetChisquare() / fFit->GetNDF() > 150) {
-            TLatex tlDanger;
-            tlDanger.SetTextSize(0.07);
-            tlDanger.SetTextFont(42);
-            tlDanger.SetTextColor(2);
-            tlDanger.DrawLatexNDC(.5, .4, "Danger: #chi^{2}/NDF > 150");
-        }
-        
         pad->Update();
     }
 
     double GetMean() {
         if (!fFit) return -1;
         if (this->fSgnFuncName == "gaus" || this->fSgnFuncName == "hat") return fFit->GetParameter(1);
+        if (this->fSgnFuncName == "doublegaus") {
+            double weightThin = fHatThin->Integral(fHatThin->GetParameter(1) - 10*fHatThin->GetParameter(2), 
+                                                   fHatThin->GetParameter(1) + 10*fHatThin->GetParameter(2));
+            double weightWide = fHatWide->Integral(fHatWide->GetParameter(1) - 10*fHatWide->GetParameter(2), 
+                                                   fHatWide->GetParameter(1) + 10*fHatWide->GetParameter(2));
+            return  (weightWide * fHatWide->GetParameter(1) + weightThin * fHatThin->GetParameter(1)) /
+                    (weightWide + weightThin);
+        }
         return -1;
     }
 
     double GetMeanUnc() {
         if (!fFit) return -1;
         if (this->fSgnFuncName == "gaus" || this->fSgnFuncName == "hat") return fFit->GetParError(1);
+        if (this->fSgnFuncName == "doublegaus") {
+
+            double meanWide = fHatWide->GetParameter(1);
+            double meanThin = fHatThin->GetParameter(1);
+
+            double lowIntEdgeThin = meanThin - 10*fHatThin->GetParameter(2);
+            double uppIntEdgeThin = meanThin + 10*fHatThin->GetParameter(2);
+            double weightThin = fHatThin->Integral(lowIntEdgeThin, uppIntEdgeThin);
+            // double weightThinErr = fHatThin->IntegralError(lowIntEdgeThin, uppIntEdgeThin);
+
+            double lowIntEdgeWide = meanWide - 10*fHatWide->GetParameter(2);
+            double uppIntEdgeWide = meanWide + 10*fHatWide->GetParameter(2);
+            double weightWide = fHatWide->Integral(lowIntEdgeWide, uppIntEdgeWide);
+            // double weightWideErr = fHatWide->IntegralError(lowIntEdgeWide, uppIntEdgeWide);
+
+            double sumWeights = weightThin + weightWide;
+            double meanThinErr = fHatThin->GetParError(1) * ( weightThin / (sumWeights));
+            double meanWideErr = fHatWide->GetParError(1) * ( weightWide / (sumWeights));
+            // double weightWideErrDer = weightWideErr * ( (meanWide / (sumWeights) - 
+            //                                              (weightWide * meanWide + weightThin * meanThin) /
+            //                                              ( (sumWeights * sumWeights) ) ) );
+            // double weightThinErrDer = weightThinErr * ( (meanThin / (sumWeights) - 
+            //                                              (weightWide * meanWide + weightThin * meanThin) /
+            //                                              ( (sumWeights * sumWeights) ) ) );
+
+            return TMath::Sqrt( meanThinErr * meanThinErr + // + weightThinErrDer * weightThinErrDer + 
+                                meanWideErr * meanWideErr); // + weightWideErrDer * weightWideErrDer);
+        }
         return -1;
     }
 
