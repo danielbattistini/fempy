@@ -93,7 +93,8 @@ if cfgfit.get('evaluatediff'):
     hOfficialGenuines = {}
 
     # load file with fit results
-    officialFitFile = TFile(f"{cfgfit['ofilename']}_{cfgfit['suffix']}.root")
+    officialFitFile = TFile(f"{cfg['officialfitfile']}")
+    # officialFitFile = TFile(f"{cfgfit['ofilename']}_{cfgfit['suffix']}.root")
     for iKey, key in enumerate(officialFitFile.GetListOfKeys()):
         fitNames[iKey] = key.GetTitle()
         hOfficialGenuines[key.GetTitle()] = Load(officialFitFile, f'{key.GetName()}/hGenuine')
@@ -104,6 +105,8 @@ if cfgfit.get('evaluatediff'):
 
 # fit the CFs with systematic variations
 for iSystVar, systIdx in enumerate(cfg['systvars']):
+    print('Systematic variation')
+    print(systIdx)
     os.system(f"python3 fempy/FitCF.py {cfg['fitcfg']} --systvar {systIdx}")
 
     iSystVarFile = TFile(outFileFits.replace('X', str(systIdx)))
@@ -133,61 +136,62 @@ for iSystVar, systIdx in enumerate(cfg['systvars']):
             for iBin in range(nBinsGenuine):
                 hGenuinesEntries[f"{key.GetTitle()}"][f"bin{iBin+1}"].append(hGenuine.GetBinContent(iBin+1)) 
 
-# sanity check: compare mean of differences obtained with 
-# systematic cuts with difference obtained with official cuts
-for iFitName in fitNames:
-    hGenuineComparisons = TH2D(f"hGenuineComp_{iFitName}", f"hGenuineComp_{iFitName}", 
-                                  nBinsGenuine, 
-                                  hOfficialGenuines[iFitName].GetBinLowEdge(1), 
-                                  hOfficialGenuines[iFitName].GetBinLowEdge(nBinsGenuine) + 
-                                  hOfficialGenuines[iFitName].GetBinWidth(nBinsGenuine), 
-                                  len(cfg['systvars']), 0, len(cfg['systvars']))
-    hGenuineComparisons.SetStats(0)
-    hGenuineComparisons.GetYaxis().SetLabelSize(50)
-    for iSystVar, systVar in enumerate(cfg['systvars']):
-        hGenuineComparisons.GetYaxis().SetBinLabel(iSystVar+1, f"{systVar}")
+if cfgfit.get('evaluatediff'):
+    # sanity check: compare mean of differences obtained with 
+    # systematic cuts with difference obtained with official cuts
+    for iFitName in fitNames:
+        hGenuineComparisons = TH2D(f"hGenuineComp_{iFitName}", f"hGenuineComp_{iFitName}", 
+                                      nBinsGenuine, 
+                                      hOfficialGenuines[iFitName].GetBinLowEdge(1), 
+                                      hOfficialGenuines[iFitName].GetBinLowEdge(nBinsGenuine) + 
+                                      hOfficialGenuines[iFitName].GetBinWidth(nBinsGenuine), 
+                                      len(cfg['systvars']), 0, len(cfg['systvars']))
+        hGenuineComparisons.SetStats(0)
+        hGenuineComparisons.GetYaxis().SetLabelSize(50)
+        for iSystVar, systVar in enumerate(cfg['systvars']):
+            hGenuineComparisons.GetYaxis().SetBinLabel(iSystVar+1, f"{systVar}")
+            for iBin in range(nBinsGenuine):
+                hGenuineComparisons.SetBinContent(iBin+1, iSystVar+1, 
+                                                     hOfficialGenuines[iFitName].GetBinContent(iBin+1) -
+                                                     hGenuinesEntries[f"{iFitName}"][f"bin{iBin+1}"][iSystVar])
+
+        oFile.mkdir(f'{iFitName}')
+        oFile.cd(f'{iFitName}')
+        hGenuineComparisons.Write()
+
+    # systematics of the difference
+    hGenuinesSystUnc = []
+    for iFitName, fitName in enumerate(fitNames):
+        hGenuineWithSyst = hOfficialGenuines[fitName].Clone()
+        hSystUnc = hOfficialGenuines[fitName].Clone()
         for iBin in range(nBinsGenuine):
-            hGenuineComparisons.SetBinContent(iBin+1, iSystVar+1, 
-                                                 hOfficialGenuines[iFitName].GetBinContent(iBin+1) -
-                                                 hGenuinesEntries[f"{iFitName}"][f"bin{iBin+1}"][iSystVar])
+            hGenuineWithSyst.SetBinError(iBin+1, np.std(hGenuinesEntries[f"{fitName}"][f"bin{iBin+1}"]))
+            hSystUnc.SetBinContent(iBin+1, hGenuineWithSyst.GetBinError(iBin+1))
 
-    oFile.mkdir(f'{iFitName}')
-    oFile.cd(f'{iFitName}')
-    hGenuineComparisons.Write()
+        oFile.cd(f'{fitName}')
+        hOfficialGenuines[fitName].Write("hGenuineStat")
+        hGenuineWithSyst.Write("hGenuineSyst")
+        hSystUnc.Write("hSystUnc")
 
-# systematics of the difference
-hGenuinesSystUnc = []
-for iFitName, fitName in enumerate(fitNames):
-    hGenuineWithSyst = hOfficialGenuines[fitName].Clone()
-    hSystUnc = hOfficialGenuines[fitName].Clone()
-    for iBin in range(nBinsGenuine):
-        hGenuineWithSyst.SetBinError(iBin+1, np.std(hGenuinesEntries[f"{fitName}"][f"bin{iBin+1}"]))
-        hSystUnc.SetBinContent(iBin+1, hGenuineWithSyst.GetBinError(iBin+1))
+    freeFitParsDicts = []
+    for iFit in range(nFits):
+        freeParsHisto = {}
+        for iPar in range(len(fitParsList[iFit][0])):
+            parVars = []
+            for fitParsVariation in fitParsList[iFit]:
+                parVars.append(fitParsVariation[iPar])
 
-    oFile.cd(f'{fitName}')
-    hOfficialGenuines[fitName].Write("hGenuineStat")
-    hGenuineWithSyst.Write("hGenuineSyst")
-    hSystUnc.Write("hSystUnc")
+            freeParsHisto[f'{freeFitParsNames[iFit][iPar]}'] = parVars
+        freeFitParsDicts.append(freeParsHisto)
 
-freeFitParsDicts = []
-for iFit in range(nFits):
-    freeParsHisto = {}
-    for iPar in range(len(fitParsList[iFit][0])):
-        parVars = []
-        for fitParsVariation in fitParsList[iFit]:
-            parVars.append(fitParsVariation[iPar])
-
-        freeParsHisto[f'{freeFitParsNames[iFit][iPar]}'] = parVars
-    freeFitParsDicts.append(freeParsHisto)
-
-for iFitName in range(len(fitNames)):
-    oFile.cd(f'{fitNames[iFitName]}')
-    for iFitPar in freeFitParsDicts[iFitName]:
-        histoPar = TH1D(f'h_{iFitPar}', f'h_{iFitPar}', 1000, 0.9 * min(freeFitParsDicts[iFitName][iFitPar]), 
-                                                              1.1 * max(freeFitParsDicts[iFitName][iFitPar]))
-        for iParValue in freeFitParsDicts[iFitName][iFitPar]:
-            histoPar.Fill(iParValue)
-        histoPar.Write()
+    for iFitName in range(len(fitNames)):
+        oFile.cd(f'{fitNames[iFitName]}')
+        for iFitPar in freeFitParsDicts[iFitName]:
+            histoPar = TH1D(f'h_{iFitPar}', f'h_{iFitPar}', 1000, 0.9 * min(freeFitParsDicts[iFitName][iFitPar]), 
+                                                                  1.1 * max(freeFitParsDicts[iFitName][iFitPar]))
+            for iParValue in freeFitParsDicts[iFitName][iFitPar]:
+                histoPar.Fill(iParValue)
+            histoPar.Write()
 
 oFile.Close()
 print(f'\noutput saved in {oFileName}')

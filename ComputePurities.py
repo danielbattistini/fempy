@@ -47,8 +47,6 @@ try:
 except OSError:
     log.critical('The output file %s is not writable', oFileName)
 
-runSuffix = cfg['runsuffix']
-
 # purities of particles with MC method
 if cfg['infilemc'] != '' and cfg['infilemc'] is not None:
     
@@ -161,7 +159,13 @@ if cfg['infiledata'] != '' and cfg['infiledata'] is not None:
     
     inFileData = TFile(cfg['infiledata'])
     IMPartList = cfg['IMpurityparts']
+    try: 
+        checkKStarPt = Load(inFileData, IMPartList[0]['avgptpairs'][0])
+    except NameError: # Ancestors are not available, just move on
+        log.warning("kStarPt histos not found, using secondary file")
+        inFileKStarPt = TFile(cfg['infilekstarpt'])
     
+
     for partNum, IMPart in enumerate(IMPartList):
         
         if(IMPart['nsigma']):
@@ -218,7 +222,7 @@ if cfg['infiledata'] != '' and cfg['infiledata'] is not None:
 
             # create list of fit configuration
             fitters = []
-            cInvMass = TCanvas('cInvMass', '', 1200, 800)
+            cInvMass = TCanvas('cInvMass', '', 1600, 800)
             DivideCanvas(cInvMass, len(ptMins))
 
             for iPt, (ptMin, ptMax) in enumerate(zip(ptMins, ptMaxs)):
@@ -311,7 +315,12 @@ if cfg['infiledata'] != '' and cfg['infiledata'] is not None:
             
             # load histo to compute averaged pT
             for iPair in range(2):            
-                kStarPt = Load(inFileData, IMPart['avgptpairs'][iPair + 2*iPartNum])
+
+                try: 
+                    kStarPt = Load(inFileData, IMPart['avgptpairs'][iPair + 2*iPartNum])
+                except NameError: 
+                    log.warning("kStarPt histos not found, using secondary file")
+                    kStarPt = Load(inFileKStarPt, IMPart['avgptpairs'][iPair + 2*iPartNum])
             
                 # compute yield of pions for each pT bin in k* range [0, 200] MeV/c2
                 hPt = kStarPt.ProjectionY(f'femto{folderName}', 1, kStarPt.GetXaxis().FindBin(0.2*0.9999))
@@ -402,6 +411,9 @@ if cfg['infiledata'] != '' and cfg['infiledata'] is not None:
             hBkgVsPt.Write()
             hRatioSgnBkgVsPt.Write()
             cInvMass.Write()
+
+            if cfg.get('invmasssavepath'):
+                cInvMass.SaveAs(f'{cfg["invmasssavepath"]}_p{folderName}.pdf')
         
 oFile.Close()
 print(f'output saved in {oFileName}')

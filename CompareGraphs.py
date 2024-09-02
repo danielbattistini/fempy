@@ -1,6 +1,7 @@
 import argparse
 import os
 import yaml
+import numpy as np
 from rich import print
 
 from ROOT import TFile, TCanvas, TLegend, TLine, TH1, TGraph, TGraphErrors, TGraphAsymmErrors, TH1D, gStyle, TLatex, TH2, TF1
@@ -33,6 +34,9 @@ for plot in cfg:
         panels['ratio'] = len(panels)+1
     if plot['relunc']['enable']:
         panels['relunc'] = len(panels)+1
+    if plot.get('spread'):
+        if plot['spread']['enable']:
+            panels['spread'] = len(panels)+1
 
     # Load the objects to draw
     inObjs = []
@@ -98,11 +102,9 @@ for plot in cfg:
 
     # Define the canvas
     nPanelsX, nPanelsY = fempy.utils.GetNPanels(len(panels))
-    cPlot = TCanvas("cPlot", "cPlot", 600*nPanelsX, 600*nPanelsY)
+    cPlot = TCanvas("cPlot", "cPlot", plot["opt"].get('pixelsx', 600)*nPanelsX, plot["opt"].get('pixelsy', 600)*nPanelsY)
     cPlot.Divide(nPanelsX, nPanelsY)
     pad = cPlot.cd(1)
-    pad.SetLogx(plot["opt"]["logx"])
-    pad.SetLogy(plot["opt"]["logy"])
     if("padtopmargin" in plot["opt"]):
         pad.SetTopMargin(plot["opt"]["padtopmargin"])
     if("padbottommargin" in plot["opt"]):
@@ -119,6 +121,8 @@ for plot in cfg:
     fx2 = plot['opt']['rangex'][1]
     fy2 = plot['opt']['rangey'][1]
     pad.DrawFrame(fx1, fy1, fx2, fy2, TranslateToLatex(plot['opt']['title']))
+    pad.SetLogx(plot["opt"]["logx"])
+    pad.SetLogy(plot["opt"]["logy"])
 
     legx1 = plot['opt']['leg']['posx'][0]
     legy1 = plot['opt']['leg']['posy'][0]
@@ -156,6 +160,7 @@ for plot in cfg:
         inputline = TLine(x1, y1, x2, y2)
         inputline.SetLineColor(style.GetColor(line['color']))
         inputline.SetLineWidth(line['thickness'])
+        inputline.SetLineStyle(line.get('style', 1))
         inputline.Draw("same")
         inputlines.append(inputline)
         if('legendtag' in line):
@@ -165,7 +170,7 @@ for plot in cfg:
         leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
     else:
         leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']))
-    leg.Draw()
+    # leg.Draw()
 
     for text in plot['opt']['description']:
         if('#' in text['text']):
@@ -197,6 +202,18 @@ for plot in cfg:
         hDen = inObjs[0].Clone()
         hDen.Rebin(plot['ratio']['rebin'])
         hDen.Sumw2()
+
+        if("padtopmargin" in plot['ratio']):
+            pad.SetTopMargin(plot['ratio']["padtopmargin"])
+        if("padbottommargin" in plot['ratio']):
+            pad.SetBottomMargin(plot['ratio']["padbottommargin"])
+        if("padrightmargin" in plot['ratio']):
+            pad.SetRightMargin(plot['ratio']["padrightmargin"])
+        if("padleftmargin" in plot['ratio']):
+            pad.SetLeftMargin(plot['ratio']["padleftmargin"])
+        if("ytitleoffset" in plot['ratio']):
+            print('SETTING TITLE OFFSET')
+            gStyle.SetTitleOffset(plot['ratio']['ytitleoffset'],"Y")
 
         if isinstance(inObj, TH1):
             for inObj in inObjs[1:]:
@@ -268,6 +285,43 @@ for plot in cfg:
                 hRelUnc.DrawCopy('same hist')
             elif isinstance(inObj, TGraph):
                 hRelUnc.Draw('same p')
+
+    if plot.get('spread'):
+        if plot['spread']['enable']:
+            # Calcualate the spread around the first oject
+            if not isinstance(inObj, TH1):
+                log.error('Spread for type %s is not implemented. Skipping this object', type(inObj))
+                continue
+
+            x1 = plot['opt']['rangex'][0]
+            y1 = plot['spread']['rangey'][0]
+            x2 = plot['opt']['rangex'][1]
+            y2 = plot['spread']['rangey'][1]
+
+            pad = cPlot.cd(panels['spread'])
+            pad.SetLogx(plot['spread']['logx'])
+            pad.SetLogy(plot['spread']['logy'])
+            frame = pad.DrawFrame(x1, y1, x2, y2, TranslateToLatex(plot['opt']['title']))
+            title = 'relative spread #sigma/#mu'
+            if plot['spread']['mode'] == 'percentage':
+                title += ' (%)'
+            frame.GetYaxis().SetTitle(title)
+
+            hSpread = inObjs[0].Clone('hSpread')
+            hSpread.Reset()
+
+            for iBin in range(hSpread.GetXaxis().FindBin(x1 * 1.0001), hSpread.GetXaxis().FindBin(x2 * 0.9999)):
+                yValues = np.array([obj.GetBinContent(iBin + 1) for obj in inObjs[1:]])
+                spread = np.std(yValues) / inObjs[0].GetBinContent(iBin + 1)
+                if plot['spread']['mode'] == 'relative':
+                    pass
+                elif plot['spread']['mode'] == 'percentage':
+                    spread *= 100
+                else:
+                    log.critical('Not implemented')
+                hSpread.SetBinContent(iBin + 1, spread)
+
+            hSpread.Draw('same')
 
     cPlot.Modified()
     cPlot.Update()

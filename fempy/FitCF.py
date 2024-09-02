@@ -62,7 +62,7 @@ if args.fitrange:
         fitcf['fitrange'] = args.fitrange
 
 # Load input file with data CF
-inFile = TFile(cfg['infilesyst'] if args.systvar != '0' else cfg['infile'])
+inFile = TFile(cfg['infilesyst'].replace('X', args.systvar) if args.systvar != '0' else cfg['infile'])
 
 # Define the output file
 oFileName = cfg['ofilename']
@@ -102,8 +102,7 @@ modelsBootstrapComps = [[] for iFit in range(len(cfg['fitcfs']))]
 for iFit, fitcf in enumerate(cfg['fitcfs']):
 
     # change unity of measure of histograms from GeV to MeV
-    fitHisto = ChangeUnits(Load(inFile, fitcf['cfpath'] if args.systvar == '0'
-                           else fitcf['cfsystpath'].replace('X', args.systvar)), 1000)
+    fitHisto = ChangeUnits(Load(inFile, fitcf['cfpath']), 1000)
 
     # fit range
     fitters.append(CorrelationFitter(fitHisto, fitcf['fitrange']))
@@ -186,7 +185,8 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                 histoFuncFiles = []
                 histoFuncHistoPars = []
                 for histoFuncFile, histoFuncHistoParsPath in zip(term['histofuncfile'], term['histofuncpath']):
-                    histoFuncFiles.append(TFile(histoFuncFile))
+                    histoFuncFiles.append(TFile(histoFuncFile.replace('X', args.systvar) 
+                                          if args.systvar != '0' else histoFuncFile))
                     histoFuncHistoPars.append(Load(histoFuncFiles[-1], f'{histoFuncHistoParsPath}/hFitPars'))
                     oFile.cd(fitcf['fitname'])                
 
@@ -195,8 +195,12 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
                 if "fromfunct" == term['params'][key][0]:
                     initPars.append((key, histoFuncHistoPars[term['params'][key][1]].GetBinContent(term['params'][key][2]), 0, -1))
                 else:
-                    initPars.append((key, term['params'][key][0], term['params'][key][1], 
-                                     term['params'][key][2]))
+                    if args.systvar == '0' and 'X' in key: 
+                        initPars.append((key, term['params'][key][0], term['params'][key][1], 
+                                         term['params'][key][2]))
+                    else:
+                        variedFitPar = key.replace('X', args.systvar)
+                        initPars.append((variedFitPar, cfg[variedFitPar][0], cfg[variedFitPar][1], cfg[variedFitPar][2]))
 
             if term.get('bootstraphistos'):
                 modelsBootstrapComps[iFit].append(iTerm)

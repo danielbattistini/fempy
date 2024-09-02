@@ -557,7 +557,7 @@ class CorrelationFitter {
                 bootstrappedHistos.push_back(sampledHisto);
                 DEBUG("Sampled!");
 
-                sampledHisto->Fit(fComp, "SMR+0q", "");
+                sampledHisto->Fit(fComp, "SMR+0", "");
                 DEBUG("Fitted!");
                 DEBUG("Modifying fFitPars attributes of comp " << comp.first);
                 for(int iSubCompPar=0; iSubCompPar<fComp->GetNpar(); iSubCompPar++) {

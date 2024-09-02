@@ -16,7 +16,7 @@ from fempy import logger as log
 from fempy.utils.io import Load, GetKeyNames
 
 
-def ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, normRange=None, name='hMERew'):
+def ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, binrange, normRange=None, name='hMERew'):
     '''
     Apply the multiplicity reweighting to the mixed-event distribution.
 
@@ -46,7 +46,7 @@ def ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, normRange=None, name='hMER
     hSEs = []
     hMEs = []
     hCFs = []
-    for iBin in range(hMultVsKStarME.ProjectionY().GetNbinsX() + 2): # Loop over underflow, all bins, and overflow
+    for iBin in range(binrange[0], binrange[-1]): # Loop over underflow, all bins, and overflow
         hSEbinmult = hMultVsKStarSE.ProjectionX(f'hSE_multbin{iBin}', iBin, iBin)
         hMEbinmult = hMultVsKStarME.ProjectionX(f'hME_multbin{iBin}', iBin, iBin)
 
@@ -101,6 +101,8 @@ def SumPairWithAntipair(hDistr):
 parser = argparse.ArgumentParser()
 parser.add_argument('cfg', default='')
 parser.add_argument('--debug', default=False, action='store_true')
+parser.add_argument('--systvar', default='0')
+parser.add_argument('--ANsuffix', default='0')
 args = parser.parse_args()
 
 if args.debug:
@@ -117,8 +119,9 @@ regions = ['sgn']
 combs = ['p02', 'p03', 'p12', 'p13']
 
 # Load input file with same- and mixed-event distributions
-inFile = TFile(cfg['infile'])
-runSuffix = cfg['runsuffix']
+inFile = TFile(cfg['infile'] if args.systvar == '0' else cfg['infile'].replace('X', f"{args.ANsuffix}"))
+
+runSuffix = args.systvar if args.systvar != '0' else cfg['runsuffix']
 
 try: # Check if there are ancestor histograms
     # Only load SE, the ME is the same for all
@@ -134,7 +137,11 @@ except NameError: # Ancestors are not available, just move on
 oFileBaseName = 'RawCF'
 if cfg['suffix'] != '' and cfg['suffix'] is not None:
     oFileBaseName += f'_{cfg["suffix"]}'
+if args.systvar != '0':
+    oFileBaseName = os.path.join(cfg['odir'] + '/systCFs', oFileBaseName) + '_SystVar' + args.systvar 
+print(f"oFileBaseName: {oFileBaseName}")
 oFileName = os.path.join(cfg['odir'], oFileBaseName + '.root')
+print(f"oFileName: {oFileName}")
 
 # Open the output file
 try:
@@ -174,7 +181,6 @@ for ncomb, comb in enumerate(combs):
 
     # Load the same- and mixed-event distributions for each region (signal/sidebands)
     for iRegion, region in enumerate(regions):
-        runSuffix = cfg['runsuffix']
         if f'HMResults{runSuffix}' in GetKeyNames(inFile): # Make correlation functions from FemtoDream
             fdcomb = f'Particle{iPart1}_Particle{iPart2}'
             folder = f'HMResults{runSuffix}/HMResults{runSuffix}/{fdcomb}'
@@ -223,11 +229,15 @@ for ncomb, comb in enumerate(combs):
             hMEmultk[comb][region] = TH2F('hMEMult', '', nbins, xMin, xMax, 200, 0, 200)
 
         hMErew[comb][region], hWeightsRew[comb][region], hDistrs = \
-        ApplyMultReweight(hSEmultk[comb][region], hMEmultk[comb][region], normRange=cfg['norm'])
+        ApplyMultReweight(hSEmultk[comb][region], hMEmultk[comb][region],
+                          cfg.get('binmultrew', [0, hMEmultk[comb][region].ProjectionY().GetNbinsX() + 2]), 
+                          normRange=cfg['norm'])
 
         for ancestor in ancestors:
             hMErew[comb][f'{region}/{ancestor}'], hWeightsRew[comb][f'{region}/{ancestor}'], hDistrs = \
-                ApplyMultReweight(hSEmultk[comb][f'{region}/{ancestor}'], hMEmultk[comb][region], normRange=cfg['norm'])
+                ApplyMultReweight(hSEmultk[comb][f'{region}/{ancestor}'], hMEmultk[comb][region], 
+                                  cfg.get('binmultrew', [0, hMEmultk[comb][region].ProjectionY().GetNbinsX() + 2]), 
+                                  normRange=cfg['norm'])
 
         # Do mT differential analysis if available  TODO: mT differential for ancestors
         if cfg['mt']['enable']:
@@ -238,11 +248,14 @@ for ncomb, comb in enumerate(combs):
                 hSE[comb][f'{region}/mT{iMT}'] = hMultVsKStarSE.ProjectionX(f'hSE_{comb}_{region}_mT{iMT}')
                 hME[comb][f'{region}/mT{iMT}'] = hMultVsKStarME.ProjectionX(f'hME_{comb}_{region}_mT{iMT}')
                 hMErew[comb][f'{region}/mT{iMT}'], _, _ = \
-                    ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, name=f'hMErew_{comb}_{region}_mT{iMT}')
+                    ApplyMultReweight(hMultVsKStarSE, hMultVsKStarME, 
+                                      cfg.get('binmultrew', [0, hMEmultk[comb][region].ProjectionY().GetNbinsX() + 2]), 
+                                      name=f'hMErew_{comb}_{region}_mT{iMT}')
 
+        offset = cfg['binmultrew'][0] if cfg.get('binmultrew') else 0
         for iBin, (se, me, cf) in enumerate(zip(*hDistrs)):
-            oFile.mkdir(f'{comb}/multbins/{iBin}')
-            oFile.cd(f'{comb}/multbins/{iBin}')
+            oFile.mkdir(f'{comb}/multbins/{iBin + offset}')
+            oFile.cd(f'{comb}/multbins/{iBin + offset}')
             se.Write()
             me.Write()
             cf.Write()
