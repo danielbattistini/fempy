@@ -170,7 +170,7 @@ for plot in cfg:
         leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']), 'C')
     else:
         leg.SetHeader(TranslateToLatex(plot['opt']['leg']['header']))
-    # leg.Draw()
+    leg.Draw()
 
     for text in plot['opt']['description']:
         if('#' in text['text']):

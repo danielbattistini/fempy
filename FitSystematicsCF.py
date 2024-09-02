@@ -105,8 +105,6 @@ if cfgfit.get('evaluatediff'):
 
 # fit the CFs with systematic variations
 for iSystVar, systIdx in enumerate(cfg['systvars']):
-    print('Systematic variation')
-    print(systIdx)
     os.system(f"python3 fempy/FitCF.py {cfg['fitcfg']} --systvar {systIdx}")
 
     iSystVarFile = TFile(outFileFits.replace('X', str(systIdx)))
