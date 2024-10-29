@@ -104,7 +104,6 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     # change unity of measure of histograms from GeV to MeV
     fitHisto = ChangeUnits(Load(inFile, fitcf['cfpath'] if args.systvar == '0'
                            else fitcf['cfsystpath'].replace('X', args.systvar)), 1000)
-
     # fit range
     fitters.append(CorrelationFitter(fitHisto, fitcf['fitrange']))
         
@@ -115,6 +114,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
     # directory of the fit
     oFile.mkdir(fitcf['fitname'])
     oFile.cd(fitcf['fitname'])
+    fitHisto.Write('hCF')
 
     baselineIdx = -1
     nPreviousPars = 0
@@ -336,7 +336,6 @@ for iModel in range(len(cfg['fitcfs'])):
 
     fitFunction = fitters[iModel].GetFitFunction()
     fitFunction.Write()
-    fitHisto.Write()
 
     if(modelsBaselineIdxs[iModel] != -1):
         fitBaseline = fitters[iModel].GetBaseline(1,1)
@@ -379,6 +378,10 @@ for iModel in range(len(cfg['fitcfs'])):
     if cfg['fitcfs'][iModel].get('isfitcf'):
         fitters[iModel].GetGenuine().Write("fGenuine")
         fitters[iModel].SaveScatPars().Write()
+
+    for iType in range(2):
+        for iComp, comp in enumerate(drawFits[iModel].GetFitComponents()[iType]):
+            comp.Write()
 
 oFile.Close()
 print(f'output saved in {oFileName}')

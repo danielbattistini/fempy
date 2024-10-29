@@ -401,6 +401,10 @@ class DrawFitFuncts {
         DEBUG("Finish drawing!");
     }
 
+    std::pair<std::vector<TF1*>, std::vector<TSpline3*>> GetFitComponents() const {
+        return std::pair<std::vector<TF1*>, std::vector<TSpline3*>>({this->fDrawFuncs, this->fSplines});
+    };
+
    private:
 
     TH1 *fFitHist = nullptr;
