@@ -135,7 +135,6 @@ class CorrelationFitter {
 
     void Add(TString name, TH1* hist, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, int relweight=0) {
         TH1D *splineHisto = static_cast<TH1D*>(hist);
-        splineHisto->Scale(1/splineHisto->Integral());
         TSpline3* sp3 = new TSpline3(hist);
         this->Add(name, sp3, pars, addmode, relweight);
     }
