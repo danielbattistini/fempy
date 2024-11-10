@@ -22,9 +22,9 @@
 #include "HFitInterface.h"
 
 #if LOG_LEVEL_COMBFIT
-#define DEBUG(msg) std::cout << msg << std::endl
+#define DEBUG_COMBFIT(msg) std::cout << "\033[90m" << __FILE__ << "::" << __LINE__ << "\033[0m" << ": " << msg << std::endl
 #else
-#define DEBUG(msg)
+#define DEBUG_COMBFIT(msg)
 #endif
 
 class GlobalChi2 {
@@ -39,7 +39,7 @@ class GlobalChi2 {
 	GlobalChi2(std::vector<std::vector<int>> pars, std::vector<std::vector<int>> sharedidxs) {
 	    fPars = pars;
         fModelsSharedParsIdxs = sharedidxs;
-        DEBUG("fPars size: " << fPars.size());
+        DEBUG_COMBFIT("fPars size: " << fPars.size());
         for(int iPar=0; iPar<fPars.size(); iPar++) {
             fChi2Functions.push_back(nullptr);
         }
@@ -57,14 +57,14 @@ class GlobalChi2 {
         double totalChi2 = 0.;
         std::vector<double> parModel[fPars.size()];
         for(int iModel=0; iModel<fPars.size(); iModel++) {
-            DEBUG("");
-            DEBUG("MODEL: " << iModel);
-            DEBUG("Number of parameters: " << fPars[iModel].size());
+            DEBUG_COMBFIT("");
+            DEBUG_COMBFIT("MODEL: " << iModel);
+            DEBUG_COMBFIT("Number of parameters: " << fPars[iModel].size());
             for (int i=0; i<fPars[iModel].size(); i++) {
-                DEBUG("iPar" << this->fPars[iModel][i] << ": " << par[this->fPars[iModel][i]]);
+                DEBUG_COMBFIT("iPar" << this->fPars[iModel][i] << ": " << par[this->fPars[iModel][i]]);
 	    	    parModel[iModel].push_back(par[this->fPars[iModel][i]]);
 	        }
-            DEBUG("");
+            DEBUG_COMBFIT("");
             
             // to test the set of parameters, we evaluate the chi2 of each function taking 
             // care to maintain the correspondance between the parameters, i.e. if the 5th
@@ -72,7 +72,7 @@ class GlobalChi2 {
             // we'll have this information in the second vector of fPars 
             totalChi2 += (*fChi2Functions[iModel])(parModel[iModel].data());
         }
-        DEBUG("Total chi2: " << totalChi2);
+        DEBUG_COMBFIT("Total chi2: " << totalChi2);
         return totalChi2;
 
 	}
@@ -125,7 +125,7 @@ class CombinedFitter {
         
         cout << "COMBINED FIT BOOTSTRAP" << endl;
 
-        DEBUG("Performing fit with non-sampled histograms!");
+        DEBUG_COMBFIT("Performing fit with non-sampled histograms!");
         ROOT::Fit::FitResult originalFitResult = CombinedFit(); 
 
         // Initialize histogram for saving fit parameters
@@ -184,14 +184,14 @@ class CombinedFitter {
             GlobalChi2 global_chi2(fSingleModelsUniquePars, fSingleModelsSharedPars);
             
             // Perform fits with sampled histos
-            DEBUG("Filling models");
+            DEBUG_COMBFIT("Filling models");
             std::vector<ROOT::Math::WrappedMultiTF1> wrappedFitFuncts;
             ROOT::Fit::DataOptions opt;
             std::vector<ROOT::Fit::DataRange> fitRanges;
             std::vector<ROOT::Fit::BinData> fitBinData;
 
             // Set fit range
-            DEBUG("Fit range");
+            DEBUG_COMBFIT("Fit range");
             for(int iModel=0; iModel<this->fModels.size(); iModel++) {
                 wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModelFuncts[iModel], 1));
                 fitRanges.push_back(ROOT::Fit::DataRange());
@@ -203,11 +203,11 @@ class CombinedFitter {
         
                 sampledHistos[iModel] = SampledHisto(static_cast<TH1D *>(fModels[iModel].GetFitHisto()), 
                                             fModels[iModel].GetUppFitRange(), iTry);
-                DEBUG("GetNbins histo: " << sampledHistos[iModel]->GetNbinsX());
+                DEBUG_COMBFIT("GetNbins histo: " << sampledHistos[iModel]->GetNbinsX());
                 ROOT::Fit::FillData(fitBinData[iModel], sampledHistos[iModel]);
                 nPar += fitBinData[iModel].Size();
 
-                DEBUG("Global chi2");
+                DEBUG_COMBFIT("Global chi2");
                 chi2Functions.push_back(ROOT::Fit::Chi2Function(fitBinData[iModel], wrappedFitFuncts[iModel]));
             }
 
@@ -215,14 +215,14 @@ class CombinedFitter {
                 global_chi2.SetChi2Function(chi2Functions[iModel], iModel);
             }
                 
-            DEBUG("Fitter");
+            DEBUG_COMBFIT("Fitter");
             ROOT::Fit::Fitter fitter;
             SetupGlobalFitter(&fitter, iTry);
 
-            DEBUG("Setup fit");
-            DEBUG("Fit");
-            DEBUG("nPar: " << nPar);
-            DEBUG("Total pars: " << this->fTotalPars);
+            DEBUG_COMBFIT("Setup fit");
+            DEBUG_COMBFIT("Fit");
+            DEBUG_COMBFIT("nPar: " << nPar);
+            DEBUG_COMBFIT("Total pars: " << this->fTotalPars);
             fitter.FitFCN(this->fTotalPars, global_chi2, nullptr, nPar, 1);
             ROOT::Fit::FitResult result = fitter.Result();
 
@@ -301,14 +301,14 @@ class CombinedFitter {
     ROOT::Fit::FitResult CombinedFit() {
     
         // Can go in DM
-        DEBUG("Filling models");
+        DEBUG_COMBFIT("Filling models");
         std::vector<ROOT::Math::WrappedMultiTF1> wrappedFitFuncts;
         for(int iModel=0; iModel<this->fModels.size(); iModel++) {
             wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModelFuncts[iModel], 1));
         }
 
         // Set fit range
-        DEBUG("Fit range");
+        DEBUG_COMBFIT("Fit range");
         ROOT::Fit::DataOptions opt;
         std::vector<ROOT::Fit::DataRange> fitRanges;
         std::vector<ROOT::Fit::BinData> fitBinData;
@@ -316,11 +316,11 @@ class CombinedFitter {
             fitRanges.push_back(ROOT::Fit::DataRange());
             fitRanges.back().SetRange(fModels[iFitRange].GetLowFitRange(), fModels[iFitRange].GetUppFitRange());
             fitBinData.push_back(ROOT::Fit::BinData(opt, fitRanges.back()));
-            DEBUG("GetNbins histo: " << fModels[iFitRange].GetFitHisto()->GetNbinsX());
+            DEBUG_COMBFIT("GetNbins histo: " << fModels[iFitRange].GetFitHisto()->GetNbinsX());
             ROOT::Fit::FillData(fitBinData.back(), fModels[iFitRange].GetFitHisto());
         }
 
-        DEBUG("Global chi2");
+        DEBUG_COMBFIT("Global chi2");
         std::vector<ROOT::Fit::Chi2Function> chi2Functions;
         for(int iFit=0; iFit<this->fModels.size(); iFit++) {
             chi2Functions.push_back(ROOT::Fit::Chi2Function(fitBinData[iFit], wrappedFitFuncts[iFit]));
@@ -330,7 +330,7 @@ class CombinedFitter {
             global_chi2.SetChi2Function(chi2Functions[iChi2Fcn], iChi2Fcn);
         }
 
-        DEBUG("Fitter");
+        DEBUG_COMBFIT("Fitter");
         ROOT::Fit::Fitter fitter;
         SetupGlobalFitter(&fitter);
         
@@ -339,10 +339,10 @@ class CombinedFitter {
             nPar += fitBinData[iModel].Size();
         }
 
-        DEBUG("Setup fit");
-        DEBUG("Fit");
-        DEBUG("nPar: " << nPar);
-        DEBUG("Total pars: " << this->fTotalPars);
+        DEBUG_COMBFIT("Setup fit");
+        DEBUG_COMBFIT("Fit");
+        DEBUG_COMBFIT("nPar: " << nPar);
+        DEBUG_COMBFIT("Total pars: " << this->fTotalPars);
         fitter.FitFCN(this->fTotalPars, global_chi2, nullptr, nPar, 1);
         ROOT::Fit::FitResult result = fitter.Result();
 
@@ -362,14 +362,14 @@ class CombinedFitter {
         cout << "COMBINED FIT DIFFERENCE" << endl;
 
         // Can go in DM
-        DEBUG("Filling models");
+        DEBUG_COMBFIT("Filling models");
         std::vector<ROOT::Math::WrappedMultiTF1> wrappedFitFuncts;
         for(int iModel=0; iModel<this->fModels.size(); iModel++) {
             wrappedFitFuncts.push_back(ROOT::Math::WrappedMultiTF1(*fModelFuncts[iModel], 1));
         }
 
         // Set fit range
-        DEBUG("Fit range");
+        DEBUG_COMBFIT("Fit range");
         ROOT::Fit::DataOptions opt;
         std::vector<ROOT::Fit::DataRange> fitRanges;
         std::vector<ROOT::Fit::BinData> fitBinData;
@@ -377,11 +377,11 @@ class CombinedFitter {
             fitRanges.push_back(ROOT::Fit::DataRange());
             fitRanges.back().SetRange(fModels[iFitRange].GetLowFitRange(), fModels[iFitRange].GetUppFitRange());
             fitBinData.push_back(ROOT::Fit::BinData(opt, fitRanges.back()));
-            DEBUG("GetNbins histo: " << fModels[iFitRange].GetFitHisto()->GetNbinsX());
+            DEBUG_COMBFIT("GetNbins histo: " << fModels[iFitRange].GetFitHisto()->GetNbinsX());
             ROOT::Fit::FillData(fitBinData.back(), fModels[iFitRange].GetFitHisto());
         }
 
-        DEBUG("Global chi2");
+        DEBUG_COMBFIT("Global chi2");
         std::vector<ROOT::Fit::Chi2Function> chi2Functions;
         for(int iFit=0; iFit<this->fModels.size(); iFit++) {
             chi2Functions.push_back(ROOT::Fit::Chi2Function(fitBinData[iFit], wrappedFitFuncts[iFit]));
@@ -391,7 +391,7 @@ class CombinedFitter {
             global_chi2.SetChi2Function(chi2Functions[iChi2Fcn], iChi2Fcn);
         }
 
-        DEBUG("Fitter");
+        DEBUG_COMBFIT("Fitter");
         ROOT::Fit::Fitter fitter;
         SetupGlobalFitter(&fitter);
         
@@ -400,10 +400,10 @@ class CombinedFitter {
             nPar += fitBinData[iModel].Size();
         }
 
-        DEBUG("Setup fit");
-        DEBUG("Fit");
-        DEBUG("nPar: " << nPar);
-        DEBUG("Total pars: " << this->fTotalPars);
+        DEBUG_COMBFIT("Setup fit");
+        DEBUG_COMBFIT("Fit");
+        DEBUG_COMBFIT("nPar: " << nPar);
+        DEBUG_COMBFIT("Total pars: " << this->fTotalPars);
         fitter.FitFCN(this->fTotalPars, global_chi2, nullptr, nPar, 1);
         ROOT::Fit::FitResult result = fitter.Result();
 
@@ -421,26 +421,26 @@ class CombinedFitter {
     }
 
     void SetupGlobalFitter(ROOT::Fit::Fitter *fitter, int ibootstraptry=0) { 
-        DEBUG("Number of parameters to be initialized: " << this->fInitPars.size());
+        DEBUG_COMBFIT("Number of parameters to be initialized: " << this->fInitPars.size());
         std::vector<double> dummyInit(this->fTotalPars, 0.0);
 
         // apply bootstrap on the components of single models
         if(ibootstraptry!=0) {
             for(int iModel=0; iModel<this->fModels.size(); iModel++) {
-                DEBUG("Eval before bootstrap: " << this->fModels[iModel].GetFitFunction()->Eval(10));
+                DEBUG_COMBFIT("Eval before bootstrap: " << this->fModels[iModel].GetFitFunction()->Eval(10));
                 this->fModels[iModel].BootstrapComponents(ibootstraptry, true);
-                DEBUG("Eval after bootstrap: " << this->fModels[iModel].GetFitFunction()->Eval(10));
+                DEBUG_COMBFIT("Eval after bootstrap: " << this->fModels[iModel].GetFitFunction()->Eval(10));
             }
-            DEBUG("Set fit parameters after bootstrap");
+            DEBUG_COMBFIT("Set fit parameters after bootstrap");
             SetFitParameters();
-            DEBUG("Setting done!");
+            DEBUG_COMBFIT("Setting done!");
         }
         
         // trivial initialization with dummyInit, which is a vector of zeros, 
         // then setup each parameter specifically according to fInitPar
         fitter->Config().SetParamsSettings(this->fTotalPars, dummyInit.data());  // number of total parameters, list of init values
         for(int iInitPar=0; iInitPar<this->fInitPars.size(); iInitPar++) {
-            DEBUG("InitPar" << iInitPar << ": [" << std::get<0>(fInitPars[iInitPar]) << ", " << std::get<1>(fInitPars[iInitPar]) << ", " <<
+            DEBUG_COMBFIT("InitPar" << iInitPar << ": [" << std::get<0>(fInitPars[iInitPar]) << ", " << std::get<1>(fInitPars[iInitPar]) << ", " <<
                   std::get<2>(fInitPars[iInitPar]) << ", " << std::get<3>(fInitPars[iInitPar]) << "]");
             fitter->Config().ParSettings(iInitPar).SetName(std::get<0>(fInitPars[iInitPar]));
             fitter->Config().ParSettings(iInitPar).SetValue(std::get<1>(fInitPars[iInitPar]));
@@ -477,13 +477,13 @@ class CombinedFitter {
         // then at the end we sum once the number of the shared ones
         for(int iModel=0; iModel<fSingleModelsSharedPars.size(); iModel++) {
             this->fModels[iModel].BuildFitFunction();
-            DEBUG("Parameters of the model: " << this->fModels[iModel].GetFitFunction()->GetNpar());
-            DEBUG("Shared parameters: " << fSingleModelsSharedPars[iModel].size());
+            DEBUG_COMBFIT("Parameters of the model: " << this->fModels[iModel].GetFitFunction()->GetNpar());
+            DEBUG_COMBFIT("Shared parameters: " << fSingleModelsSharedPars[iModel].size());
             this->fTotalPars += this->fModels[iModel].GetFitFunction()->GetNpar() - 
                                 fSingleModelsSharedPars[iModel].size();
         }
         this->fTotalPars += fNSharedPars;
-        DEBUG("Total parameters: " << this->fTotalPars);
+        DEBUG_COMBFIT("Total parameters: " << this->fTotalPars);
     }
 
     void SetUniqueParametersVectors() {
@@ -501,51 +501,51 @@ class CombinedFitter {
         // following way: fInitPars: {(unique pars 1st comp), ... ,(unique pars nth comp), (shared pars)}  
 
         int previousModelsUniquePars = 0;
-        DEBUG("Previous models unique parameters: " << previousModelsUniquePars);
+        DEBUG_COMBFIT("Previous models unique parameters: " << previousModelsUniquePars);
         for(int iModel=0; iModel<fSingleModelsSharedPars.size(); iModel++) {
-            DEBUG("Model " << iModel);
+            DEBUG_COMBFIT("Model " << iModel);
             std::vector<int> modelUniquePars;
             int nModelUniquePars = this->fModels[iModel].GetFitFunction()->GetNpar() - 
                                    fSingleModelsSharedPars[iModel].size(); 
             int iSharedPar=0;
             for(int iPar=0; iPar<this->fModels[iModel].GetFitFunction()->GetNpar(); iPar++) {
-                DEBUG("iPar " << iPar);
+                DEBUG_COMBFIT("iPar " << iPar);
                 if(iPar == this->fSingleModelsSharedPars[iModel][iSharedPar]-1) {
-                    DEBUG("Shared, push back n par " << this->fTotalPars + iSharedPar - this->fNSharedPars);
+                    DEBUG_COMBFIT("Shared, push back n par " << this->fTotalPars + iSharedPar - this->fNSharedPars);
                     modelUniquePars.push_back(this->fTotalPars + iSharedPar - this->fNSharedPars);
                     iSharedPar++;
                 } else {
-                    DEBUG("Adding unique parameter: " << iPar + previousModelsUniquePars - iSharedPar << " to model " << iModel);
-                    DEBUG("Unique, push back n par " << iPar + previousModelsUniquePars - iSharedPar);
+                    DEBUG_COMBFIT("Adding unique parameter: " << iPar + previousModelsUniquePars - iSharedPar << " to model " << iModel);
+                    DEBUG_COMBFIT("Unique, push back n par " << iPar + previousModelsUniquePars - iSharedPar);
                     modelUniquePars.push_back(iPar + previousModelsUniquePars - iSharedPar);
                 }
             }
             fSingleModelsUniquePars.push_back(modelUniquePars);
             previousModelsUniquePars += nModelUniquePars;
-            DEBUG("Previous models unique parameters: " << previousModelsUniquePars);
-            DEBUG("");
+            DEBUG_COMBFIT("Previous models unique parameters: " << previousModelsUniquePars);
+            DEBUG_COMBFIT("");
         }
 
         for(int iModel=0; iModel<fSingleModelsSharedPars.size(); iModel++) {
-            DEBUG("Model: " << iModel);
-            DEBUG("[ ");
+            DEBUG_COMBFIT("Model: " << iModel);
+            DEBUG_COMBFIT("[ ");
             for(int iIdx=0; iIdx<fSingleModelsUniquePars[iModel].size(); iIdx++) {
-                DEBUG(fSingleModelsUniquePars[iModel][iIdx] << ", ");
+                DEBUG_COMBFIT(fSingleModelsUniquePars[iModel][iIdx] << ", ");
             }
-            DEBUG("]");
-            DEBUG("");
+            DEBUG_COMBFIT("]");
+            DEBUG_COMBFIT("");
         }
     }
 
     void SetFitParameters() {
 
-        DEBUG("Setting parameters ...");
+        DEBUG_COMBFIT("Setting parameters ...");
         fInitPars.clear();
 
         std::tuple<std::string, double, double, double> initSharedPars[fNSharedPars];
         double lowerLim, upperLim;
         for(int iModel=0; iModel<fModels.size(); iModel++) { 
-            DEBUG("iModel: " << iModel); 
+            DEBUG_COMBFIT("iModel: " << iModel); 
             int iSharedPar = 0;
             for(int iPar=0; iPar<this->fModels[iModel].GetFitFunction()->GetNpar(); iPar++) {
                 this->fModels[iModel].GetFitFunction()->GetParLimits(iPar, lowerLim, upperLim);
@@ -553,13 +553,13 @@ class CombinedFitter {
                     {this->fModels[iModel].GetFitFunction()->GetParName(iPar),
                      this->fModels[iModel].GetFitFunction()->GetParameter(iPar),
                      lowerLim, upperLim};    
-                DEBUG("iPar" << iPar << ": "; 
+                DEBUG_COMBFIT("iPar" << iPar << ": "; 
                       cout << this->fModels[iModel].GetFitFunction()->GetParName(iPar) << ", "; 
                       cout << this->fModels[iModel].GetFitFunction()->GetParameter(iPar) << ", "
                            << lowerLim << ", " << upperLim); 
                 if(std::find(fSingleModelsSharedPars[iModel].begin(), fSingleModelsSharedPars[iModel].end(), iPar+1)
                    != fSingleModelsSharedPars[iModel].end()) {
-                    DEBUG("iPar" << iPar << " is shared!");
+                    DEBUG_COMBFIT("iPar" << iPar << " is shared!");
                     initSharedPars[iSharedPar] = initPar;
                     iSharedPar++;
                 } else {
