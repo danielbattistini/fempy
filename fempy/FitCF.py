@@ -288,7 +288,7 @@ else:
         if cfg.get('evaluatediff') is None and cfg.get('bootstraptries') is None:
             fitters[iModel].Fit()
 
-        if cfg.get('bootstraptries') and cfg.get('evaluatediff') is None:
+        elif cfg.get('bootstraptries') and cfg.get('evaluatediff') is None:
             oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
             oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
             for iComp in modelsBootstrapComps[iModel]:
@@ -320,7 +320,7 @@ else:
 
             oFile.cd(cfg['fitcfs'][iModel]['fitname'])
 
-        if cfg.get('evaluatediff'):
+        elif cfg.get('evaluatediff'):
             differenceHistos = fitters[iModel].GetDifference(cfg.get('bootstraptries', 1))
             if len(differenceHistos)>1:
                 oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap_diff")
@@ -330,6 +330,9 @@ else:
             print(f"FOLDER NAME: {cfg['fitcfs'][iModel]['fitname']}")
             oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
             differenceHistos[0].Write('hSubtraction')
+
+        else:
+            log.critical("Wrong setting of parameters")
 
 for iModel in range(len(cfg['fitcfs'])):
     oFile.cd(cfg['fitcfs'][iModel]['fitname'])
