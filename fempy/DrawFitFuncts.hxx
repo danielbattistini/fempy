@@ -325,7 +325,7 @@ class DrawFitFuncts {
         DEBUG("Start drawing!");
         pad->cd();
         double yMinDraw = lowRangeUser;
-        double yMaxDraw = uppRangeUser + fFitHist->GetMaximum();
+        double yMaxDraw = uppRangeUser;
         
         TLegend *legend = new TLegend(legCoords[0], legCoords[1], legCoords[2], legCoords[3]);
         legend->AddEntry(this->fFitHist, legLabels[0].Data(), "lp");

@@ -369,13 +369,12 @@ for iModel in range(len(cfg['fitcfs'])):
         drawFits[iModel].EvaluateToBeDrawnComponents(modelsOnBaseline[iModel], modelsMultNorm[iModel],
                                                      modelsMultGlobNorm[iModel], modelsShifts[iModel],
                                                      modelsBaselineIdxs[iModel], cfg['fitcfs'][iModel]['drawsumcomps'])
-        legLabels.extend(cfg['fitcfs'][iModel]['sumcompslegends'])
     else:        
         drawFits[iModel].EvaluateToBeDrawnComponents(modelsOnBaseline[iModel], modelsMultNorm[iModel],
                                                      modelsMultGlobNorm[iModel], modelsShifts[iModel],
                                                      modelsBaselineIdxs[iModel])
 
-    drawFits[iModel].Draw(cFit, modelsLegLabels[iModel], modelsColors[iModel], cfg['fitcfs'][iModel]['legcoords'], cfg['fitcfs'][iModel]['linethick'])
+    drawFits[iModel].Draw(cFit, modelsLegLabels[iModel], modelsColors[iModel], cfg['fitcfs'][iModel]['legcoords'], cfg['fitcfs'][iModel]['linethick'], 0.99, 1.12)
     cFit.Write()
 
     if cfg['fitcfs'][iModel].get('isfitcf'):
