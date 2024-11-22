@@ -297,20 +297,21 @@ class DrawFitFuncts {
         for(int iRawComp=0; iRawComp<rawComps.size(); iRawComp++) {
             DEBUG("Global norm of the component: " << globNorms[iRawComp]);
             DEBUG("Component: " << this->fFitFuncNames[iRawComp]);
-            this->fDrawFuncs.push_back(new TF1(this->fFitFuncNames[iRawComp],
-                [&, this, globNorms, iRawComp, norms, shifts, rawComps, onBasNorms, bas]
-                (double *x, double *pars) {
+            this->fFuncToBeDrawn.push_back(new TF1(this->fFitFuncNames[iRawComp],
+                [&, this, globNorms, iRawComp, norms, shifts, rawComps, onBasNorms, bas] (double *x, double *pars) {
+                    double term1 = onBasNorms[iRawComp] * norms[this->fBasIdx] * bas->Eval(x[0]);
+                    double term2 = norms[iRawComp] * rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp];
                     if(iRawComp != this->fBasIdx) {
                         if(fMult) {
-                            return globNorms[iRawComp] * onBasNorms[iRawComp] * norms[this->fBasIdx] * bas->Eval(x[0]) + (norms[iRawComp] * rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp]);  
+                            return globNorms[iRawComp] * term1 + term2;  
                         } else {
-                            return globNorms[iRawComp] * (norms[iRawComp] * rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp] + onBasNorms[iRawComp] * norms[this->fBasIdx] * bas->Eval(x[0]));  
+                            return globNorms[iRawComp] * (term1 + term2);  
                         }
                     } else {
-                        return globNorms[iRawComp] * (norms[iRawComp]*rawComps[iRawComp]->Eval(x[0]) + shifts[iRawComp]);  
+                        return globNorms[iRawComp] * term2;  
                     }
                 }, this->fDrawRangeMin, this->fDrawRangeMax, 0));
-            DEBUG("Evaluate component: " << this->fDrawFuncs.back()->Eval(200));
+            DEBUG("Evaluate component: " << this->fFuncToBeDrawn.back()->Eval(200));
         }
 
         DEBUG("Raw components defined!");
@@ -322,7 +323,6 @@ class DrawFitFuncts {
               double lowRangeUser=0.0, double uppRangeUser=1.05, std::string title=";k* (MeV/c);C(k*)") {
 
         DEBUG("Start drawing!");
-        
 
         gPad->DrawFrame(fDrawRangeMin, lowRangeUser, fDrawRangeMax, uppRangeUser, title.data());
 
@@ -334,56 +334,43 @@ class DrawFitFuncts {
         hFitHist->SetLineWidth(3);
         hFitHist->Draw("same pe");
 
-        DEBUG("--------------------------------");
-        std::cout << std::showpos;
-        cout.precision(4);
-        std::cout << std::scientific;
-        for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
-            DEBUG("Evaluating component " << this->fDrawFuncs[iFuncEval]->GetName() << " at 100 MeV/c: ";
-                  cout << this->fDrawFuncs[iFuncEval]->Eval(100));        
-        } 
-        DEBUG("--------------------------------");
-        std::cout << std::noshowpos;
-
         std::vector<TF1 *> gaussians;
         DEBUG("--------------------------------");
-        DEBUG("Number of components to be drawn: " << fDrawFuncs.size());
-        for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
+        DEBUG("Number of components to be drawn: " << fFuncToBeDrawn.size());
+        for(int iFuncEval=0; iFuncEval<fFuncToBeDrawn.size(); iFuncEval++) {
             DEBUG("fFitFuncEval " << fFitFuncNames[iFuncEval]);
-            this->fDrawFuncs[iFuncEval]->SetNpx(300);
-            this->fDrawFuncs[iFuncEval]->SetLineColor(colors[iFuncEval]);
-            this->fDrawFuncs[iFuncEval]->SetLineWidth(linesThickness);
-            this->fDrawFuncs[iFuncEval]->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
+            this->fFuncToBeDrawn[iFuncEval]->SetNpx(300);
+            this->fFuncToBeDrawn[iFuncEval]->SetLineColor(colors[iFuncEval]);
+            this->fFuncToBeDrawn[iFuncEval]->SetLineWidth(linesThickness);
+            this->fFuncToBeDrawn[iFuncEval]->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
             DEBUG("Drawing the component " << iFuncEval << " with legend label: " << legLabels[iFuncEval+2]);
-            DEBUG("Evaluate component " << iFuncEval << ": " << this->fDrawFuncs[iFuncEval]->Eval(400)); 
-            if(legLabels[iFuncEval+2] == "") continue;
-            if(legLabels[iFuncEval+2].Contains("lambda_flat")) continue;
+            DEBUG("Evaluate component " << iFuncEval << ": " << this->fFuncToBeDrawn[iFuncEval]->Eval(400)); 
         }
         DEBUG("--------------------------------");
 
         this->fFit->SetNpx(300);
         this->fFit->SetLineColor(kRed);
         this->fFit->SetLineWidth(linesThickness);
-        DEBUG("Evaluate global fit function " << this->fFit->Eval(400)); 
         this->fFit->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
 
         // Build legend
         TLegend *legend = new TLegend(legCoords[0], legCoords[1], legCoords[2], legCoords[3]);
-        legend->AddEntry(this->hFitHist, legLabels[0].Data(), "lp");
-        legend->AddEntry(this->fFit, legLabels[1].Data(), "l");
-        for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
-            legend->AddEntry(this->fDrawFuncs[iFuncEval], legLabels[iFuncEval+2].Data(), "l");
-        }
         legend->SetBorderSize(0);
         legend->SetTextSize(0.045);
+        legend->AddEntry(this->hFitHist, legLabels[0].Data(), "lp");
+        legend->AddEntry(this->fFit, legLabels[1].Data(), "l");
+        for(int iFuncEval=0; iFuncEval<fFuncToBeDrawn.size(); iFuncEval++) {
+            legend->AddEntry(this->fFuncToBeDrawn[iFuncEval], legLabels[iFuncEval+2].Data(), "l");
+        }
         legend->Draw("same");
+
         gPad->Update();
 
         DEBUG("Finish drawing!");
     }
 
     std::pair<std::vector<TF1*>, std::vector<TSpline3*>> GetFitComponents() const {
-        return std::pair<std::vector<TF1*>, std::vector<TSpline3*>>({this->fDrawFuncs, this->fSplines});
+        return std::pair<std::vector<TF1*>, std::vector<TSpline3*>>({this->fFuncToBeDrawn, this->fSplines});
     };
 
    private:
@@ -398,7 +385,7 @@ class DrawFitFuncts {
     double fDrawRangeMax;
 
     std::vector<TString> fFitFuncNames;     // Function names of fit components
-    std::vector<TF1*> fDrawFuncs;           // Fit components evaluated after the fitting
+    std::vector<TF1*> fFuncToBeDrawn;           // Final functions with all scalings/corrections applied. Are the ones drawn
     std::vector<TF1*> fRawFuncs;            // Fit components evaluated after the fitting
     std::vector<TSpline3*> fSplines;        // Fit components evaluated after the fitting
 

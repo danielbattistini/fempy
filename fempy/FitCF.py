@@ -387,4 +387,3 @@ for iModel in range(len(cfg['fitcfs'])):
 
 oFile.Close()
 print(f'output saved in {oFileName}')
-print('lallala')
