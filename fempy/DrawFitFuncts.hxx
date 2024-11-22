@@ -322,24 +322,17 @@ class DrawFitFuncts {
               double lowRangeUser=0.0, double uppRangeUser=1.05, std::string title=";k* (MeV/c);C(k*)") {
 
         DEBUG("Start drawing!");
-        double yMinDraw = lowRangeUser;
-        double yMaxDraw = uppRangeUser;
         
-        TLegend *legend = new TLegend(legCoords[0], legCoords[1], legCoords[2], legCoords[3]);
-        legend->AddEntry(this->hFitHist, legLabels[0].Data(), "lp");
-        legend->AddEntry(this->fFit, legLabels[1].Data(), "l");
 
-        gPad->DrawFrame(fDrawRangeMin, yMinDraw, fDrawRangeMax, yMaxDraw, title.data());
-        
-        hFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
+        gPad->DrawFrame(fDrawRangeMin, lowRangeUser, fDrawRangeMax, uppRangeUser, title.data());
+
+        hFitHist->GetYaxis()->SetRangeUser(lowRangeUser, uppRangeUser); 
         hFitHist->SetMarkerSize(0.1);
         hFitHist->SetMarkerStyle(24);
-        // hFitHist->SetMarkerStyle(20);
         hFitHist->SetMarkerColor(kBlack);
         hFitHist->SetLineColor(kBlack);
         hFitHist->SetLineWidth(3);
         hFitHist->Draw("same pe");
-        gPad->Update();
 
         DEBUG("--------------------------------");
         std::cout << std::showpos;
@@ -365,12 +358,7 @@ class DrawFitFuncts {
             DEBUG("Evaluate component " << iFuncEval << ": " << this->fDrawFuncs[iFuncEval]->Eval(400)); 
             if(legLabels[iFuncEval+2] == "") continue;
             if(legLabels[iFuncEval+2].Contains("lambda_flat")) continue;
-            legend->AddEntry(this->fDrawFuncs[iFuncEval], legLabels[iFuncEval+2].Data(), "l");
         }
-        // cout << "Evaluate gaussian: " << this->fDrawFuncs[4]->Eval(140) << endl;
-        // TCanvas *canvaGaus = new TCanvas("cGaus", "cGaus", 600, 600);
-        // this->fDrawFuncs[5]->Draw();
-        // canvaGaus->SaveAs("CanvaGausDraw.pdf");
         DEBUG("--------------------------------");
 
         this->fFit->SetNpx(300);
@@ -378,19 +366,14 @@ class DrawFitFuncts {
         this->fFit->SetLineWidth(linesThickness);
         DEBUG("Evaluate global fit function " << this->fFit->Eval(400)); 
         this->fFit->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
-        gPad->Update();
 
-        // hFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
-        // hFitHist->SetMarkerSize(0.1);
-        // hFitHist->SetMarkerStyle(20);
-        // // hFitHist->SetMarkerColor(kBlack);
-        // // hFitHist->SetLineColor(kBlack);
-        // hFitHist->SetMarkerColor(kGray+1);
-        // hFitHist->SetLineColor(kGray+1);
-        // hFitHist->SetLineWidth(3);
-        // hFitHist->Draw("same pe");
-        // gPad->Update();
-
+        // Build legend
+        TLegend *legend = new TLegend(legCoords[0], legCoords[1], legCoords[2], legCoords[3]);
+        legend->AddEntry(this->hFitHist, legLabels[0].Data(), "lp");
+        legend->AddEntry(this->fFit, legLabels[1].Data(), "l");
+        for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
+            legend->AddEntry(this->fDrawFuncs[iFuncEval], legLabels[iFuncEval+2].Data(), "l");
+        }
         legend->SetBorderSize(0);
         legend->SetTextSize(0.045);
         legend->Draw("same");
