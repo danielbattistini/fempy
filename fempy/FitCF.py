@@ -374,7 +374,7 @@ for iModel in range(len(cfg['fitcfs'])):
                                                      modelsMultGlobNorm[iModel], modelsShifts[iModel],
                                                      modelsBaselineIdxs[iModel])
 
-    drawFits[iModel].Draw(cFit, modelsLegLabels[iModel], modelsColors[iModel], cfg['fitcfs'][iModel]['legcoords'], cfg['fitcfs'][iModel]['linethick'], 0.99, 1.12)
+    drawFits[iModel].Draw(modelsLegLabels[iModel], modelsColors[iModel], cfg['fitcfs'][iModel]['legcoords'], cfg['fitcfs'][iModel]['linethick'], 0.99, 1.12)
     cFit.Write()
 
     if cfg['fitcfs'][iModel].get('isfitcf'):
@@ -387,3 +387,4 @@ for iModel in range(len(cfg['fitcfs'])):
 
 oFile.Close()
 print(f'output saved in {oFileName}')
+print('lallala')

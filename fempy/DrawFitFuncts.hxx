@@ -141,7 +141,7 @@ class DrawFitFuncts {
 
         // save the normalization constant for which each component has to be multiplied when drawing
         std::vector<double> norms;
-        DEBUG("--------------------------------");
+        DEBUG("Compute normalization -----------------------------------\\");
         std::cout << std::showpos;
         cout.precision(4);
         std::cout << std::scientific;
@@ -158,7 +158,7 @@ class DrawFitFuncts {
                 norms.push_back(1.);
             }
         } 
-        DEBUG("--------------------------------");
+        DEBUG("Compute normalization END --------------------------------/");
         std::cout << std::noshowpos;
 
         // save the normalization constant for which each component has to be multiplied when drawing
@@ -243,25 +243,21 @@ class DrawFitFuncts {
         }
 
         // Define the baseline with its norm, if not indicated it is set to 1
-        double basNorm;
+        double baselineNorm;
         TF1 *bas = nullptr;
         DEBUG("--------------------------------");
         if(basIdx != -1) {
             int previousCompsPars = accumulate(nParsComps.begin(), std::next(nParsComps.begin(), basIdx), 0) + basIdx;
-            DEBUG("Set baseline norm for function to: " << this->hParameters->GetBinContent(previousCompsPars + this->fGlobNorm + 1));
-            basNorm = this->hParameters->GetBinContent(previousCompsPars + this->fGlobNorm + 1);
+            baselineNorm = this->hParameters->GetBinContent(previousCompsPars + this->fGlobNorm + 1);
+            DEBUG("Set baseline norm for function to: " << baselineNorm);
             bas = new TF1(this->fFitFuncNames[basIdx],
                 [&, this, rawComps, multNorm, multGlobNorm, basIdx]
                     (double *x, double *pars) {
                        return rawComps[basIdx]->Eval(x[0]);
                     }, this->fDrawRangeMin, this->fDrawRangeMax, 0);
         } else {
-            basNorm = 1.000000;
-            bas = new TF1("fBas",
-                [&, this]
-                    (double *x, double *pars) {
-                       return 1.0000;
-                    }, this->fDrawRangeMin, this->fDrawRangeMax, 0);
+            baselineNorm = 1.000000;
+            bas = new TF1("fBas", "1", this->fDrawRangeMin, this->fDrawRangeMax, 0);
         }
         DEBUG("--------------------------------");
 
@@ -271,8 +267,8 @@ class DrawFitFuncts {
         DEBUG("--------------------------------");
         for(int iFunc=0; iFunc<rawComps.size(); iFunc++) {
             if(onBaseline[iFunc]) {
-                DEBUG("Set norm of the baseline for function " << iFunc << " to: " << basNorm);
-                onBasNorms.push_back(basNorm);
+                DEBUG("Set norm of the baseline for function " << iFunc << " to: " << baselineNorm);
+                onBasNorms.push_back(baselineNorm);
             } else {
                 DEBUG("Set norm of the baseline for function " << iFunc << " to: " << static_cast<double>(int(0)));
                 onBasNorms.push_back(0.00000);
@@ -321,13 +317,11 @@ class DrawFitFuncts {
     }
 
     /*
-    Define a canvas before calling this function and pass gPad as TVirtualPad
     */
-    void Draw(TVirtualPad *pad, std::vector<TString> legLabels, std::vector<int> colors, std::vector<double> legCoords, int linesThickness, 
+    void Draw(std::vector<TString> legLabels, std::vector<int> colors, std::vector<double> legCoords, int linesThickness, 
               double lowRangeUser=0.0, double uppRangeUser=1.05, std::string title=";k* (MeV/c);C(k*)") {
 
         DEBUG("Start drawing!");
-        pad->cd();
         double yMinDraw = lowRangeUser;
         double yMaxDraw = uppRangeUser;
         
@@ -345,7 +339,7 @@ class DrawFitFuncts {
         hFitHist->SetLineColor(kBlack);
         hFitHist->SetLineWidth(3);
         hFitHist->Draw("same pe");
-        pad->Update();
+        gPad->Update();
 
         DEBUG("--------------------------------");
         std::cout << std::showpos;
@@ -384,7 +378,7 @@ class DrawFitFuncts {
         this->fFit->SetLineWidth(linesThickness);
         DEBUG("Evaluate global fit function " << this->fFit->Eval(400)); 
         this->fFit->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
-        pad->Update();
+        gPad->Update();
 
         // hFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
         // hFitHist->SetMarkerSize(0.1);
@@ -395,12 +389,12 @@ class DrawFitFuncts {
         // hFitHist->SetLineColor(kGray+1);
         // hFitHist->SetLineWidth(3);
         // hFitHist->Draw("same pe");
-        // pad->Update();
+        // gPad->Update();
 
         legend->SetBorderSize(0);
         legend->SetTextSize(0.045);
         legend->Draw("same");
-        pad->Update();
+        gPad->Update();
 
         DEBUG("Finish drawing!");
     }
