@@ -12,7 +12,7 @@ import argparse
 import yaml
 import ctypes
 
-from ROOT import TFile, TCanvas, gInterpreter, TH1, TH1D, TSpline3
+from ROOT import TFile, TCanvas, gInterpreter, TH1, TH1D
 
 from fempy import logger as log
 from fempy.utils.io import Load
@@ -149,7 +149,7 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
             modelsSubComps[iFit].append(term['subcomps'])
             for iSubComp in range(len(term['subcomps'])):
                 print('Reading subcomps!')
-                modelsOnBaseline.append(term['sub_onbaseline'][iSubComp])                
+                modelsOnBaseline.append(term['sub_onbaseline'][iSubComp])
                 modelsLegLabels.append(term['sub_legentry'][iSubComp])
                 modelsShifts.append(term.get('sub_shifts', [0.]*len(term['subcomps']))[iSubComp])
                 modelsMultNorm.append(term.get('sub_multnorm', [1]*len(term['subcomps']))[iSubComp])

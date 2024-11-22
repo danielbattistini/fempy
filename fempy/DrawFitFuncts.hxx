@@ -16,7 +16,7 @@
 #include "THashList.h"
 
 #if LOG_LEVEL_DRAW
-#define DEBUG(msg) std::cout << msg << std::endl
+#define DEBUG(msg) std::cout << __FUNCTION__ << "  " << msg << std::endl
 #else
 #define DEBUG(msg)
 #endif
@@ -26,7 +26,7 @@ class DrawFitFuncts {
     DrawFitFuncts(TH1 *fithist, double drawRangeMin, double drawRangeMax, 
                   bool globNorm=0, int basIdx=-1) {
     
-        this->fFitHist = fithist;
+        this->hFitHist = fithist;
         this->fBasIdx = basIdx; 
         this->fMult = false; 
         this->fDrawRangeMin = drawRangeMin;
@@ -35,16 +35,16 @@ class DrawFitFuncts {
     }
 
     void SetParHist(TH1 *parHist) {
-        this->fParHist = parHist;
+        this->hParameters = parHist;
     }
 
     void SetTotalFitFunc(TF1 *totalFitFunc) {
         this->fFit = totalFitFunc;
     }
 
-    void SetBasIdx(int basIdx, bool multoradd) {
+    void SetBasIdx(int basIdx, bool doMultiply) {
         this->fBasIdx = basIdx;
-        this->fMult = multoradd;
+        this->fMult = doMultiply;
     }
 
     void SetGlobNorm(bool setGlobNorm) {
@@ -53,7 +53,7 @@ class DrawFitFuncts {
 
     void AddFitCompName(TString fitFuncComp) {
         cout << "Adding " << fitFuncComp << endl;
-        this->fFitFuncComps.push_back(fitFuncComp);
+        this->fFitFuncNames.push_back(fitFuncComp);
     }
 
     void AddSplineHisto(TH1 *splinehisto) {
@@ -79,59 +79,63 @@ class DrawFitFuncts {
         if(basIdx == -1){
             std::cerr << "Warning: Baseline is not fixed!" << std::endl;
         }
-        if(onBaseline.size() != this->fFitFuncComps.size()){
+        if(onBaseline.size() != this->fFitFuncNames.size()){
             std::cerr << "Warning: onbaseline status not defined for all components!" << std::endl;
         }
-        if(multNorm.size() != this->fFitFuncComps.size()){
+        if(multNorm.size() != this->fFitFuncNames.size()){
             std::cerr << "Warning: multnorm status not defined for all components!" << std::endl;
         }
-        if(multGlobNorm.size() != this->fFitFuncComps.size()){
+        if(multGlobNorm.size() != this->fFitFuncNames.size()){
             std::cerr << "Warning: multglobnorm status not defined for all components!" << std::endl;
         }
 
-        DEBUG("Total number of parameters with subcomponents: " << this->fParHist->GetNbinsX());
-        DEBUG("Number of components to be drawn: " << this->fFitFuncComps.size());
-        for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
-            DEBUG("Component " << this->fFitFuncComps[iFunc]); 
+        DEBUG("Total number of parameters with subcomponents: " << this->hParameters->GetNbinsX());
+        DEBUG("Number of components to be drawn: " << this->fFitFuncNames.size());
+        for(int iFunc=0; iFunc<this->fFitFuncNames.size(); iFunc++) {
+            DEBUG("Component " << this->fFitFuncNames[iFunc]); 
         }
         // Evaluate the single fit components alone
         int startPar=0;
         int iSpline=0;
         std::vector<TF1 *> rawComps;
         std::vector<int> nParsComps;
-        for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
-            if(this->fFitFuncComps[iFunc].Contains("spline")) {
+        for(int iFunc=0; iFunc<this->fFitFuncNames.size(); iFunc++) {
+            DEBUG("Processing " << this->fFitFuncNames[iFunc]);
+
+            if(this->fFitFuncNames[iFunc].Contains("spline")) { // Build shifted spline
+                startPar += 1;
+                int iPar = startPar + iFunc + 1;
+
+                auto parName = this->hParameters->GetXaxis()->GetLabels()->At(iPar)->GetName();
+                double splineShift = this->hParameters->GetBinContent(iPar + 1);
+                DEBUG("Loaded shift parameter from histogram. Bin = " << iPar + 1 << "  " << parName << "=" << splineShift);
+
+                // Build shifted spline
+                TF1 *shiftedSpline = new TF1(this->fFitFuncNames[iFunc],
+                    [&, this, iSpline] (double *x, double *pars) {
+                        return this->fSplines[iSpline]->Eval(x[0] - pars[0]);
+                    }, this->fDrawRangeMin, this->fDrawRangeMax, 1);
+
                 nParsComps.push_back(1);
-                DEBUG("Evaluating spline at 100 MeV/c: " << this->fSplines[iSpline]->Eval(100));
-                rawComps.push_back(new TF1(this->fFitFuncComps[iFunc], 
-                            [&, this, iSpline]
-                            (double *x, double *pars) {
-                            return this->fSplines[iSpline]->Eval(x[0] - pars[0]);}, 
-                            this->fDrawRangeMin, this->fDrawRangeMax, 1));
-                DEBUG("Evaluating shifted spline at 100 MeV/c: " << rawComps.back()->Eval(100));
-                startPar += 1; 
-                DEBUG("Set spline shift to " << 
-                      this->fParHist->GetBinContent(startPar+iFunc+2); 
-                      cout << ", content of bin no. " << startPar+iFunc+2;
-                      cout << ", label " << this->fParHist->GetXaxis()->GetLabels()->At(startPar+iFunc+1)->GetName());
-                rawComps.back()->FixParameter(0, this->fParHist->GetBinContent(startPar+iFunc+2));
+                rawComps.push_back(shiftedSpline);
+                rawComps.back()->FixParameter(0, splineShift);
                 iSpline++;
             } else {
-                nParsComps.push_back(std::get<1>(functions[this->fFitFuncComps[iFunc]]));
-                rawComps.push_back(new TF1(this->fFitFuncComps[iFunc], std::get<0>(functions[this->fFitFuncComps[iFunc]]), 
-                                           fDrawRangeMin, fDrawRangeMax, std::get<1>(functions[this->fFitFuncComps[iFunc]])));
+                nParsComps.push_back(std::get<1>(functions[this->fFitFuncNames[iFunc]]));
+                rawComps.push_back(new TF1(this->fFitFuncNames[iFunc], std::get<0>(functions[this->fFitFuncNames[iFunc]]), 
+                                           fDrawRangeMin, fDrawRangeMax, std::get<1>(functions[this->fFitFuncNames[iFunc]])));
                 DEBUG("--------------------------------");
-                DEBUG("Set pars of comp " << iFunc << ", named " << this->fFitFuncComps[iFunc] << ", having " << rawComps.back()->GetNpar() << " parameters" << endl; 
+                DEBUG("Set pars of comp " << iFunc << ", named " << this->fFitFuncNames[iFunc] << ", having " << rawComps.back()->GetNpar() << " parameters" << endl; 
                       cout << "StartPar: " << startPar);
                 for(int iPar=0; iPar<rawComps.back()->GetNpar(); iPar++) {
-                    DEBUG("Set par n. " << iPar << " to " << this->fParHist->GetXaxis()->GetLabels()->At(startPar+iFunc+iPar+1+this->fGlobNorm)->GetName(); 
-                          cout << ", bin no. " << startPar+iFunc+iPar+1 << " bin content: " << this->fParHist->GetBinContent(startPar+iFunc+iPar+2+this->fGlobNorm));
-                    rawComps.back()->FixParameter(iPar, this->fParHist->GetBinContent(startPar+iFunc+iPar+2+this->fGlobNorm));
+                    DEBUG("Set par n. " << iPar << " to " << this->hParameters->GetXaxis()->GetLabels()->At(startPar+iFunc+iPar+1+this->fGlobNorm)->GetName(); 
+                          cout << ", bin no. " << startPar+iFunc+iPar+1 << " bin content: " << this->hParameters->GetBinContent(startPar+iFunc+iPar+2+this->fGlobNorm));
+                    rawComps.back()->FixParameter(iPar, this->hParameters->GetBinContent(startPar+iFunc+iPar+2+this->fGlobNorm));
                 }
-                startPar += std::get<1>(functions[this->fFitFuncComps[iFunc]]);
+                startPar += std::get<1>(functions[this->fFitFuncNames[iFunc]]);
                 DEBUG("--------------------------------");
             }
-            DEBUG("Evaluating " << this->fFitFuncComps[iFunc] << " at 2 MeV/c: " << rawComps.back()->Eval(2));
+            DEBUG("Evaluating " << this->fFitFuncNames[iFunc] << " at 2 MeV/c: " << rawComps.back()->Eval(2));
         }
         DEBUG("Number of raw components pre-sum: " << rawComps.size()); 
 
@@ -141,14 +145,14 @@ class DrawFitFuncts {
         std::cout << std::showpos;
         cout.precision(4);
         std::cout << std::scientific;
-        for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
+        for(int iFunc=0; iFunc<this->fFitFuncNames.size(); iFunc++) {
             if(multNorm[iFunc]) {
                 int normIdx = accumulate(nParsComps.begin(), std::next(nParsComps.begin(), iFunc), 0) + iFunc + this->fGlobNorm;
                 DEBUG("Set component " + std::to_string(iFunc) + " norm to: ";
-                cout << this->fParHist->GetXaxis()->GetLabels()->At(normIdx)->GetName() << ", val: ";
-                cout << this->fParHist->GetBinContent(normIdx+1) << ", norm idx: ";
+                cout << this->hParameters->GetXaxis()->GetLabels()->At(normIdx)->GetName() << ", val: ";
+                cout << this->hParameters->GetBinContent(normIdx+1) << ", norm idx: ";
                 cout << std::to_string(normIdx));
-                norms.push_back(this->fParHist->GetBinContent(normIdx+1));
+                norms.push_back(this->hParameters->GetBinContent(normIdx+1));
             } else {
                 DEBUG("Set component norm to 1");
                 norms.push_back(1.);
@@ -163,7 +167,7 @@ class DrawFitFuncts {
         std::cout << std::showpos;
         cout.precision(4);
         std::cout << std::scientific;
-        for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
+        for(int iFunc=0; iFunc<this->fFitFuncNames.size(); iFunc++) {
             DEBUG("Set component " + std::to_string(iFunc) + " shift to: " << funcshifts[iFunc]);
             shifts.push_back(funcshifts[iFunc]);
         } 
@@ -178,7 +182,7 @@ class DrawFitFuncts {
                 DEBUG("Function name " << "SumComp_" + addComps[iAddComp]);
 
                 // push back the components multiplied by their norm
-                this->fFitFuncComps.push_back("SumComp_" + addComps[iAddComp]);
+                this->fFitFuncNames.push_back("SumComp_" + addComps[iAddComp]);
                 TF1 *sumComps = new TF1("SumComp_" + addComps[iAddComp], 
                         [&, this, rawComps, norms, addComps, iAddComp, onBaseline]
                         (double *x, double *pars) {
@@ -227,7 +231,7 @@ class DrawFitFuncts {
      
                 norms.push_back(1);
                 // kill the components to be summed by setting the normalization constants to zero 
-                for(int iFunc=0; iFunc<this->fFitFuncComps.size(); iFunc++) {
+                for(int iFunc=0; iFunc<this->fFitFuncNames.size(); iFunc++) {
                     if(addComps[iAddComp].Contains(std::to_string(iFunc))) {
                         onBaseline[iFunc] = false;
                         multNorm[iFunc] = 0.0000;
@@ -244,9 +248,9 @@ class DrawFitFuncts {
         DEBUG("--------------------------------");
         if(basIdx != -1) {
             int previousCompsPars = accumulate(nParsComps.begin(), std::next(nParsComps.begin(), basIdx), 0) + basIdx;
-            DEBUG("Set baseline norm for function to: " << this->fParHist->GetBinContent(previousCompsPars + this->fGlobNorm + 1));
-            basNorm = this->fParHist->GetBinContent(previousCompsPars + this->fGlobNorm + 1);
-            bas = new TF1(this->fFitFuncComps[basIdx],
+            DEBUG("Set baseline norm for function to: " << this->hParameters->GetBinContent(previousCompsPars + this->fGlobNorm + 1));
+            basNorm = this->hParameters->GetBinContent(previousCompsPars + this->fGlobNorm + 1);
+            bas = new TF1(this->fFitFuncNames[basIdx],
                 [&, this, rawComps, multNorm, multGlobNorm, basIdx]
                     (double *x, double *pars) {
                        return rawComps[basIdx]->Eval(x[0]);
@@ -283,8 +287,8 @@ class DrawFitFuncts {
         DEBUG("Number of global norms " << multGlobNorm.size());
         for(int iFunc=0; iFunc<rawComps.size(); iFunc++) {
             if(multGlobNorm[iFunc]) {
-                DEBUG("Set global norm for function " << iFunc << " to: " << this->fParHist->GetBinContent(1));
-                globNorms.push_back(this->fParHist->GetBinContent(1));
+                DEBUG("Set global norm for function " << iFunc << " to: " << this->hParameters->GetBinContent(1));
+                globNorms.push_back(this->hParameters->GetBinContent(1));
             } else {
                 DEBUG("Set global norm for function " << iFunc << " to 1");
                 globNorms.push_back(1.);
@@ -296,8 +300,8 @@ class DrawFitFuncts {
         DEBUG("Number of raw components: " << rawComps.size()); 
         for(int iRawComp=0; iRawComp<rawComps.size(); iRawComp++) {
             DEBUG("Global norm of the component: " << globNorms[iRawComp]);
-            DEBUG("Component: " << this->fFitFuncComps[iRawComp]);
-            this->fDrawFuncs.push_back(new TF1(this->fFitFuncComps[iRawComp],
+            DEBUG("Component: " << this->fFitFuncNames[iRawComp]);
+            this->fDrawFuncs.push_back(new TF1(this->fFitFuncNames[iRawComp],
                 [&, this, globNorms, iRawComp, norms, shifts, rawComps, onBasNorms, bas]
                 (double *x, double *pars) {
                     if(iRawComp != this->fBasIdx) {
@@ -328,19 +332,19 @@ class DrawFitFuncts {
         double yMaxDraw = uppRangeUser;
         
         TLegend *legend = new TLegend(legCoords[0], legCoords[1], legCoords[2], legCoords[3]);
-        legend->AddEntry(this->fFitHist, legLabels[0].Data(), "lp");
+        legend->AddEntry(this->hFitHist, legLabels[0].Data(), "lp");
         legend->AddEntry(this->fFit, legLabels[1].Data(), "l");
 
         gPad->DrawFrame(fDrawRangeMin, yMinDraw, fDrawRangeMax, yMaxDraw, title.data());
         
-        fFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
-        fFitHist->SetMarkerSize(0.1);
-        fFitHist->SetMarkerStyle(24);
-        // fFitHist->SetMarkerStyle(20);
-        fFitHist->SetMarkerColor(kBlack);
-        fFitHist->SetLineColor(kBlack);
-        fFitHist->SetLineWidth(3);
-        fFitHist->Draw("same pe");
+        hFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
+        hFitHist->SetMarkerSize(0.1);
+        hFitHist->SetMarkerStyle(24);
+        // hFitHist->SetMarkerStyle(20);
+        hFitHist->SetMarkerColor(kBlack);
+        hFitHist->SetLineColor(kBlack);
+        hFitHist->SetLineWidth(3);
+        hFitHist->Draw("same pe");
         pad->Update();
 
         DEBUG("--------------------------------");
@@ -358,7 +362,7 @@ class DrawFitFuncts {
         DEBUG("--------------------------------");
         DEBUG("Number of components to be drawn: " << fDrawFuncs.size());
         for(int iFuncEval=0; iFuncEval<fDrawFuncs.size(); iFuncEval++) {
-            DEBUG("fFitFuncEval " << fFitFuncComps[iFuncEval]);
+            DEBUG("fFitFuncEval " << fFitFuncNames[iFuncEval]);
             this->fDrawFuncs[iFuncEval]->SetNpx(300);
             this->fDrawFuncs[iFuncEval]->SetLineColor(colors[iFuncEval]);
             this->fDrawFuncs[iFuncEval]->SetLineWidth(linesThickness);
@@ -382,15 +386,15 @@ class DrawFitFuncts {
         this->fFit->DrawF1(fDrawRangeMin+1,fDrawRangeMax,"same");
         pad->Update();
 
-        // fFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
-        // fFitHist->SetMarkerSize(0.1);
-        // fFitHist->SetMarkerStyle(20);
-        // // fFitHist->SetMarkerColor(kBlack);
-        // // fFitHist->SetLineColor(kBlack);
-        // fFitHist->SetMarkerColor(kGray+1);
-        // fFitHist->SetLineColor(kGray+1);
-        // fFitHist->SetLineWidth(3);
-        // fFitHist->Draw("same pe");
+        // hFitHist->GetYaxis()->SetRangeUser(yMinDraw, yMaxDraw); 
+        // hFitHist->SetMarkerSize(0.1);
+        // hFitHist->SetMarkerStyle(20);
+        // // hFitHist->SetMarkerColor(kBlack);
+        // // hFitHist->SetLineColor(kBlack);
+        // hFitHist->SetMarkerColor(kGray+1);
+        // hFitHist->SetLineColor(kGray+1);
+        // hFitHist->SetLineWidth(3);
+        // hFitHist->Draw("same pe");
         // pad->Update();
 
         legend->SetBorderSize(0);
@@ -407,8 +411,8 @@ class DrawFitFuncts {
 
    private:
 
-    TH1 *fFitHist = nullptr;
-    TH1 *fParHist = nullptr;
+    TH1 *hFitHist = nullptr; // Histogram to be fitted
+    TH1 *hParameters = nullptr; // Histogram containing all the fit parameters
     TF1 *fFit = nullptr;
     bool fGlobNorm; 
     int fBasIdx; 
@@ -416,7 +420,7 @@ class DrawFitFuncts {
     double fDrawRangeMin;
     double fDrawRangeMax;
 
-    std::vector<TString> fFitFuncComps;     // Function names of fit components
+    std::vector<TString> fFitFuncNames;     // Function names of fit components
     std::vector<TF1*> fDrawFuncs;           // Fit components evaluated after the fitting
     std::vector<TF1*> fRawFuncs;            // Fit components evaluated after the fitting
     std::vector<TSpline3*> fSplines;        // Fit components evaluated after the fitting
