@@ -12,7 +12,7 @@ import argparse
 import yaml
 import ctypes
 
-from ROOT import TFile, TCanvas, gInterpreter, TH1, TH1D
+from ROOT import TFile, TCanvas, gInterpreter, TH1, TH1D, TGraph
 
 from fempy import logger as log
 from fempy.utils.io import Load
@@ -163,19 +163,20 @@ for iFit, fitcf in enumerate(cfg['fitcfs']):
         if term.get('template'):
             drawFits[-1].AddFitCompName(term['template'])
             templFile = TFile(term['templfile'])
-            splinedTempl = Load(templFile, term['templpath'])
-            if isinstance(splinedTempl, TH1):
-                splinedTempl = ChangeUnits(splinedTempl, 1000)
+            hTemplate = Load(templFile, term['templpath'])
+            log.debug(f'template name: {term["template"]}, value@200MeV: {hTemplate.GetBinContent(hTemplate.FindBin(0.2*1.0001))}')
+            if isinstance(hTemplate, TH1):
+                hTemplate = ChangeUnits(hTemplate, 1000)
                 if term.get('rebin'):
-                    splinedTempl.Rebin(term['rebin'])
-            initPars = [(name, *vals) for name, vals in term['params'].items()]  
-            fitters[-1].Add(term['template'], splinedTempl, initPars, term['addmode'], term.get('relweightcomp', 0))
+                    hTemplate.Rebin(term['rebin'])
+            initPars = [(name, *vals) for name, vals in term['params'].items()]
+            fitters[-1].Add(term['template'], hTemplate, initPars, term['addmode'], term.get('relweightcomp', 0))
             cSplinedTempl = TCanvas(f'c{term["template"]}', '', 600, 600)
-            fitters[-1].DrawSpline(cSplinedTempl, splinedTempl)
-            drawFits[-1].AddSplineHisto(splinedTempl)
+            fitters[-1].DrawSpline(cSplinedTempl, hTemplate)
+            drawFits[-1].AddSplineHisto(hTemplate)
             oFile.cd(fitcf['fitname'])
             cSplinedTempl.Write()
-        
+
         elif term.get('func'):
             drawFits[-1].AddFitCompName(term['func'])
             if term.get('subcomps'):
@@ -309,8 +310,6 @@ else:
                     if(str(iComp) in parBTDistro.GetName()):
                         bootCanvas[iModel].cd()
                         parBTDistro.Draw("same")
-                        # oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/hSampled_{cfg['fitcfs'][iModel]['model'][iComp]['func']}")
-                        # parBTDistro.Write()
                     else:
                         oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
                         parBTDistro.Write()

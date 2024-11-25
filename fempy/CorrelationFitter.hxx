@@ -14,12 +14,13 @@
 #include "TFitResultPtr.h"
 #include "FitFunctions.cxx"
 
-#if LOG_LEVEL_FIT
-#define DEBUG(msg) std::cout << msg << std::endl
+#if LOG_LEVEL_DRAW
+#ifndef DEBUG
+#define DEBUG(msg) std::cout << __FUNCTION__ << "  " << msg << std::endl
 #else
 #define DEBUG(msg)
 #endif
-
+#endif
 class CorrelationFitter {
    public:
     CorrelationFitter(TH1 *fithist, std::vector<std::tuple<int, int> > fitranges) {
@@ -114,7 +115,7 @@ class CorrelationFitter {
             // -1 needed because pars includes the norm of the term
             if(pars.size()-1 != std::get<1>(functions[name])) {
                 printf("Error: wrong number of parameters for function '%s'!\n", name.Data());
-                exit(1);                
+                exit(1);
             } else {
                 this->fNPars.push_back(pars.size());
             }
@@ -134,12 +135,14 @@ class CorrelationFitter {
     }
 
     void Add(TString name, TH1* hist, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, int relweight=0) {
+        DEBUG("Adding histogram " << name << " via splines");
         TH1D *splineHisto = static_cast<TH1D*>(hist);
         TSpline3* sp3 = new TSpline3(hist);
         this->Add(name, sp3, pars, addmode, relweight);
     }
 
     void Add(TString name, TGraph* graph, std::vector<std::tuple<std::string, double, double, double>> pars, std::string addmode, int relweight=0) {
+        DEBUG("Adding graph " << name << " via splines");
         TSpline3* sp3 = new TSpline3(graph->GetTitle(), graph);
         this->Add(name, sp3, pars, addmode, relweight);
     }
@@ -160,14 +163,11 @@ class CorrelationFitter {
 
     void AddGlobNorm(std::string globnorm, double initval, double lowedge, double uppedge) {
         this->fGlobNorm = true;
-        // this->fFitFunc.push_back(std::get<0>(functions[globnorm]));
         this->fFitFunc.push_back(std::get<0>(functions["globnorm"]));
         this->fFitFuncComps.push_back(globnorm);
-        // -1 needed because pars includes the norm of the term
-        
         this->fNPars.push_back(1);
         this->fAddModes.push_back("*");
-        
+
         // Save fit settings
         std::tuple<std::string, double, double, double> init = {globnorm, initval, lowedge, uppedge}; 
         this->fFitPars.insert({this->fFitPars.size(), init});
