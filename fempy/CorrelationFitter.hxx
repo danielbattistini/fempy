@@ -21,6 +21,7 @@
 #define DEBUG(msg)
 #endif
 #endif
+
 class CorrelationFitter {
    public:
     CorrelationFitter(TH1 *fithist, std::vector<std::tuple<int, int>> fitranges) {
@@ -249,8 +250,6 @@ class CorrelationFitter {
         TF1 *fCommon = new TF1("fCommon", std::get<0>(functions["pol3gaus"]), fFitRangeMin, fFitRangeMax,
                                std::get<1>(functions["pol3gaus"]));
         for (int iCommPar = 0; iCommPar < std::get<1>(functions["pol3gaus"]); iCommPar++) {
-            // std::cout << "Setting parameter no. " << iCommPar << " of Common template to "
-            //   << this->fFit->GetParameter(iCommPar + startBaselinePar + 1) << endl;
             fCommon->FixParameter(iCommPar, this->fFit->GetParameter(iCommPar + startBaselinePar + 1));
         }
         fAncestorTemplates.push_back(fCommon);
@@ -258,8 +257,6 @@ class CorrelationFitter {
         TF1 *fNonCommon = new TF1("fNonCommon", std::get<0>(functions["pol3"]), fFitRangeMin, fFitRangeMax,
                                   std::get<1>(functions["pol3"]));
         for (int iNonCommPar = 0; iNonCommPar < std::get<1>(functions["pol3"]); iNonCommPar++) {
-            // std::cout << "Setting parameter no. " << iNonCommPar << " of NonCommon template to "
-            //   << this->fFit->GetParameter(iNonCommPar + startBaselinePar + fCommon->GetNpar() + 1) << endl;
             fNonCommon->FixParameter(iNonCommPar,
                                      this->fFit->GetParameter(iNonCommPar + startBaselinePar + fCommon->GetNpar() + 1));
         }
@@ -410,8 +407,6 @@ class CorrelationFitter {
             DEBUG("Size of fNpars: " << fNPars.size());
             DEBUG("Compstosplit: " << compstosplit[iSplitComp]);
             DEBUG("fGlobNorm: " << this->fGlobNorm);
-            // int startCompPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), 1), 0) + this->fGlobNorm +
-            // compstosplit[iSplitComp];
             int startCompPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), compstosplit[iSplitComp]), 0) +
                                this->fGlobNorm + compstosplit[iSplitComp];
             DEBUG("Initializing subcomponents");
@@ -505,8 +500,6 @@ class CorrelationFitter {
             new TGraphErrors(1, &reScatLength, &imScatLength, &reScatLengthError, &imScatLengthError);  // 1);
         gScatPars->SetTitle("Scattering parameters;Re_a0;Im_a0");
         gScatPars->SetName("gScatPars");
-        // gScatPars->SetPoint(1, reScatLength, imScatLength);
-        // gScatPars->SetPointError(1, reScatLengthError, imScatLengthError);
         return gScatPars;
     }
 
@@ -631,8 +624,6 @@ class CorrelationFitter {
                 int nSplineComp = 0;
                 int nFuncComp = 0;
                 for (int iTerm = 0; iTerm < nTerms; iTerm++) {
-                    // int normNPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), this->fRelWeights[iTerm]+1),
-                    // 0);
                     int normNPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), this->fRelWeights[iTerm]), 0);
                     if (fFitFuncComps[iTerm].Contains("splinehisto")) {
                         if (fAddModes[iTerm] == "*") {
@@ -745,10 +736,6 @@ class CorrelationFitter {
         DEBUG("First bin content: " << fFitHist->GetBinContent(1));
         TFitResultPtr fitResults = fFitHist->Fit(this->fFit, "SMR+0", "");
 
-#ifdef DEBUG
-        Debug();
-#endif
-
         return fitResults;
     }
 
@@ -834,7 +821,6 @@ class CorrelationFitter {
                 }
                 BuildFitFunction(true);
                 TFitResultPtr fitResults = sampledCF->Fit(this->fFit, "SMR+", "");
-                // TFitResultPtr fitResultsBis = fFitHist->Fit(this->fFit, "SMR+0", "");
                 for (int iPar = 0; iPar < this->fFit->GetNpar(); iPar++) {
                     hFitParsBT[iPar]->Fill(fitResults->Parameter(iPar));
                 }
@@ -1041,10 +1027,6 @@ class CorrelationFitter {
     }
 
     TF1 *GetFitFunction() {
-        // std::cout << "Address stored in datamember GetFitFunction: " << this->fFit << std::endl;
-        // if(!this->fFit) {
-        //     throw std::invalid_argument("Fit not performed, component cannot be evaluated!");
-        // }
         this->fFit->SetNpx(1500);
         return this->fFit;
     }
@@ -1073,41 +1055,6 @@ class CorrelationFitter {
     double GetUppFitRange() { return this->fFitRangeMax; }
 
    private:
-    void Debug() {
-        DEBUG("");
-        DEBUG("");
-        DEBUG("");
-        int normParNumber = 0;
-        for (int iNorm = 0; iNorm < fNPars.size() - 1; iNorm++) {
-            fNorms.push_back(this->fFit->GetParameter(normParNumber));
-            normParNumber += fNPars[iNorm + 1];
-        }
-        DEBUG("########## Debugging fit components ##########");
-        DEBUG("Total spline terms: " << this->fFitSplines.size());
-        DEBUG("Total func terms: " << this->fFitFunc.size());
-        DEBUG("--------------------------");
-        int nTerms = this->fFitFunc.size() + this->fFitSplines.size();
-        DEBUG("Size of norms vector: " << this->fNorms.size());
-        std::cout << std::showpos;
-        cout.precision(4);
-        std::cout << std::scientific;
-        for (int iTerm = 0; iTerm < nTerms; iTerm++) {
-            DEBUG("Term name: " << this->fFitFuncComps[iTerm]);
-            DEBUG("Add Mode: " << this->fAddModes[iTerm]);
-            DEBUG("No. pars of term: " << std::to_string(this->fNPars[iTerm + 1]));
-            int startPar = accumulate(fNPars.begin(), std::next(fNPars.begin(), iTerm + 1), 0);
-            for (int iPar = 0; iPar < this->fNPars[iTerm + 1]; iPar++) {
-                DEBUG(std::setw(30) << this->fFit->GetParName(startPar + iPar) << ": " << std::setw(5)
-                                    << this->fFit->GetParameter(startPar + iPar));
-            }
-            DEBUG("--------------------------");
-        }
-        std::cout << std::noshowpos;
-        DEBUG("");
-        DEBUG("");
-        DEBUG("");
-    }
-
     TH1 *fFitHist = nullptr;
     TF1 *fFit = nullptr;
 

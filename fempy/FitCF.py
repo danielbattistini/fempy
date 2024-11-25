@@ -20,49 +20,29 @@ from fempy.utils.analysis import ChangeUnits
 
 parser = argparse.ArgumentParser()
 parser.add_argument("cfg", default="")
-parser.add_argument(
-    "--fitrange",
-    type=float,
-    default=None,
-    nargs="+",
-    action="append",
-    help="Override the fit range from the config",
-)
-parser.add_argument(
-    "--suffix", type=str, default=None, help="Override the suffix from the config"
-)
-parser.add_argument("--systvar", default="0")
 parser.add_argument("--debug", default=False, action="store_true")
-parser.add_argument("--debugfit", default=False, action="store_true")
-parser.add_argument("--debugcombfit", default=False, action="store_true")
-parser.add_argument("--debugdraw", default=False, action="store_true")
 args = parser.parse_args()
 
 if args.debug:
     log.setLevel(1)
-if args.debugfit:
     gInterpreter.ProcessLine(f"#define LOG_LEVEL_FIT 1")
-if args.debugcombfit:
     gInterpreter.ProcessLine(f"#define LOG_LEVEL_COMBFIT 1")
-if args.debugdraw:
     gInterpreter.ProcessLine(f"#define LOG_LEVEL_DRAW 1")
 
-if fempyPath := os.environ.get("FEMPY"):
-    gInterpreter.ProcessLine(
-        f'#include "{os.path.join(fempyPath, "fempy/CorrelationFitter.hxx")}"'
-    )
-    gInterpreter.ProcessLine(
-        f'#include "{os.path.join(fempyPath, "fempy/CombinedFitter.hxx")}"'
-    )
-    gInterpreter.ProcessLine(
-        f'#include "{os.path.join(fempyPath, "fempy/DrawFitFuncts.hxx")}"'
-    )
-else:
+fempyPath = os.environ.get("FEMPY")
+if not fempyPath:
     log.fatal(
         "Path to fempy is undefined. Specify it at the beginning of your alienv file."
     )
 
-from ROOT import CorrelationFitter, CombinedFitter, DrawFitFuncts
+gInterpreter.ProcessLine(
+    f'#include "{os.path.join(fempyPath, "fempy/CorrelationFitter.hxx")}"'
+)
+gInterpreter.ProcessLine(
+    f'#include "{os.path.join(fempyPath, "fempy/DrawFitFuncts.hxx")}"'
+)
+
+from ROOT import CorrelationFitter, DrawFitFuncts
 
 # Load yaml file
 with open(args.cfg, "r") as stream:
@@ -73,25 +53,13 @@ with open(args.cfg, "r") as stream:
             "Yaml configuration could not be loaded. Is it properly formatted?"
         )
 
-# Override config settings if parsed directly
-if args.suffix:
-    cfg["suffix"] = args.suffix
-if args.fitrange:
-    for fitcf in cfg["fitcfs"]:
-        fitcf["fitrange"] = args.fitrange
-
 # Load input file with data CF
-inFile = TFile(cfg["infilesyst"] if args.systvar != "0" else cfg["infile"])
+inFile = TFile(cfg["infile"])
 
 # Define the output file
 oFileName = cfg["ofilename"]
 if cfg["suffix"]:
     oFileName += f'_{cfg["suffix"]}'
-if args.systvar != "0":
-    dir, filename = os.path.split(cfg["ofilename"])
-    if not os.path.isdir(dir + "/systfits"):
-        os.makedirs(dir + "/systfits")
-    oFileName = os.path.join(dir + "/systfits", filename) + "_SystVar" + args.systvar
 oFileName += ".root"
 
 # Open the output file
@@ -103,46 +71,36 @@ except OSError:
 fitters = []
 drawFits = []
 modelsBaselineIdxs = []
-combPars = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsColors = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsOnBaseline = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsShifts = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsMultNorm = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsMultGlobNorm = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsSaveSubComps = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsNormsSubComps = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsNormsSubCompsLabels = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsSubCompsMothers = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsSubComps = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsLegLabels = [[] for iFit in range(len(cfg["fitcfs"]))]
-modelsBootstrapComps = [[] for iFit in range(len(cfg["fitcfs"]))]
+combPars = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsColors = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsOnBaseline = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsShifts = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsMultNorm = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsMultGlobNorm = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsSaveSubComps = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsNormsSubComps = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsNormsSubCompsLabels = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsSubCompsMothers = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsSubComps = [[] for _ in range(len(cfg["fitcfs"]))]
+modelsLegLabels = [[] for _ in range(len(cfg["fitcfs"]))]
 
 # for loop over the correlation functions
 for iFit, fitcf in enumerate(cfg["fitcfs"]):
+    hCF = ChangeUnits(Load(inFile, fitcf["cfpath"]), 1000)  # GeV --> MeV
 
-    # change unity of measure of histograms from GeV to MeV
-    fitHisto = ChangeUnits(
-        Load(
-            inFile,
-            (
-                fitcf["cfpath"]
-                if args.systvar == "0"
-                else fitcf["cfsystpath"].replace("X", args.systvar)
-            ),
-        ),
-        1000,
+    log.debug(
+        f'New CorrelationFitter based on {hCF.GetName()} in range {fitcf["fitrange"]}'
     )
-    # fit range
-    fitters.append(CorrelationFitter(fitHisto, fitcf["fitrange"]))
+    fitters.append(CorrelationFitter(hCF, fitcf["fitrange"]))
 
     # drawing class constructor
     drawRange = fitcf.get("drawrange", fitcf["fitrange"])
-    drawFits.append(DrawFitFuncts(fitHisto, drawRange[0], drawRange[1]))
+    drawFits.append(DrawFitFuncts(hCF, drawRange[0], drawRange[1]))
 
     # directory of the fit
     oFile.mkdir(fitcf["fitname"])
     oFile.cd(fitcf["fitname"])
-    fitHisto.Write("hCF")
+    hCF.Write("hCF")
 
     baselineIdx = -1
     nPreviousPars = 0
@@ -260,41 +218,6 @@ for iFit, fitcf in enumerate(cfg["fitcfs"]):
                         )
                     )
 
-            if term.get("bootstraphistos"):
-                modelsBootstrapComps[iFit].append(iTerm)
-                bootstrapHistos = []
-                bootstrapHistosFitPars = []
-                bootstrapFiles = []
-                bootstrapFitRanges = []
-                bootstraFixParsFiles = []
-                bootVaryPars = []
-                for iBootComp, (bootFile, bootFitPath, bootFitRange) in enumerate(
-                    term["bootstraphistos"]
-                ):
-                    bootstrapFiles.append(TFile(bootFile))
-                    bootstrapHistos.append(
-                        ChangeUnits(Load(bootstrapFiles[-1], bootFitPath), 1000)
-                    )
-                    bootstraFixParsFiles.append(TFile(term["histofuncfile"][iBootComp]))
-                    bootstrapHistosFitPars.append(
-                        Load(
-                            bootstraFixParsFiles[-1],
-                            f'{term["histofuncpath"][iBootComp]}/hFreeFixPars',
-                        )
-                    )
-                    bootstrapFitRanges.append(bootFitRange[0])
-                    bootstrapFitRanges.append(bootFitRange[1])
-                    oFile.cd(fitcf["fitname"])
-
-                bootstrapHistosParsDistros = term["bootstrapparshistos"]
-                fitters[-1].SetBootstrapComp(
-                    iTerm,
-                    bootstrapHistos,
-                    bootstrapHistosFitPars,
-                    bootstrapFitRanges,
-                    bootstrapHistosParsDistros,
-                )
-
             fitters[-1].Add(
                 term["func"], initPars, term["addmode"], term.get("relweightcomp", 0)
             )
@@ -314,130 +237,18 @@ for iFit, fitcf in enumerate(cfg["fitcfs"]):
 
     fitters[-1].BuildFitFunction()
 
-if cfg.get("combined"):
-    combFitter = CombinedFitter(fitters, combPars)
-    nSharedPars = combFitter.GetSharedParams()
 
-    if cfg.get("evaluatediff") is None and cfg.get("bootstraptries") is None:
-        combFitResults = combFitter.CombinedFit()
+for iModel in range(len(fitters)):
+    if cfg.get("evaluatediff"):
+        fitters[iModel].Fit()
+        bootCanvas = []
 
-    elif (args.systvar != "0") or (
-        cfg.get("evaluatediff") and cfg.get("bootstraptries") is None
-    ):
-        combFitDifferenceHistos = combFitter.CombinedFitDifference()
-        for iModel, model in enumerate(cfg["fitcfs"]):
-            if "GenuineDiff" in combFitDifferenceHistos[iModel].GetName():
-                oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
-                combFitDifferenceHistos[iModel].Write("hGenuine")
+        for iCanvaComp in bootCanvas:
+            iCanvaComp.Write()
 
-    elif isinstance(cfg.get("bootstraptries"), int):
-        parBTDistros = combFitter.CombinedFitBootstrap(
-            cfg["bootstraptries"], cfg.get("evaluatediff", 0)
-        )
-
-        for iModel, model in enumerate(cfg["fitcfs"]):
-            oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/uniquepars")
-            oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/sharedpars")
-            if cfg.get("evaluatediff"):
-                oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/differences")
-                oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/stats")
-
-        for iParDistro, parBTDistro in enumerate(parBTDistros):
-            if iParDistro >= combFitter.GetTotalParams():
-                for iModel, model in enumerate(cfg["fitcfs"]):
-                    if f"Model{iModel}" in parBTDistro.GetName():
-                        if "stat" in parBTDistro.GetName():
-                            oFile.cd(
-                                f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/stats"
-                            )
-                            parBTDistro.Write()
-                        if "Gen" in parBTDistro.GetName():
-                            oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
-                            parBTDistro.Write("hGenuine")
-                        else:
-                            oFile.cd(
-                                f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/differences"
-                            )
-                            parBTDistro.Write()
-
-            if "shared" in parBTDistro.GetName():
-                for iModel, model in enumerate(cfg["fitcfs"]):
-                    oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/sharedpars")
-                    parBTDistro.Write()
-
-            else:
-                nPreviousUniquePars = 0
-                for iModel, model in enumerate(cfg["fitcfs"]):
-                    modelUniquePars = combFitter.GetModelUniqueParams(iModel)
-                    if (
-                        iParDistro >= nPreviousUniquePars
-                        and iParDistro < nPreviousUniquePars + modelUniquePars
-                    ):
-                        oFile.cd(
-                            f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/uniquepars"
-                        )
-                        parBTDistro.Write()
-
-                    nPreviousUniquePars = nPreviousUniquePars + modelUniquePars
-
-else:
-    for iModel in range(len(fitters)):
-        if cfg.get("evaluatediff") is None and cfg.get("bootstraptries") is None:
-            fitters[iModel].Fit()
-
-        elif cfg.get("bootstraptries") and cfg.get("evaluatediff") is None:
-            oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
-            oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
-            for iComp in modelsBootstrapComps[iModel]:
-                oFile.mkdir(
-                    f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/hSampled_{cfg['fitcfs'][iModel]['model'][iComp]['func']}"
-                )
-                oFile.cd(
-                    f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap/hSampled_{cfg['fitcfs'][iModel]['model'][iComp]['func']}"
-                )
-
-            bootCanvas = []
-            for iComp in modelsBootstrapComps[iModel]:
-                bootCanvas.append(
-                    TCanvas(
-                        f"cBoot_{cfg['fitcfs'][iModel]['model'][iComp]['func']}",
-                        f"cBoot_{cfg['fitcfs'][iModel]['model'][iComp]['func']}",
-                    )
-                )
-                bootCanvas[-1].cd()
-                fitters[iModel].GetFitHisto().Draw()
-
-            oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
-            parBTDistros = fitters[iModel].Bootstrap(cfg["bootstraptries"])
-            for parBTDistro in parBTDistros:
-                for iComp in modelsBootstrapComps[iModel]:
-                    if str(iComp) in parBTDistro.GetName():
-                        bootCanvas[iModel].cd()
-                        parBTDistro.Draw("same")
-                    else:
-                        oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap")
-                        parBTDistro.Write()
-
-            for iCanvaComp in bootCanvas:
-                iCanvaComp.Write()
-
-            oFile.cd(cfg["fitcfs"][iModel]["fitname"])
-
-        elif cfg.get("evaluatediff"):
-            differenceHistos = fitters[iModel].GetDifference(
-                cfg.get("bootstraptries", 1)
-            )
-            if len(differenceHistos) > 1:
-                oFile.mkdir(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap_diff")
-                oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}/bootstrap_diff")
-                for iDifferenceHisto in range(1, len(differenceHistos)):
-                    differenceHistos[iDifferenceHisto].Write()
-            print(f"FOLDER NAME: {cfg['fitcfs'][iModel]['fitname']}")
-            oFile.cd(f"{cfg['fitcfs'][iModel]['fitname']}")
-            differenceHistos[0].Write("hSubtraction")
-
-        else:
-            log.critical("Wrong setting of parameters")
+        oFile.cd(cfg["fitcfs"][iModel]["fitname"])
+    else:
+        log.critical("Wrong setting of parameters")
 
 for iModel in range(len(cfg["fitcfs"])):
     oFile.cd(cfg["fitcfs"][iModel]["fitname"])
