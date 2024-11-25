@@ -12,7 +12,7 @@ import argparse
 import yaml
 import ctypes
 
-from ROOT import TFile, TCanvas, gInterpreter, TH1, TH1D, TGraph
+from ROOT import TFile, TCanvas, gInterpreter, TH1, TH1D
 
 from fempy import logger as log
 from fempy.utils.io import Load
